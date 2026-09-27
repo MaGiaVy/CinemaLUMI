@@ -1,0 +1,10 @@
+{
+  "description": "Designs user interfaces based on provided files ensuring logical workflows and interactive refinement through user feedback for optimal usability.",
+  "robots": {
+    "index": false
+  },
+  "accessibility": {
+    "addBypassLinks": false,
+    "ignoreReducedMotion": false
+  }
+}

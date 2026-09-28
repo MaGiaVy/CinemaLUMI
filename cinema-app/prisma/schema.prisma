@@ -1,0 +1,322 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// =========================================================================
+// ENUMS (Các định dạng trạng thái hệ thống)
+// =========================================================================
+
+enum Role {
+  CUSTOMER
+  STAFF
+  ADMIN
+}
+
+enum MovieStatus {
+  SHOWING // Đang chiếu
+  UPCOMING // Sắp chiếu
+  ENDED // Ngừng chiếu
+}
+
+enum ScreeningStatus {
+  UPCOMING
+  SHOWING
+  ENDED
+}
+
+enum SeatType {
+  STANDARD // Ghế thường
+  VIP // Ghế VIP
+  COUPLE // Ghế đôi (Sweetbox)
+}
+
+enum SeatStatus {
+  EMPTY
+  RESERVED
+  OCCUPIED
+}
+
+enum DiscountType {
+  Percentage // Giảm theo %
+  FixedAmount // Giảm theo số tiền cố định
+}
+
+enum PaymentMethod {
+  VNPay
+  Momo
+  Cash
+  BankCard
+}
+
+enum PaymentStatus {
+  Pending // Đang chờ thanh toán
+  Success // Thanh toán thành công
+  Failed // Thất bại
+  Refunded // Đã hoàn tiền
+}
+
+enum TicketStatus {
+  Valid // Vé hợp lệ
+  Used // Đã check-in / đã sử dụng
+  Cancelled // Đã hủy / đã bồi hoàn
+}
+
+enum ComboStatus {
+  ACTIVE
+  INACTIVE
+}
+
+// =========================================================================
+// 11 MODELS (BẢNG DỮ LIỆU RẠP PHIM)
+// =========================================================================
+
+// 1. Bảng Users (Khách hàng, Nhân viên, Quản trị viên)
+model User {
+  id        Int      @id @default(autoincrement()) @map("user_id")
+  email     String   @unique @db.VarChar(255)
+  password  String   @db.VarChar(255)
+  name      String   @db.VarChar(100)
+  phone     String?  @db.VarChar(20)
+  role      Role     @default(CUSTOMER)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Quan hệ (Relations)
+  payments Payment[]
+  tickets  Ticket[]
+  reviews  Review[]
+  coupons  Coupon[]
+
+  @@map("users")
+}
+
+// 2. Bảng Movies (Danh mục phim)
+model Movie {
+  id          Int         @id @default(autoincrement()) @map("movie_id")
+  title       String      @db.VarChar(255)
+  slug        String?     @unique @db.VarChar(255)
+  description String?     @db.Text
+  duration    Int // Thời lượng (phút)
+  releaseDate DateTime        @map("release_date") @db.Date
+  endDate     DateTime?       @map("end_date") @db.Date
+  ageRating   String?         @map("age_rating") @db.VarChar(20)
+  poster      String          @db.VarChar(500)
+  trailer     String?         @db.VarChar(500)
+  rating      Decimal         @default(0.0) @db.Decimal(3, 1)
+  genre       String          @db.VarChar(100)
+  director    String?         @db.VarChar(100)
+  cast        String?         @db.Text
+  status      MovieStatus     @default(SHOWING)
+  ticketPrice Decimal         @default(120000) @map("ticket_price") @db.Decimal(10, 2)
+  createdAt   DateTime        @default(now()) @map("created_at")
+  updatedAt   DateTime        @updatedAt @map("updated_at")
+
+  // Quan hệ (Relations)
+  screenings Screening[]
+  reviews    Review[]
+  coupons    Coupon[]
+
+  @@map("movies")
+}
+
+// 3. Bảng Screenings (Lịch chiếu / Suất chiếu)
+model Screening {
+  id         Int             @id @default(autoincrement()) @map("screening_id")
+  movieId    Int             @map("movie_id")
+  room       String          @db.VarChar(50) // Vd: "Cinema 01", "Cinema 02"
+  roomNumber Int?            @map("room_number") // 1-5
+  startTime  DateTime        @map("start_time")
+  endTime    DateTime        @map("end_time")
+  date       DateTime        @db.Date
+  price      Decimal         @db.Decimal(10, 2)
+  status     ScreeningStatus @default(UPCOMING)
+  createdAt  DateTime        @default(now()) @map("created_at")
+  updatedAt  DateTime        @updatedAt @map("updated_at")
+
+  // Quan hệ (Relations)
+  movie   Movie    @relation(fields: [movieId], references: [id], onDelete: Cascade)
+  tickets Ticket[]
+  seats   Seat[]
+
+  @@map("screenings")
+}
+
+// 4. Bảng Seats (Ghế ngồi trong phòng chiếu)
+model Seat {
+  id            Int        @id @default(autoincrement()) @map("seat_id")
+  screeningId   Int?       @map("screening_id")
+  room          String?    @db.VarChar(50)
+  row           String     @db.VarChar(5) // Vd: "A", "B", "C"
+  number        Int // Vd: 1, 2, 3
+  code          String     @db.VarChar(10) // Vd: "A1", "A2", "C10"
+  type          SeatType   @default(STANDARD)
+  status        SeatStatus @default(EMPTY)
+  reservedUntil DateTime?  @map("reserved_until")
+  createdAt     DateTime   @default(now()) @map("created_at")
+  updatedAt     DateTime   @updatedAt @map("updated_at")
+
+  // Quan hệ (Relations)
+  screening Screening? @relation(fields: [screeningId], references: [id], onDelete: Cascade)
+  tickets   Ticket[]
+
+  @@unique([screeningId, code])
+  @@map("seats")
+}
+
+// 5. Bảng Pricing (Cấu hình giá vé theo loại vé / đối tượng)
+model Pricing {
+  id          Int      @id @default(autoincrement()) @map("pricing_id")
+  ticketType  String   @unique @map("ticket_type") @db.VarChar(50) // Vd: "Normal", "Child", "VIP"
+  label       String   @db.VarChar(100) // Vd: "Vé Thường", "Vé Trẻ Em"
+  percentage  Int      @default(100) // % giá vé: 100%, 50%, 180%
+  basePrice   Decimal  @map("base_price") @db.Decimal(10, 2)
+  description String?  @db.Text
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@map("pricing")
+}
+
+// 6. Bảng Coupons (Mã giảm giá & Voucher bồi hoàn)
+model Coupon {
+  id                Int          @id @default(autoincrement()) @map("coupon_id")
+  code              String       @unique @db.VarChar(50)
+  discountType      DiscountType @map("discount_type")
+  discountValue     Decimal      @map("discount_value") @db.Decimal(10, 2)
+  minAmount         Decimal      @default(0) @map("min_amount") @db.Decimal(10, 2)
+  maxUsage          Int          @default(1) @map("max_usage")
+  usedCount         Int          @default(0) @map("used_count")
+  expiryDate        DateTime     @map("expiry_date") @db.Date
+  applicableMovieId Int?         @map("applicable_movie_id")
+  userId            Int?         @map("user_id") // Chỉ định user cụ thể cho Voucher bồi hoàn
+  createdAt         DateTime     @default(now()) @map("created_at")
+  updatedAt         DateTime     @updatedAt @map("updated_at")
+
+  // Quan hệ (Relations): 
+  // - applicable_movie bị xóa -> SET NULL (áp dụng mọi phim)
+  // - user bị xóa -> CASCADE
+  movie Movie? @relation(fields: [applicableMovieId], references: [id], onDelete: SetNull)
+  user  User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@map("coupons")
+}
+
+// 7. Bảng Combos (Bắp nước)
+model Combo {
+  id          Int         @id @default(autoincrement()) @map("combo_id")
+  name        String      @db.VarChar(100)
+  description String?     @db.Text
+  price       Decimal     @db.Decimal(10, 2)
+  image       String?     @db.VarChar(500)
+  stock       Int         @default(100)
+  status      ComboStatus @default(ACTIVE)
+  reservedUntil DateTime? @map("reserved_until")
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
+
+  // Quan hệ (Relations)
+  orderCombos       OrderCombo[]
+  comboReservations ComboReservation[]
+
+  @@map("combos")
+}
+
+model ComboReservation {
+  id            Int      @id @default(autoincrement()) @map("reservation_id")
+  comboId       Int      @map("combo_id")
+  quantity      Int      @default(1)
+  status        String   @default("RESERVED") @db.VarChar(20) // 'RESERVED' | 'RELEASED' | 'COMPLETED'
+  reservedUntil DateTime @map("reserved_until")
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  combo         Combo    @relation(fields: [comboId], references: [id], onDelete: Cascade)
+
+  @@map("combo_reservations")
+}
+
+// 8. Bảng Payments (Thanh toán hóa đơn)
+model Payment {
+  id              Int            @id @default(autoincrement()) @map("payment_id")
+  userId          Int            @map("user_id")
+  screeningId     Int?           @map("screening_id")
+  seatIds         Json?          @map("seat_ids")
+  couponCode      String?        @map("coupon_code") @db.VarChar(50)
+  ticketItems     Json?          @map("ticket_items")
+  amount          Decimal        @db.Decimal(10, 2)
+  paymentMethod   PaymentMethod? @map("payment_method")
+  transactionCode String?        @map("transaction_code") @db.VarChar(100)
+  status          PaymentStatus  @default(Pending)
+  createdAt       DateTime       @default(now()) @map("created_at")
+  updatedAt       DateTime       @updatedAt @map("updated_at")
+
+  // Quan hệ (Relations): User không được phép xóa nếu đã có lịch sử thanh toán (RESTRICT)
+  user        User         @relation(fields: [userId], references: [id], onDelete: Restrict)
+  tickets     Ticket[]
+  orderCombos OrderCombo[]
+
+  @@map("payments")
+}
+
+// 9. Bảng Tickets (Vé đã đặt)
+model Ticket {
+  id           Int          @id @default(autoincrement()) @map("ticket_id")
+  userId       Int          @map("user_id")
+  screeningId  Int?         @map("screening_id")
+  seatId       Int?         @map("seat_id")
+  paymentId    Int          @map("payment_id")
+  ticketType   String       @map("ticket_type") @db.VarChar(50)
+  price        Decimal      @db.Decimal(10, 2)
+  purchaseDate DateTime     @default(now()) @map("purchase_date")
+  status       TicketStatus @default(Valid)
+  createdAt    DateTime     @default(now()) @map("created_at")
+  updatedAt    DateTime     @updatedAt @map("updated_at")
+
+  // Quan hệ (Relations)
+  user      User       @relation(fields: [userId], references: [id], onDelete: Restrict)
+  screening Screening? @relation(fields: [screeningId], references: [id], onDelete: SetNull)
+  seat      Seat?      @relation(fields: [seatId], references: [id], onDelete: SetNull)
+  payment   Payment    @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+
+  @@index([screeningId, seatId])
+  @@map("tickets")
+}
+
+// 10. Bảng Order_Combos (Chi tiết mua bắp nước theo hóa đơn)
+model OrderCombo {
+  id        Int      @id @default(autoincrement()) @map("order_combo_id")
+  paymentId Int      @map("payment_id")
+  comboId   Int      @map("combo_id")
+  quantity  Int
+  price     Decimal  @db.Decimal(10, 2) // Giá combo tại thời điểm mua
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Quan hệ (Relations): Xóa payment thì xóa kèm order combo (CASCADE)
+  payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  combo   Combo   @relation(fields: [comboId], references: [id], onDelete: Restrict)
+
+  @@map("order_combos")
+}
+
+// 11. Bảng Reviews (Đánh giá & Bình luận phim)
+model Review {
+  id        Int      @id @default(autoincrement()) @map("review_id")
+  userId    Int      @map("user_id")
+  movieId   Int      @map("movie_id")
+  rating    Int // 1 đến 5 sao
+  comment   String?  @db.Text
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Quan hệ (Relations): Xóa user hoặc phim sẽ xóa kèm review (CASCADE)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
+
+  @@map("reviews")
+}

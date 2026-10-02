@@ -1,4 +1,5 @@
 import { calculateTicketPrice } from '../../src/lib/pricing.ts';
+import { resolveMovieId } from '../../src/lib/movie-id.ts';
 import assert from 'assert';
 
 console.log('=== CHẠY BỘ KIỂM THỬ: calculateTicketPrice ===');
@@ -36,4 +37,11 @@ assert.throws(() => calculateTicketPrice(100000, 100, -2), /quantity/);
 assert.throws(() => calculateTicketPrice(100000, -50, 1), /pricePercentage/);
 console.log('✓ Test 6 Passed: Validation bắt lỗi số âm hoạt động chính xác');
 
-console.log('\n>>> KẾT QUẢ: TẤT CẢ 6 TEST CASES ĐỀU ĐẠT CHUẨN 100%! <<<\n');
+// 7. Kiểm tra parse id phim từ URL dạng /movies/m1, /movies/12, /movies/abc-99
+assert.strictEqual(resolveMovieId('m1'), 1, 'URL /movies/m1 phải map về movie id 1');
+assert.strictEqual(resolveMovieId('12'), 12, 'URL /movies/12 phải map về movie id 12');
+assert.strictEqual(resolveMovieId('abc-99'), 99, 'URL /movies/abc-99 phải map về movie id 99');
+assert.strictEqual(resolveMovieId('invalid'), null, 'ID không hợp lệ phải trả về null');
+console.log('✓ Test 7 Passed: resolveMovieId xử lý đúng URL phim và ID không hợp lệ');
+
+console.log('\n>>> KẾT QUẢ: TẤT CẢ 7 TEST CASES ĐỀU ĐẠT CHUẨN 100%! <<<\n');

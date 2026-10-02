@@ -9,6 +9,7 @@ import Toast, { ToastMessage } from '@/components/ui/Toast';
 import ReviewList from '@/components/reviews/ReviewList';
 import ReviewForm from '@/components/reviews/ReviewForm';
 import { ReviewResponseItem } from '@/app/api/reviews/route';
+import { movies as mockMovies } from '@/data/mockData';
 
 interface MovieDetails {
   id: number;
@@ -63,8 +64,9 @@ function formatDate(dateStr?: string | null): string {
 
 function MovieDetailContent() {
   const params = useParams();
-  const movieIdParam = params?.id as string;
-  const movieId = parseInt(movieIdParam, 10);
+  const movieIdParam = (params?.id as string | undefined) ?? '';
+  const movieIdNumber = Number.parseInt(movieIdParam.replace(/\D/g, ''), 10);
+  const movieId = Number.isFinite(movieIdNumber) && movieIdNumber > 0 ? movieIdNumber : null;
 
   const [movie, setMovie] = useState<MovieDetails | null>(null);
   const [reviews, setReviews] = useState<ReviewResponseItem[]>([]);
@@ -87,7 +89,35 @@ function MovieDetailContent() {
 
   // 1. Tải thông tin chi tiết phim
   const fetchMovieData = useCallback(async () => {
-    if (isNaN(movieId) || movieId <= 0) return;
+    const mockMovie = mockMovies.find(m => m.id.toLowerCase() === movieIdParam.toLowerCase());
+
+    if (mockMovie) {
+      setMovie({
+        id: Number.parseInt(String(mockMovie.id).replace(/\D/g, ''), 10) || 0,
+        title: mockMovie.title,
+        slug: mockMovie.title.toLowerCase().replace(/[^a-z0-9]+/g, '-'),
+        description: mockMovie.description,
+        duration: mockMovie.duration,
+        releaseDate: mockMovie.releaseDate,
+        ageRating: 'P',
+        poster: mockMovie.poster,
+        trailer: mockMovie.banner,
+        rating: mockMovie.rating,
+        genre: mockMovie.genre.join(', '),
+        director: mockMovie.director,
+        cast: mockMovie.cast.join(', '),
+        status: mockMovie.status === 'showing' ? 'SHOWING' : 'UPCOMING',
+        ticketPrice: mockMovie.ticketPrice,
+        screenings: [],
+      });
+      setIsLoadingMovie(false);
+      return;
+    }
+
+    if (!movieId) {
+      setIsLoadingMovie(false);
+      return;
+    }
 
     try {
       setIsLoadingMovie(true);
@@ -105,11 +135,22 @@ function MovieDetailContent() {
     } finally {
       setIsLoadingMovie(false);
     }
-  }, [movieId, showToast]);
+  }, [movieId, movieIdParam, showToast]);
 
   // 2. Tải danh sách đánh giá từ GET /api/reviews?movie_id=...
   const fetchReviewsData = useCallback(async () => {
-    if (isNaN(movieId) || movieId <= 0) return;
+    const mockMovie = mockMovies.find(m => m.id.toLowerCase() === movieIdParam.toLowerCase());
+
+    if (mockMovie) {
+      setReviews([]);
+      setIsLoadingReviews(false);
+      return;
+    }
+
+    if (!movieId) {
+      setIsLoadingReviews(false);
+      return;
+    }
 
     try {
       setIsLoadingReviews(true);
@@ -124,7 +165,7 @@ function MovieDetailContent() {
     } finally {
       setIsLoadingReviews(false);
     }
-  }, [movieId]);
+  }, [movieId, movieIdParam]);
 
   useEffect(() => {
     fetchMovieData();
@@ -417,7 +458,7 @@ function MovieDetailContent() {
             <div className="space-y-8">
               {/* Component ReviewForm: Form nhập số sao & bình luận (chỉ hiển thị khi đã đăng nhập, bắt lỗi 403) */}
               <ReviewForm
-                movieId={movieId}
+                movieId={movieId ?? 0}
                 movieTitle={movie.title}
                 onReviewSubmitted={handleReviewSubmitted}
                 onShowToast={showToast}

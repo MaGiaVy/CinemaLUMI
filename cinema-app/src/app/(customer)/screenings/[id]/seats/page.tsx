@@ -127,6 +127,19 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
+  // Xử lý hết thời gian 10 phút chọn / giữ chỗ ghế
+  const handleHoldExpire = useCallback(() => {
+    showToast('Thời gian chọn ghế (10 phút) đã hết hạn! Đang chuyển về trang chủ...', 'warning');
+    setIsHoldActive(false);
+    setSelectedSeatIds([]);
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.removeItem('lumi_booking_reservation');
+    }
+    setTimeout(() => {
+      router.push('/');
+    }, 2000);
+  }, [router, showToast]);
+
   // Fetch seats data from API with Lazy Evaluation
   const fetchSeats = useCallback(async () => {
     if (isNaN(screeningId) || screeningId <= 0) return;
@@ -428,20 +441,10 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
               <div className="w-full sm:w-auto flex sm:flex-col items-center sm:items-end justify-between border-t sm:border-t-0 pt-3 sm:pt-0 border-[#404040]">
                 <CountdownTimer
                   initialSeconds={HOLD_TIME_SECONDS}
-                  isActive={isHoldActive}
-                  label={isHoldActive ? 'Thời gian giữ chỗ còn lại' : 'Thời gian giữ chỗ'}
-                  onExpire={() => {
-                    showToast('Đã hết 10 phút giữ chỗ. Các ghế đã được tự động giải phóng.', 'error');
-                    setIsHoldActive(false);
-                    setSelectedSeatIds([]);
-                    fetchSeats();
-                  }}
+                  isActive={true}
+                  label="Thời gian giữ chỗ"
+                  onExpire={handleHoldExpire}
                 />
-                {!isHoldActive && (
-                  <span className="text-[11px] text-[#808080] mt-1">
-                    Đếm ngược 10 phút sau khi nhấn Tiếp tục
-                  </span>
-                )}
               </div>
             </div>
           </div>

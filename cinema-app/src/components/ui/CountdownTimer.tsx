@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 
 interface CountdownTimerProps {
   initialSeconds?: number;
@@ -16,21 +16,36 @@ export default function CountdownTimer({
   isActive = true,
 }: CountdownTimerProps) {
   const [seconds, setSeconds] = useState(initialSeconds);
+  const onExpireRef = useRef(onExpire);
+  const hasExpiredRef = useRef(false);
+
+  // Luôn cập nhật callback mới nhất mà không làm trigger lại effect
+  useEffect(() => {
+    onExpireRef.current = onExpire;
+  }, [onExpire]);
 
   useEffect(() => {
     setSeconds(initialSeconds);
+    hasExpiredRef.current = false;
   }, [initialSeconds]);
 
   useEffect(() => {
     if (!isActive) return;
 
     if (seconds <= 0) {
-      onExpire?.();
+      if (!hasExpiredRef.current) {
+        hasExpiredRef.current = true;
+        onExpireRef.current?.();
+      }
       return;
     }
-    const interval = setInterval(() => setSeconds(s => s - 1), 1000);
+
+    const interval = setInterval(() => {
+      setSeconds(s => Math.max(0, s - 1));
+    }, 1000);
+
     return () => clearInterval(interval);
-  }, [seconds, onExpire, isActive]);
+  }, [seconds, isActive]);
 
   const minutes = Math.floor(seconds / 60);
   const secs = seconds % 60;

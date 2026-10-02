@@ -71,6 +71,17 @@ export default function ComboSelectionPage() {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
+  // Xử lý hết thời gian 10 phút giữ vé
+  const handleHoldExpire = useCallback(() => {
+    showToast('Thời gian giữ vé (10 phút) đã hết hạn! Đang chuyển về trang chủ...', 'warning');
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.removeItem('lumi_booking_reservation');
+    }
+    setTimeout(() => {
+      router.push('/');
+    }, 2000);
+  }, [router, showToast]);
+
   // Fetch Screening & Active Combos
   useEffect(() => {
     if (!screeningId || isNaN(screeningId)) return;
@@ -306,8 +317,8 @@ export default function ComboSelectionPage() {
             </div>
           ))}
 
-          <div className="ml-auto hidden md:flex items-center bg-[#242424] border border-[#404040] px-3.5 py-1.5 rounded-xl">
-            <CountdownTimer initialSeconds={600} label="Thời gian giữ vé" />
+          <div className="ml-auto flex items-center bg-[#242424] border border-[#404040] px-3.5 py-1.5 rounded-xl">
+            <CountdownTimer initialSeconds={600} label="Thời gian giữ vé" onExpire={handleHoldExpire} />
           </div>
         </div>
 

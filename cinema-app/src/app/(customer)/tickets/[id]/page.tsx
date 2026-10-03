@@ -265,6 +265,22 @@ function TicketDetailContent() {
             </div>
           </div>
 
+          {/* Banner lý do hủy vé — chỉ hiện khi Cancelled */}
+          {ticket.status === 'Cancelled' && (
+            <div className="bg-red-500/10 border border-red-500/30 rounded-2xl p-5 mb-6 shadow-xl">
+              <div className="flex items-start gap-3">
+                <span className="text-2xl flex-shrink-0">🚫</span>
+                <div className="flex-1">
+                  <h3 className="font-bold text-red-400 text-sm mb-1">Vé đã bị hủy</h3>
+                  <p className="text-xs text-gray-400 mb-1">Lý do hủy:</p>
+                  <p className="text-sm text-white font-medium leading-relaxed">
+                    {ticket.cancellationReason || 'Không có thông tin lý do hủy'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* Bố cục 2 cột: Cột trái (Mã QR Check-in) & Cột phải (Chi tiết phim, suất, ghế) */}
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
             {/* Cột trái: Mã QR Code soát vé (5 cols) */}

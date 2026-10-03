@@ -147,11 +147,12 @@ async function processTicketCancellation(
     const couponCode = `COMP50_${ticket.id}_${Math.floor(1000 + Math.random() * 9000)}`;
 
     const { updatedTicket, refundCoupon } = await prisma.$transaction(async (tx) => {
-      // 4.1. Cập nhật trạng thái vé thành CANCELLED
+      // 4.1. Cập nhật trạng thái vé thành CANCELLED và lưu lý do hủy
       const cancelledTicket = await tx.ticket.update({
         where: { id: ticket.id },
         data: {
           status: TicketStatus.Cancelled,
+          cancellationReason: 'Khách hàng chủ động hủy vé trước giờ chiếu ít nhất 2 tiếng theo quy chế BR-03',
         },
       });
 

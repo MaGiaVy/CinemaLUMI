@@ -174,11 +174,12 @@ export async function POST(
 
     // 4. Thực thi gom nhóm giao dịch nguyên tử prisma.$transaction
     const result = await prisma.$transaction(async (tx) => {
-      // 4.1. Cập nhật trạng thái Ticket thành CANCELLED
+      // 4.1. Cập nhật trạng thái Ticket thành CANCELLED và lưu lý do hủy
       const updatedTicket = await tx.ticket.update({
         where: { id: ticket.id },
         data: {
           status: TicketStatus.Cancelled,
+          cancellationReason: notes ? `${reason} (Ghi chú: ${notes})` : reason,
         },
       });
 

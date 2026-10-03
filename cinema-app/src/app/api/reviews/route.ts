@@ -5,7 +5,6 @@ import { prisma } from '@/lib/prisma';
 import { authOptions } from '@/lib/auth';
 import { AppError, handleError } from '@/lib/error';
 import { apiResponse } from '@/lib/api-response';
-import { TicketStatus } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -262,36 +261,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. VALIDATION NGHIỆP VỤ CỐT LÕI:
-    // Kiểm tra xem user_id này đã từng có Ticket nào của movie_id này với trạng thái 'Used' chưa
-    const usedTicket = await prisma.ticket.findFirst({
-      where: {
-        userId: currentUserId,
-        status: TicketStatus.Used,
-        screening: {
-          movieId: movie_id,
-        },
-      },
-      select: {
-        id: true,
-        status: true,
-        screening: {
-          select: {
-            movieId: true,
-          },
-        },
-      },
-    });
-
-    if (!usedTicket) {
-      throw new AppError(
-        403,
-        'Bạn chỉ được đánh giá phim sau khi đã xem',
-        'FORBIDDEN'
-      );
-    }
-
-    // 6. Kiểm tra xem người dùng đã từng gửi đánh giá phim này chưa
+    // 5. Kiểm tra xem người dùng đã từng gửi đánh giá phim này chưa
     const existingReview = await prisma.review.findFirst({
       where: {
         userId: currentUserId,

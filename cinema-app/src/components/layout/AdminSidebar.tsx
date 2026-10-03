@@ -13,6 +13,7 @@ const navItems = [
   { icon: '📊', label: 'Dashboard', page: 'admin-dashboard', href: '/admin' },
   { icon: '🎬', label: 'Phim', page: 'admin-movies', href: '/admin/movies' },
   { icon: '🎭', label: 'Lịch chiếu', page: 'admin-screenings', href: '/admin/screenings' },
+  { icon: '🎫', label: 'Tra cứu vé', page: 'staff-lookup', href: '/staff/lookup' },
   { icon: '💰', label: 'Giá vé', page: 'admin-pricing', href: '/admin/pricing' },
   { icon: '🎟️', label: 'Voucher', page: 'admin-vouchers', href: '/admin/vouchers' },
   { icon: '🍿', label: 'Combo', page: 'admin-combos', href: '/admin/combos' },

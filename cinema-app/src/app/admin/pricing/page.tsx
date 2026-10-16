@@ -53,14 +53,6 @@ export default function PricingManagementPage() {
   const [isSaving, setIsSaving] = useState<boolean>(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
-  // State cấu hình phụ thu
-  const [surcharges, setSurcharges] = useState<SurchargeItem[]>([
-    { id: 'weekend', label: 'Phụ thu cuối tuần (Thứ 7, Chủ Nhật)', value: 20000, active: true },
-    { id: 'late', label: 'Phụ thu suất chiếu muộn (sau 20:00)', value: 15000, active: true },
-    { id: 'holiday', label: 'Phụ thu ngày Lễ / Tết', value: 30000, active: false },
-  ]);
-  const [isSavingSurcharges, setIsSavingSurcharges] = useState<boolean>(false);
-
   // Toast helpers
   const showToast = useCallback((message: string, type: ToastMessage['type'] = 'info') => {
     const id = String(Date.now() + Math.random());
@@ -71,31 +63,24 @@ export default function PricingManagementPage() {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
 
-  // Fetch dữ liệu từ GET /api/pricing và /api/pricing/surcharges
+  // Fetch dữ liệu từ GET /api/pricing
   const fetchPricing = useCallback(async () => {
     setIsLoading(true);
     try {
-      const [resPricing, resSurcharges] = await Promise.all([
-        fetch('/api/pricing'),
-        fetch('/api/pricing/surcharges'),
-      ]);
-
+      const resPricing = await fetch('/api/pricing');
       const jsonPricing: ApiResponsePricing = await resPricing.json();
+
       if (jsonPricing.success && jsonPricing.data) {
-        // Lọc bỏ các bản ghi phụ thu nội bộ nếu có
-        const filteredPricings = jsonPricing.data.filter(
-          p => !p.ticket_type.startsWith('SURCHARGE_')
+        // Chỉ hiển thị các loại vé chính (NORMAL / Vé Người lớn và CHILD / Vé Trẻ em) theo chuẩn SRS
+        const validTicketTypes = ['NORMAL', 'CHILD'];
+        const filteredPricings = jsonPricing.data.filter(p =>
+          validTicketTypes.includes(p.ticket_type.toUpperCase()) ||
+          p.ticket_type.toUpperCase().includes('CHILD') ||
+          p.ticket_type.toUpperCase().includes('NORMAL')
         );
-        setPricingList(filteredPricings);
+        setPricingList(filteredPricings.length > 0 ? filteredPricings : jsonPricing.data);
       } else {
         showToast(jsonPricing.error || jsonPricing.message || 'Không thể tải danh sách giá vé', 'error');
-      }
-
-      if (resSurcharges.ok) {
-        const jsonSurcharges = await resSurcharges.json();
-        if (jsonSurcharges.success && Array.isArray(jsonSurcharges.data)) {
-          setSurcharges(jsonSurcharges.data);
-        }
       }
     } catch (err) {
       console.error('Lỗi khi fetch giá vé:', err);
@@ -195,39 +180,6 @@ export default function PricingManagementPage() {
     }
   };
 
-  // Thay đổi giá trị phụ thu
-  const handleSurchargeChange = (id: string, field: 'value' | 'active', val: number | boolean) => {
-    setSurcharges(prev =>
-      prev.map(sc => (sc.id === id ? { ...sc, [field]: val } : sc))
-    );
-  };
-
-  // Lưu cấu hình phụ thu xuống API
-  const handleSaveSurcharges = async () => {
-    setIsSavingSurcharges(true);
-    try {
-      const res = await fetch('/api/pricing/surcharges', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-role': 'ADMIN',
-        },
-        body: JSON.stringify({ surcharges }),
-      });
-
-      const json = await res.json();
-      if (res.ok && json.success) {
-        showToast('Cấu hình phụ thu đã được lưu trữ thành công!', 'success');
-      } else {
-        showToast(json.message || 'Lỗi khi lưu cấu hình phụ thu', 'error');
-      }
-    } catch {
-      showToast('Lỗi mạng khi lưu cấu hình phụ thu', 'error');
-    } finally {
-      setIsSavingSurcharges(false);
-    }
-  };
-
   // Thay đổi giá vé cơ bản tham chiếu
   const handleBaseChange = (value: string) => {
     const numeric = parseFloat(value);
@@ -237,11 +189,7 @@ export default function PricingManagementPage() {
   const getBadgeVariant = (type: string) => {
     const upper = type.toUpperCase();
     if (upper.includes('CHILD') || upper.includes('TRẺ')) return 'blue';
-    if (upper.includes('SENIOR') || upper.includes('CAO')) return 'purple';
-    if (upper.includes('STUDENT') || upper.includes('HỌC')) return 'green';
-    if (upper.includes('VIP')) return 'gold';
-    if (upper.includes('COUPLE') || upper.includes('ĐÔI')) return 'red';
-    return 'gray';
+    return 'gold';
   };
 
   return (
@@ -253,10 +201,10 @@ export default function PricingManagementPage() {
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
             <h1 className="text-2xl sm:text-3xl font-black text-white flex items-center gap-2">
-              <span>💰</span> Cấu Hình Giá Vé & Phụ Thu
+              <span>💰</span> Cấu Hình Giá Vé (Người Lớn & Trẻ Em)
             </h1>
             <p className="text-[#B3B3B3] text-sm mt-1">
-              Quản lý giá vé cơ bản, tỷ lệ phần trăm theo từng loại vé và tùy chỉnh phụ thu linh hoạt
+              Quản lý giá vé và tỷ lệ phần trăm theo chuẩn SRS (Vé Người lớn: 100%, Vé Trẻ em: 50%)
             </p>
           </div>
 
@@ -434,67 +382,34 @@ export default function PricingManagementPage() {
         </div>
 
         {/* Khối phụ thu (Surcharge config - Fully editable) */}
+        {/* Khối quy định SRS: Chuẩn hóa 2 loại vé và ghế tiêu chuẩn */}
         <div className="bg-[#2D2D2D] border border-[#404040] rounded-2xl p-6 shadow-xl">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h3 className="text-white font-bold text-base flex items-center gap-2">
-                <span>⏱️</span> Phụ Thu Thêm (Surcharges)
+          <div className="flex items-start gap-4">
+            <span className="text-2xl p-2.5 bg-amber-500/10 text-amber-400 rounded-xl border border-amber-500/20">
+              📋
+            </span>
+            <div className="flex-1">
+              <h3 className="text-white font-bold text-base mb-1">
+                Quy Định Giá Vé & Cơ Cấu Ghế (Chuẩn SRS & Tech Spec)
               </h3>
-              <p className="text-[#808080] text-xs mt-0.5">
-                Các khoản phụ thu linh hoạt theo khung giờ hoặc ngày lễ (Có thể chỉnh sửa số tiền và bật/tắt)
+              <p className="text-[#A0A0A0] text-sm leading-relaxed mb-3">
+                Theo tài liệu đặc tả SRS hệ thống rạp chiếu Lumière Cinema:
               </p>
+              <ul className="space-y-2 text-xs text-[#CCCCCC]">
+                <li className="flex items-center gap-2">
+                  <span className="text-emerald-400 font-bold">✓</span>
+                  <span><strong>Vé Người lớn (Thường):</strong> Tính 100% giá vé gốc của suất chiếu.</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-blue-400 font-bold">✓</span>
+                  <span><strong>Vé Trẻ em:</strong> Giảm 50% so với vé người lớn (tương đương 50% giá gốc suất chiếu). Tự động khóa không cho chọn khi xem phim phân loại độ tuổi <strong>T18</strong>.</span>
+                </li>
+                <li className="flex items-center gap-2">
+                  <span className="text-amber-400 font-bold">✓</span>
+                  <span><strong>Cơ cấu phòng chiếu:</strong> Toàn bộ phòng chiếu gồm 50 ghế tiêu chuẩn (Standard, A1-E10). Hệ thống không áp dụng phụ thu ghế VIP, phụ thu ngày lễ hay suất chiếu muộn.</span>
+                </li>
+              </ul>
             </div>
-          </div>
-
-          <div className="space-y-3">
-            {surcharges.map(item => (
-              <div
-                key={item.id}
-                className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 bg-[#383838] border border-[#484848] rounded-xl gap-3"
-              >
-                <span className="text-[#E0E0E0] text-sm font-medium flex-1">
-                  {item.label}
-                </span>
-
-                <div className="flex items-center gap-3">
-                  <div className="flex items-center gap-1.5">
-                    <span className="text-xs text-[#A0A0A0]">+</span>
-                    <input
-                      type="number"
-                      value={item.value}
-                      step="5000"
-                      min="0"
-                      onChange={e => handleSurchargeChange(item.id, 'value', Number(e.target.value) || 0)}
-                      className="w-28 bg-[#1A1A1A] border border-[#525252] rounded-lg px-2.5 py-1 text-white font-bold text-sm text-right focus:border-[#FFB703] focus:outline-none"
-                    />
-                    <span className="text-xs text-[#FFB703] font-bold">VNĐ</span>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={() => handleSurchargeChange(item.id, 'active', !item.active)}
-                    className={`px-3 py-1 text-xs font-bold rounded-lg transition-colors cursor-pointer border ${
-                      item.active
-                        ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40 hover:bg-emerald-500/30'
-                        : 'bg-neutral-800 text-neutral-400 border-neutral-700 hover:bg-neutral-700'
-                    }`}
-                  >
-                    {item.active ? 'Đang bật' : 'Đã tắt'}
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <div className="mt-5 flex justify-end">
-            <Button
-              variant="primary"
-              size="sm"
-              disabled={isSavingSurcharges}
-              onClick={handleSaveSurcharges}
-            >
-              {isSavingSurcharges ? 'Đang lưu...' : '💾 Lưu cấu hình phụ thu'}
-            </Button>
           </div>
         </div>
       </div>

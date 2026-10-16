@@ -224,6 +224,7 @@ export async function POST(request: NextRequest) {
             id: true,
             title: true,
             poster: true,
+            ageRating: true,
           },
         },
       },
@@ -234,6 +235,21 @@ export async function POST(request: NextRequest) {
     }
 
     const basePrice = Number(screening.price);
+
+    // Kiểm tra quy định nhãn độ tuổi phim: Phim T18 / C18 tuyệt đối không áp dụng vé Trẻ em (BR-02)
+    const isAdultOnly = screening.movie.ageRating ? /18/i.test(screening.movie.ageRating) : false;
+    const hasChildTicket = rawTicketItems.some(item => {
+      const type = (item.type || item.ticket_type || item.ticketType || '').toLowerCase();
+      return type.includes('trẻ em') || type.includes('child');
+    });
+
+    if (isAdultOnly && hasChildTicket) {
+      throw new AppError(
+        400,
+        `Phim "${screening.movie.title}" có nhãn phân loại độ tuổi ${screening.movie.ageRating}, tuyệt đối không áp dụng vé Trẻ em theo quy chế BR-02`,
+        'CHILD_TICKET_NOT_ALLOWED'
+      );
+    }
 
     // 3. Kiểm tra tính hợp lệ của danh sách ghế
     const seats = await prisma.seat.findMany({
@@ -276,21 +292,23 @@ export async function POST(request: NextRequest) {
     if (rawTicketItems.length > 0) {
       let totalTicketCount = 0;
       for (const item of rawTicketItems) {
-        const typeName = (item.type || item.ticket_type || item.ticketType)!.trim();
+        const rawTypeName = (item.type || item.ticket_type || item.ticketType)!.trim();
+        const isChild = rawTypeName.toLowerCase().includes('trẻ em') || rawTypeName.toLowerCase().includes('child');
+        const normalizedTypeName = isChild ? 'Trẻ em' : 'Thường';
         const qty = item.quantity;
         totalTicketCount += qty;
 
         const percentage = item.price_percentage ?? item.percentage;
         const itemTotal = calculateTicketPrice(
           basePrice,
-          percentage !== undefined ? percentage : typeName,
+          percentage !== undefined ? percentage : normalizedTypeName,
           qty
         );
         const unitPrice = qty > 0 ? Math.round(itemTotal / qty) : basePrice;
 
         ticketTotal += itemTotal;
         ticketBreakdown.push({
-          type: typeName,
+          type: normalizedTypeName,
           quantity: qty,
           unit_price: unitPrice,
           total_price: itemTotal,

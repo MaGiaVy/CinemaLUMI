@@ -86,6 +86,7 @@ function PaymentContent() {
   const [screening, setScreening] = useState<ScreeningDetails | null>(null);
   const [selectedSeatCodes, setSelectedSeatCodes] = useState<string[]>([]);
   const [selectedSeatIds, setSelectedSeatIds] = useState<number[]>([]);
+  const [ticketItems, setTicketItems] = useState<Array<{ type: string; quantity: number; unit_price: number }>>([]);
   const [reservedCombos, setReservedCombos] = useState<ReservedComboItem[]>([]);
   const [appliedCoupon, setAppliedCoupon] = useState<AppliedCouponData | null>(null);
 
@@ -117,27 +118,45 @@ function PaymentContent() {
       try {
         setIsLoading(true);
 
-        // 1. Đọc ghế từ Query params hoặc sessionStorage
+        // 1. Đọc ghế và loại vé từ Query params hoặc sessionStorage
         const seatsParam = searchParams.get('seats');
         const codesParam = searchParams.get('codes');
 
         let parsedIds: number[] = [];
         let parsedCodes: string[] = [];
+        let parsedTicketItems: Array<{ type: string; quantity: number; unit_price: number }> = [];
 
         if (seatsParam && codesParam) {
           parsedIds = seatsParam.split(',').map(s => parseInt(s, 10)).filter(n => !isNaN(n));
           parsedCodes = codesParam.split(',').filter(Boolean);
-        } else if (typeof window !== 'undefined') {
+        }
+
+        if (typeof window !== 'undefined') {
           const storedSeats = window.sessionStorage.getItem('lumi_booking_reservation');
           if (storedSeats) {
             try {
               const resData = JSON.parse(storedSeats);
               if (resData.screeningId === screeningId) {
-                parsedIds = resData.seatIds || [];
-                parsedCodes = resData.seatCodes || [];
+                if (parsedIds.length === 0) parsedIds = resData.seatIds || [];
+                if (parsedCodes.length === 0) parsedCodes = resData.seatCodes || [];
+                if (Array.isArray(resData.ticketItems) && resData.ticketItems.length > 0) {
+                  parsedTicketItems = resData.ticketItems;
+                }
               }
             } catch (err) {
               console.error('Lỗi khi đọc session reservation:', err);
+            }
+          }
+
+          const storedTicketItems = window.sessionStorage.getItem('lumi_ticket_items');
+          if (storedTicketItems) {
+            try {
+              const items = JSON.parse(storedTicketItems);
+              if (Array.isArray(items) && items.length > 0) {
+                parsedTicketItems = items;
+              }
+            } catch (e) {
+              console.error('Lỗi khi đọc lumi_ticket_items:', e);
             }
           }
         }
@@ -151,6 +170,9 @@ function PaymentContent() {
         if (isMounted) {
           setSelectedSeatIds(parsedIds);
           setSelectedSeatCodes(parsedCodes);
+          if (parsedTicketItems.length > 0) {
+            setTicketItems(parsedTicketItems);
+          }
         }
 
         // 2. Đọc Combo từ sessionStorage
@@ -218,8 +240,11 @@ function PaymentContent() {
   // Tính toán tổng tiền
   const ticketBasePrice = screening?.price || 120000;
   const ticketSubtotal = useMemo(() => {
+    if (ticketItems.length > 0) {
+      return ticketItems.reduce((sum, item) => sum + item.unit_price * item.quantity, 0);
+    }
     return (selectedSeatCodes.length || 1) * ticketBasePrice;
-  }, [selectedSeatCodes.length, ticketBasePrice]);
+  }, [ticketItems, selectedSeatCodes.length, ticketBasePrice]);
 
   const combosSubtotal = useMemo(() => {
     return reservedCombos.reduce(
@@ -313,12 +338,18 @@ function PaymentContent() {
       const payload = {
         screening_id: screeningId,
         seat_ids: selectedSeatIds,
-        ticket_items: [
-          {
-            type: 'Thường',
-            quantity: selectedSeatIds.length,
-          },
-        ],
+        ticket_items:
+          ticketItems.length > 0
+            ? ticketItems.map(item => ({
+                type: item.type,
+                quantity: item.quantity,
+              }))
+            : [
+                {
+                  type: 'Thường',
+                  quantity: selectedSeatIds.length,
+                },
+              ],
         combo_items: reservedCombos.map(item => ({
           combo_id: item.combo_id || item.id,
           quantity: item.quantity || item.qty || 1,
@@ -534,7 +565,7 @@ function PaymentContent() {
                 </div>
               )}
 
-              {/* Ghế đã chọn */}
+              {/* Ghế đã chọn & Phân loại vé */}
               <div className="mb-4 pb-4 border-b border-[#3D3D3D]">
                 <div className="flex justify-between items-center mb-2">
                   <span className="text-xs text-[#BBB] uppercase font-bold tracking-wider">
@@ -544,13 +575,36 @@ function PaymentContent() {
                     {ticketSubtotal.toLocaleString('vi-VN')} đ
                   </span>
                 </div>
-                <div className="flex flex-wrap gap-1.5">
+                <div className="flex flex-wrap gap-1.5 mb-2.5">
                   {selectedSeatCodes.map(code => (
                     <Badge key={code} variant="gold" size="sm">
                       Ghế {code}
                     </Badge>
                   ))}
                 </div>
+
+                {/* Phân loại vé: Thường (Người lớn) & Trẻ em (50%) */}
+                {ticketItems.length > 0 ? (
+                  <div className="space-y-1.5 pt-2 border-t border-[#333]">
+                    {ticketItems.map((item, idx) => (
+                      <div key={idx} className="flex justify-between text-xs text-[#BBB]">
+                        <span>
+                          {item.type === 'Trẻ em' ? '👶 Vé Trẻ em (50%)' : '👤 Vé Thường / Người lớn'}: {item.quantity} vé
+                        </span>
+                        <span className="font-mono text-white">
+                          {(item.unit_price * item.quantity).toLocaleString('vi-VN')} đ
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div className="flex justify-between text-xs text-[#BBB] pt-2 border-t border-[#333]">
+                    <span>👤 Vé Người lớn (Thường): {selectedSeatCodes.length} vé</span>
+                    <span className="font-mono text-white">
+                      {(ticketBasePrice * selectedSeatCodes.length).toLocaleString('vi-VN')} đ
+                    </span>
+                  </div>
+                )}
               </div>
 
               {/* Bắp nước (Combos) nếu có */}

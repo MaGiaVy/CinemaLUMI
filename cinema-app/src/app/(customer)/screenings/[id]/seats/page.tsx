@@ -112,6 +112,7 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
   const [seats, setSeats] = useState<SeatData[]>([]);
   const [screening, setScreening] = useState<ScreeningDetail | null>(null);
   const [selectedSeatIds, setSelectedSeatIds] = useState<number[]>([]);
+  const [seatTicketTypes, setSeatTicketTypes] = useState<Record<number, 'Thường' | 'Trẻ em'>>({});
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isReserving, setIsReserving] = useState<boolean>(false);
   const [isHoldActive, setIsHoldActive] = useState<boolean>(false);
@@ -222,16 +223,28 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
     return seats.filter(s => selectedSeatIds.includes(s.id));
   }, [seats, selectedSeatIds]);
 
+  // Kiểm tra nhãn độ tuổi phim: Phim T18 khóa vé Trẻ em theo BR-02
+  const isAdultOnly = useMemo(() => {
+    return screening?.movie.ageRating ? /18/i.test(screening.movie.ageRating) : false;
+  }, [screening?.movie.ageRating]);
+
   // Price calculation
   const basePrice = screening?.price || 95000;
 
-  const calculateSeatPrice = useCallback((_seat: SeatData): number => {
-    return basePrice;
-  }, [basePrice]);
+  const calculateSeatPrice = useCallback(
+    (seat: SeatData): number => {
+      const type = seatTicketTypes[seat.id] || 'Thường';
+      if (type === 'Trẻ em' && !isAdultOnly) {
+        return Math.round(basePrice * 0.5);
+      }
+      return basePrice;
+    },
+    [basePrice, seatTicketTypes, isAdultOnly]
+  );
 
   const totalPrice = useMemo(() => {
-    return selectedSeatsList.length * basePrice;
-  }, [selectedSeatsList, basePrice]);
+    return selectedSeatsList.reduce((acc, seat) => acc + calculateSeatPrice(seat), 0);
+  }, [selectedSeatsList, calculateSeatPrice]);
 
   // Toggle seat selection
   const handleToggleSeat = useCallback((seat: SeatData) => {
@@ -246,6 +259,11 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
 
     setSelectedSeatIds(prev => {
       if (prev.includes(seat.id)) {
+        setSeatTicketTypes(types => {
+          const next = { ...types };
+          delete next[seat.id];
+          return next;
+        });
         return prev.filter(id => id !== seat.id);
       }
       if (prev.length >= MAX_SEATS) {
@@ -255,6 +273,14 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
       return [...prev, seat.id];
     });
   }, [showToast]);
+
+  // Toggle loại vé cho ghế cụ thể
+  const handleSetSeatTicketType = useCallback((seatId: number, type: 'Thường' | 'Trẻ em') => {
+    setSeatTicketTypes(prev => ({
+      ...prev,
+      [seatId]: type,
+    }));
+  }, []);
 
   // Reserve seats handler
   const handleReserveSeats = async () => {
@@ -301,11 +327,42 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
         return;
       }
 
+      // Tổng hợp danh sách loại vé đã chọn
+      const adultSeats = selectedSeatsList.filter(
+        s => (seatTicketTypes[s.id] || 'Thường') === 'Thường' || isAdultOnly
+      );
+      const childSeats = isAdultOnly
+        ? []
+        : selectedSeatsList.filter(s => seatTicketTypes[s.id] === 'Trẻ em');
+
+      const ticketItemsPayload = [
+        ...(adultSeats.length > 0
+          ? [
+              {
+                type: 'Thường',
+                quantity: adultSeats.length,
+                unit_price: basePrice,
+                total_price: adultSeats.length * basePrice,
+              },
+            ]
+          : []),
+        ...(childSeats.length > 0
+          ? [
+              {
+                type: 'Trẻ em',
+                quantity: childSeats.length,
+                unit_price: Math.round(basePrice * 0.5),
+                total_price: childSeats.length * Math.round(basePrice * 0.5),
+              },
+            ]
+          : []),
+      ];
+
       // Giữ chỗ thành công
-      showToast('Giữ chỗ thành công! Bạn có 10 phút để chọn loại vé và thanh toán.', 'success');
+      showToast('Giữ chỗ thành công! Bạn có 10 phút để chọn combo và thanh toán.', 'success');
       setIsHoldActive(true);
 
-      // Lưu thông tin giữ chỗ vào sessionStorage để phục vụ các bước tiếp theo
+      // Lưu thông tin giữ chỗ và loại vé vào sessionStorage để phục vụ các bước tiếp theo
       if (typeof window !== 'undefined') {
         window.sessionStorage.setItem(
           'lumi_booking_reservation',
@@ -313,13 +370,19 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
             screeningId,
             seatIds: selectedSeatIds,
             seatCodes: selectedSeatsList.map(s => s.code),
+            ticketItems: ticketItemsPayload,
+            seatTicketTypes,
             totalPrice,
             reservedUntil: result.data?.reserved_until,
           })
         );
+        window.sessionStorage.setItem(
+          'lumi_ticket_items',
+          JSON.stringify(ticketItemsPayload)
+        );
       }
 
-      // Chuyển hướng sang trang chọn loại vé / thanh toán
+      // Chuyển hướng sang trang chọn combo / thanh toán
       setTimeout(() => {
         router.push(
           `/screenings/${screeningId}/checkout/combo?seats=${selectedSeatIds.join(',')}&codes=${selectedSeatsList.map(s => s.code).join(',')}`
@@ -502,24 +565,63 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
                   <div className="py-4 space-y-2 max-h-64 overflow-y-auto pr-1">
                     {selectedSeatsList.map(seat => {
                       const price = calculateSeatPrice(seat);
+                      const currentType = isAdultOnly ? 'Thường' : (seatTicketTypes[seat.id] || 'Thường');
                       return (
                         <div
                           key={seat.id}
                           className="flex items-center justify-between bg-[#383838] border border-[#484848] rounded-xl px-3.5 py-2.5 transition-all hover:border-[#FFB703]"
                         >
-                          <div className="flex items-center gap-3">
-                            <span className="w-8 h-8 bg-[#FFB703] rounded-lg flex items-center justify-center text-[#1A1A1A] font-black text-xs shadow-md">
+                          <div className="flex items-center gap-3 flex-1 min-w-0 pr-2">
+                            <span className="w-8 h-8 bg-[#FFB703] rounded-lg flex items-center justify-center text-[#1A1A1A] font-black text-xs shadow-md shrink-0">
                               {seat.code}
                             </span>
-                            <div>
-                              <div className="text-white text-sm font-bold">Ghế {seat.code}</div>
-                              <span className="text-[11px] text-[#A0A0A0]">
-                                Ghế tiêu chuẩn
-                              </span>
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="text-white text-sm font-bold">Ghế {seat.code}</span>
+                                {isAdultOnly ? (
+                                  <span className="text-[10px] bg-red-950/60 text-red-400 px-1.5 py-0.5 rounded border border-red-800/40">
+                                    Khóa T18
+                                  </span>
+                                ) : currentType === 'Trẻ em' ? (
+                                  <span className="text-[10px] bg-blue-900/40 text-blue-300 px-1.5 py-0.5 rounded border border-blue-700/40">
+                                    Trẻ em
+                                  </span>
+                                ) : null}
+                              </div>
+                              
+                              {/* Nút chọn loại vé cho từng ghế */}
+                              <div className="mt-1 flex items-center gap-1">
+                                <button
+                                  type="button"
+                                  onClick={() => handleSetSeatTicketType(seat.id, 'Thường')}
+                                  className={`text-[10px] px-2 py-0.5 rounded font-semibold transition ${
+                                    currentType === 'Thường'
+                                      ? 'bg-red-600 text-white shadow'
+                                      : 'bg-[#2A2A2A] text-[#888] hover:text-white'
+                                  }`}
+                                >
+                                  Người lớn
+                                </button>
+                                <button
+                                  type="button"
+                                  disabled={isAdultOnly}
+                                  title={isAdultOnly ? 'Phim T18 không áp dụng vé Trẻ em theo BR-02' : 'Giảm 50% cho trẻ em'}
+                                  onClick={() => handleSetSeatTicketType(seat.id, 'Trẻ em')}
+                                  className={`text-[10px] px-2 py-0.5 rounded font-semibold transition ${
+                                    isAdultOnly
+                                      ? 'opacity-30 cursor-not-allowed bg-[#222] text-[#555]'
+                                      : currentType === 'Trẻ em'
+                                      ? 'bg-blue-600 text-white shadow'
+                                      : 'bg-[#2A2A2A] text-[#888] hover:text-white'
+                                  }`}
+                                >
+                                  Trẻ em (-50%)
+                                </button>
+                              </div>
                             </div>
                           </div>
 
-                          <div className="flex items-center gap-3">
+                          <div className="flex items-center gap-2 shrink-0">
                             <span className="text-[#FFB703] text-sm font-bold">
                               {price.toLocaleString('vi-VN')}đ
                             </span>
@@ -539,16 +641,36 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
                 )}
 
                 {/* Calculation Summary */}
-                <div className="border-t border-[#404040] pt-4 mt-2 space-y-2.5">
+                <div className="border-t border-[#404040] pt-4 mt-2 space-y-2">
                   <div className="flex justify-between text-sm text-[#B3B3B3]">
                     <span>Số lượng ghế:</span>
                     <span className="text-white font-bold">{selectedSeatIds.length} ghế</span>
                   </div>
 
-                  <div className="flex justify-between text-sm text-[#B3B3B3]">
-                    <span>Giá vé cơ bản:</span>
-                    <span className="text-white font-medium">{basePrice.toLocaleString('vi-VN')}đ</span>
-                  </div>
+                  {/* Phân loại vé Người lớn & Trẻ em */}
+                  {selectedSeatIds.length > 0 && (
+                    <div className="bg-[#242424] rounded-lg p-2.5 space-y-1 text-xs border border-[#383838]">
+                      <div className="flex justify-between text-[#AAA]">
+                        <span>Vé Người lớn (100%):</span>
+                        <span className="text-white font-medium">
+                          {selectedSeatsList.filter(s => (isAdultOnly || (seatTicketTypes[s.id] || 'Thường') === 'Thường')).length} vé
+                        </span>
+                      </div>
+                      {!isAdultOnly && selectedSeatsList.some(s => seatTicketTypes[s.id] === 'Trẻ em') && (
+                        <div className="flex justify-between text-blue-400">
+                          <span>Vé Trẻ em (50%):</span>
+                          <span className="font-semibold">
+                            {selectedSeatsList.filter(s => seatTicketTypes[s.id] === 'Trẻ em').length} vé
+                          </span>
+                        </div>
+                      )}
+                      {isAdultOnly && (
+                        <p className="text-[11px] text-yellow-500/80 pt-0.5">
+                          ⚠️ Phim nhãn T18: Áp dụng 100% vé Người lớn
+                        </p>
+                      )}
+                    </div>
+                  )}
 
                   <div className="flex justify-between items-baseline pt-2 border-t border-[#383838]">
                     <span className="text-white font-bold">Tạm tính:</span>

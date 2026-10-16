@@ -9,22 +9,14 @@
 export const DEFAULT_TICKET_PERCENTAGES: Record<string, number> = {
   'thường': 100,
   'vé thường': 100,
+  'người lớn': 100,
+  'vé người lớn': 100,
   'normal': 100,
   'standard': 100,
+  'adult': 100,
   'trẻ em': 50,
   'vé trẻ em': 50,
   'child': 50,
-  'học sinh': 80,
-  'sinh viên': 80,
-  'học sinh - sinh viên': 80,
-  'vé học sinh - sinh viên': 80,
-  'student': 80,
-  'vip': 120,
-  'vé vip': 120,
-  'ghế đôi': 180,
-  'vé ghế đôi': 180,
-  'couple': 180,
-  'sweetbox': 180,
 };
 
 /**

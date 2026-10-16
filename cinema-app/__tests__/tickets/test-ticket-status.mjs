@@ -22,11 +22,13 @@ async function runTicketStatusTests() {
     let screening = await prisma.screening.findFirst({
       where: {
         startTime: { gt: new Date(Date.now() + 4 * 60 * 60 * 1000) },
+        status: 'UPCOMING',
+        seats: { some: {} },
       },
       include: { seats: true },
     });
 
-    if (!screening) {
+    if (!screening || !screening.seats || screening.seats.length < 2) {
       const movie = await prisma.movie.findFirst();
       screening = await prisma.screening.create({
         data: {

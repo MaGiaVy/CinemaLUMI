@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth';
 import { AppError, handleError } from '@/lib/error';
 import { apiResponse } from '@/lib/api-response';
 import { TicketStatus, SeatStatus, Prisma } from '@prisma/client';
+import { generateTicketSignature } from '@/lib/ticket-verification';
 
 export const dynamic = 'force-dynamic';
 
@@ -23,6 +24,9 @@ export interface StaffTicketSearchResult {
   purchaseDate: string;
   ticket_code: string;
   ticketCode: string;
+  sig?: string;
+  qr_payload?: string;
+  qrPayload?: string;
 
   // Thông tin khách hàng
   customer: {
@@ -342,6 +346,23 @@ export async function GET(request: NextRequest) {
       const emptySeats = allSeats.filter((s) => s.status === SeatStatus.EMPTY).length;
 
       const ticketCode = `#LMC-${String(t.id).padStart(6, '0')}`;
+      const sig = generateTicketSignature(t.id, t.user.id, t.seatId, t.status);
+      const qrData = {
+        ticket_id: t.id,
+        user_id: t.user.id,
+        user_name: t.user.name,
+        movie_title: t.screening?.movie.title || '',
+        screening_id: t.screeningId,
+        room: t.screening?.room || '',
+        show_time: t.screening?.startTime.toISOString() || '',
+        seat_code: t.seat?.code || '',
+        ticket_type: t.ticketType,
+        price: Number(t.price),
+        status: t.status,
+        issued_at: t.purchaseDate.toISOString(),
+        sig,
+      };
+      const qrPayload = JSON.stringify(qrData);
 
       return {
         id: t.id,
@@ -355,6 +376,9 @@ export async function GET(request: NextRequest) {
         purchaseDate: t.purchaseDate.toISOString(),
         ticket_code: ticketCode,
         ticketCode: ticketCode,
+        sig,
+        qr_payload: qrPayload,
+        qrPayload,
 
         customer: {
           id: t.user.id,

@@ -1,0 +1,92 @@
+name: CinemaLUMI Full-stack CI
+
+on:
+  push:
+    branches:
+      - main
+      - 'feat/**'
+      - 'fix/**'
+  pull_request:
+    branches:
+      - main
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  ci-pipeline:
+    name: Build, Lint, Typecheck and Test
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgrespassword
+          POSTGRES_DB: cinemalumi_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    defaults:
+      run:
+        working-directory: cinema-app
+
+    env:
+      NODE_ENV: test
+      DATABASE_URL: "postgresql://postgres:postgrespassword@localhost:5432/cinemalumi_ci?schema=public"
+      DIRECT_URL: "postgresql://postgres:postgrespassword@localhost:5432/cinemalumi_ci?schema=public"
+      NEXTAUTH_SECRET: "ci-dummy-nextauth-secret-for-build-and-testing-only-12345"
+      NEXTAUTH_URL: "http://localhost:3000"
+      TICKET_QR_HMAC_SECRET: "ci-dummy-ticket-qr-hmac-secret-for-testing-purposes-123456"
+      VNPAY_TMN_CODE: "CIDUMMY1"
+      VNPAY_HASH_SECRET: "CIDUMMYHASHSECRETFORTESTINGPURPOSESONLY1234567890"
+      VNPAY_URL: "https://sandbox.vnpayment.vn/paymentv2/vpcpay.html"
+      VNPAY_RETURN_URL: "http://localhost:3000/api/payments/vnpay-return"
+      NEXT_PUBLIC_APP_URL: "http://localhost:3000"
+      EMAIL_USER: "ci-dummy-email@cinemalumi.com"
+      EMAIL_PASS: "ci-dummy-email-password"
+
+    steps:
+      - name: Checkout Source Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js 20.x
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: cinema-app/package-lock.json
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: Generate Prisma Client
+        run: npx prisma generate
+
+      - name: Lint Codebase (ESLint)
+        run: npm run lint
+
+      - name: TypeScript Typecheck
+        run: npm run typecheck
+
+      - name: Run Unit Tests
+        run: npm test
+
+      - name: Setup Database Schema
+        run: npx prisma db push --skip-generate
+
+      - name: Run Integration Tests
+        run: npm run test:integration
+
+      - name: Next.js Production Build
+        run: npm run build
+        env:
+          NODE_ENV: production

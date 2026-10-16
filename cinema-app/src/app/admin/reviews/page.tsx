@@ -55,7 +55,6 @@ function ReviewModerationContent() {
       setIsLoading(true);
       const res = await fetch('/api/reviews?all=true', {
         headers: {
-          'x-user-role': 'ADMIN',
         },
       });
       const data = await res.json();
@@ -137,7 +136,6 @@ function ReviewModerationContent() {
       const res = await fetch(`/api/reviews/${deleteId}`, {
         method: 'DELETE',
         headers: {
-          'x-user-role': 'ADMIN',
         },
       });
 

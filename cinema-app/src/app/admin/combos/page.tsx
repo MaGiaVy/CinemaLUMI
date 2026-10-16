@@ -76,7 +76,6 @@ export default function AdminCombosPage() {
       setIsLoading(true);
       const res = await fetch('/api/combos', {
         headers: {
-          'x-user-role': 'ADMIN',
         },
       });
       const data = await res.json();
@@ -156,7 +155,6 @@ export default function AdminCombosPage() {
         method,
         headers: {
           'Content-Type': 'application/json',
-          'x-user-role': 'ADMIN',
         },
         body: JSON.stringify(payload),
       });
@@ -199,7 +197,6 @@ export default function AdminCombosPage() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-role': 'ADMIN',
         },
         body: JSON.stringify({
           stock_quantity: newStock,
@@ -230,7 +227,6 @@ export default function AdminCombosPage() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-role': 'ADMIN',
         },
         body: JSON.stringify({ status: newStatus }),
       });
@@ -261,7 +257,6 @@ export default function AdminCombosPage() {
       const res = await fetch(`/api/combos/${combo.id}`, {
         method: 'DELETE',
         headers: {
-          'x-user-role': 'ADMIN',
         },
       });
 

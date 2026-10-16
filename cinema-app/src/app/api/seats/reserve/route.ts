@@ -93,6 +93,8 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    const currentUserId = Number(session.user.id);
+
     // 2. Thực thi giao dịch nguyên tử (Atomic Transaction)
     const HOLD_MINUTES = 10;
     const now = new Date();
@@ -112,6 +114,7 @@ export async function POST(request: NextRequest) {
         data: {
           status: 'EMPTY',
           reservedUntil: null,
+          reservedUserId: null,
         },
       });
 
@@ -128,6 +131,8 @@ export async function POST(request: NextRequest) {
           number: true,
           type: true,
           status: true,
+          reservedUntil: true,
+          reservedUserId: true,
         },
       });
 
@@ -141,23 +146,39 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 2.3 CONDITIONAL ATOMIC UPDATE (Chống SEC-07 Race Condition):
-      // Chỉ cập nhật nếu TẤT CẢ các ghế đều có status = 'EMPTY'.
-      // Nếu có bất kỳ ghế nào đã bị người khác đặt trước đó hoặc tranh chấp, count sẽ < seat_ids.length.
+      // 2.3 CONDITIONAL ATOMIC UPDATE (Chống SEC-07 Race Condition & Liên kết chủ sở hữu):
+      // Chỉ cập nhật nếu ghế đang EMPTY hoặc đã được giữ bởi chính user này (re-hold),
+      // hoặc ghế hết hạn giữ chỗ.
+      // Không cho phép ghi đè lượt giữ ghế hợp lệ của người khác.
       const updateResult = await tx.seat.updateMany({
         where: {
           id: { in: seat_ids },
           screeningId: screening_id,
-          status: 'EMPTY',
+          OR: [
+            { status: 'EMPTY' },
+            {
+              status: 'RESERVED',
+              reservedUserId: currentUserId,
+            },
+            {
+              status: 'RESERVED',
+              reservedUntil: { lt: now },
+            },
+          ],
         },
         data: {
           status: 'RESERVED',
           reservedUntil,
+          reservedUserId: currentUserId,
         },
       });
 
       if (updateResult.count !== seat_ids.length) {
-        const conflictSeats = existingSeats.filter(s => s.status !== 'EMPTY');
+        const conflictSeats = existingSeats.filter(
+          s => s.status !== 'EMPTY' &&
+               !(s.status === 'RESERVED' && s.reservedUserId === currentUserId) &&
+               !(s.status === 'RESERVED' && s.reservedUntil && new Date(s.reservedUntil) < now)
+        );
         const conflictCodes = conflictSeats.map(s => s.code).join(', ');
         throw new AppError(
           400,

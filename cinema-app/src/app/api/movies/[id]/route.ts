@@ -225,7 +225,8 @@ export async function DELETE(
       return apiResponse(false, undefined, 'Không tìm thấy bộ phim cần xóa', 404);
     }
 
-    // 2. RÀNG BUỘC NGHIỆP VỤ: Kiểm tra các suất chiếu UPCOMING hoặc SHOWING
+    // 2. RÀNG BUỘC NGHIỆP VỤ FR-ADM-02:
+    // 2.1. Kiểm tra các suất chiếu UPCOMING hoặc SHOWING
     const activeScreening = await prisma.screening.findFirst({
       where: {
         movieId,
@@ -244,14 +245,48 @@ export async function DELETE(
       );
     }
 
-    // 3. Nếu không có suất chiếu đang hoạt động, tiến hành xóa phim
+    // 2.2. Kiểm tra xem phim đã phát sinh suất chiếu trong quá khứ chưa
+    const totalScreenings = await prisma.screening.count({
+      where: { movieId },
+    });
+
+    if (totalScreenings > 0) {
+      // SOFT DELETE theo FR-ADM-02: Bảo toàn lịch sử suất chiếu, vé và doanh thu
+      const softDeletedMovie = await prisma.movie.update({
+        where: { id: movieId },
+        data: {
+          isDeleted: true,
+          status: 'ENDED',
+        },
+      });
+
+      return apiResponse(
+        true,
+        {
+          id: softDeletedMovie.id,
+          title: softDeletedMovie.title,
+          is_deleted: true,
+          status: softDeletedMovie.status,
+          total_historical_screenings: totalScreenings,
+        },
+        `Đã soft-delete phim "${softDeletedMovie.title}" (ẩn khỏi danh mục đang chiếu). Dữ liệu lịch sử suất chiếu và doanh thu được bảo toàn theo FR-ADM-02.`,
+        200
+      );
+    }
+
+    // 2.3. Nếu chưa từng phát sinh suất chiếu nào -> Hard delete bình thường
     await prisma.movie.delete({
       where: { id: movieId },
     });
 
     return apiResponse(
       true,
-      { id: movieId, title: movie.title },
+      {
+        id: movie.id,
+        title: movie.title,
+        is_deleted: false,
+        status: 'DELETED',
+      },
       `Đã xóa bộ phim "${movie.title}" thành công`,
       200
     );

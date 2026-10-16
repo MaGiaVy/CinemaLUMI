@@ -118,8 +118,6 @@ const initiatePaymentSchema = z
     couponCode: z.string().trim().optional().nullable(),
     payment_method: z.string().trim().optional(),
     paymentMethod: z.string().trim().optional(),
-    user_id: z.coerce.number().int().positive().optional(),
-    userId: z.coerce.number().int().positive().optional(),
   })
   .refine(data => data.screening_id !== undefined || data.screeningId !== undefined, {
     message: 'Vui lòng cung cấp mã suất chiếu (screening_id)',
@@ -221,6 +219,7 @@ export async function POST(request: NextRequest) {
         type: true,
         status: true,
         reservedUntil: true,
+        reservedUserId: true,
       },
     });
 
@@ -240,6 +239,24 @@ export async function POST(request: NextRequest) {
         400,
         `Ghế ${occupiedCodes} đã có người mua. Vui lòng chọn ghế khác.`,
         'SEATS_ALREADY_OCCUPIED'
+      );
+    }
+
+    // Kiểm tra xem ghế có đang bị người khác giữ chỗ hợp lệ không (Chống ghi đè hold)
+    const now = new Date();
+    const conflictReservedSeats = seats.filter(
+      s => s.status === SeatStatus.RESERVED &&
+           s.reservedUntil &&
+           new Date(s.reservedUntil) > now &&
+           s.reservedUserId !== null &&
+           s.reservedUserId !== effectiveUserId
+    );
+    if (conflictReservedSeats.length > 0) {
+      const conflictCodes = conflictReservedSeats.map(s => s.code).join(', ');
+      throw new AppError(
+        400,
+        `Ghế [${conflictCodes}] hiện đang được giữ chỗ bởi người dùng khác. Vui lòng chọn ghế khác.`,
+        'SEATS_RESERVED_BY_ANOTHER_USER'
       );
     }
 
@@ -455,18 +472,33 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // 7.3. Cập nhật ghế sang trạng thái RESERVED với hạn giữ chỗ 10 phút
-      await tx.seat.updateMany({
+      // 7.3. Cập nhật ghế sang trạng thái RESERVED với hạn giữ chỗ 10 phút và liên kết với effectiveUserId
+      // Chống ghi đè lượt giữ chỗ hợp lệ của người khác
+      const seatUpdate = await tx.seat.updateMany({
         where: {
           id: { in: finalSeatIds },
           screeningId: finalScreeningId,
           status: { not: SeatStatus.OCCUPIED },
+          OR: [
+            { status: SeatStatus.EMPTY },
+            { reservedUserId: effectiveUserId },
+            { reservedUntil: { lt: nowTime } },
+          ],
         },
         data: {
           status: SeatStatus.RESERVED,
           reservedUntil,
+          reservedUserId: effectiveUserId,
         },
       });
+
+      if (seatUpdate.count !== finalSeatIds.length) {
+        throw new AppError(
+          400,
+          'Một hoặc nhiều ghế đã bị người dùng khác giữ chỗ trong lúc thực hiện thanh toán. Vui lòng chọn ghế khác.',
+          'SEAT_RESERVATION_CONFLICT'
+        );
+      }
 
       return { payment: createdPayment };
     });

@@ -22,6 +22,10 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search');
 
     const whereClause: any = {};
+    const includeDeleted = searchParams.get('include_deleted') === 'true';
+    if (!includeDeleted) {
+      whereClause.isDeleted = false;
+    }
 
     if (status && ['SHOWING', 'UPCOMING', 'ENDED'].includes(status.toUpperCase())) {
       whereClause.status = status.toUpperCase();

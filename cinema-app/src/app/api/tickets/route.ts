@@ -66,8 +66,7 @@ export interface TicketListItem {
  * GET /api/tickets
  * 
  * Lấy danh sách toàn bộ vé đã đặt của người dùng đang đăng nhập:
- * 1. Lấy thông tin user_id từ Session qua NextAuth.
- *    (Hỗ trợ query parameter user_id cho môi trường kiểm thử tự động).
+ * 1. Lấy thông tin user_id từ Session qua NextAuth (Chống SEC-05 IDOR).
  * 2. Sử dụng prisma.ticket.findMany kèm include để tải đầy đủ thông tin:
  *    - Phim (tiêu đề, poster, thời lượng, thể loại, độ tuổi).
  *    - Suất chiếu (phòng chiếu, ngày chiếu, giờ bắt đầu, giờ kết thúc).

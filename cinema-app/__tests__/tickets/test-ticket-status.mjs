@@ -1,6 +1,7 @@
 import assert from 'assert';
 import { PrismaClient, TicketStatus, SeatStatus } from '@prisma/client';
 import { getStaffCookie, getCustomerCookie } from '../helpers/auth-helper.mjs';
+import { generateTicketSignature } from '../../src/lib/ticket-verification.ts';
 
 const prisma = new PrismaClient();
 const BASE_URL = 'http://localhost:3000';
@@ -10,6 +11,7 @@ async function runTicketStatusTests() {
   console.log('🚀 BẮT ĐẦU KIỂM THỬ PHASE 10: XỬ LÝ TRẠNG THÁI VÉ (DELETE & PATCH)');
   console.log('================================================================\n');
 
+  let activeStaffScreening = null;
   try {
     const user1Cookie = await getCustomerCookie(1);
     const user999Cookie = await getCustomerCookie(999);
@@ -81,11 +83,30 @@ async function runTicketStatusTests() {
       include: { seat: true },
     });
 
+    activeStaffScreening = await prisma.screening.create({
+      data: {
+        movieId: screening.movieId,
+        date: new Date(),
+        startTime: new Date(Date.now() - 10 * 60 * 1000),
+        endTime: new Date(Date.now() + 110 * 60 * 1000),
+        room: 'Cinema 01',
+        roomNumber: 1,
+        price: 100000,
+        status: 'SHOWING',
+        seats: {
+          create: [
+            { room: 'Cinema 01', row: 'B', number: 1, code: 'B1', type: 'STANDARD', status: 'OCCUPIED' },
+          ],
+        },
+      },
+      include: { seats: true },
+    });
+
     const staffTestTicket = await prisma.ticket.create({
       data: {
         userId: 1,
-        screeningId: screening.id,
-        seatId: seat2.id,
+        screeningId: activeStaffScreening.id,
+        seatId: activeStaffScreening.seats[0].id,
         paymentId: payment.id,
         ticketType: 'Thường',
         price: 100000,
@@ -172,9 +193,17 @@ async function runTicketStatusTests() {
     // TEST 5: PATCH /api/tickets/[id]/mark-used - Nhân viên STAFF soát vé thành công
     // =========================================================================
     console.log('\n--- TEST 5: Nhân viên STAFF soát vé (VALID -> USED) ---');
+    const validStaffSig = generateTicketSignature(staffTestTicket.id, staffTestTicket.userId, staffTestTicket.seatId, 'Valid');
     const patchRes2 = await fetch(`${BASE_URL}/api/tickets/${staffTestTicket.id}/mark-used`, {
       method: 'PATCH',
-      headers: { Cookie: staffCookie },
+      headers: {
+        Cookie: staffCookie,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sig: validStaffSig,
+        room: 'Cinema 01',
+      }),
     });
     const patchJson2 = await patchRes2.json();
 
@@ -193,7 +222,14 @@ async function runTicketStatusTests() {
     console.log('\n--- TEST 6: Bắt lỗi khi quét lại vé đã qua sử dụng ---');
     const patchRes3 = await fetch(`${BASE_URL}/api/tickets/${staffTestTicket.id}/mark-used`, {
       method: 'PATCH',
-      headers: { Cookie: staffCookie },
+      headers: {
+        Cookie: staffCookie,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sig: validStaffSig,
+        room: 'Cinema 01',
+      }),
     });
     const patchJson3 = await patchRes3.json();
     assert.strictEqual(patchRes3.status, 400);
@@ -204,9 +240,17 @@ async function runTicketStatusTests() {
     // TEST 7: Bắt lỗi khi cố tình soát vé đã bị HỦY (Cancelled)
     // =========================================================================
     console.log('\n--- TEST 7: Chặn check-in vé đã bị hủy ---');
+    const cancelSig = generateTicketSignature(cancelTestTicket.id, cancelTestTicket.userId, cancelTestTicket.seatId, 'Valid');
     const patchRes4 = await fetch(`${BASE_URL}/api/tickets/${cancelTestTicket.id}/mark-used`, {
       method: 'PATCH',
-      headers: { Cookie: staffCookie },
+      headers: {
+        Cookie: staffCookie,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        sig: cancelSig,
+        room: 'Cinema 01',
+      }),
     });
     const patchJson4 = await patchRes4.json();
     assert.strictEqual(patchRes4.status, 400);
@@ -217,6 +261,11 @@ async function runTicketStatusTests() {
     console.log('🎉 TẤT CẢ TEST CASES CHO CÁC THAO TÁC TRẠNG THÁI VÉ ĐỀU PASSED!');
     console.log('================================================================\n');
   } finally {
+    if (activeStaffScreening) {
+      await prisma.ticket.deleteMany({ where: { screeningId: activeStaffScreening.id } }).catch(() => {});
+      await prisma.seat.deleteMany({ where: { screeningId: activeStaffScreening.id } }).catch(() => {});
+      await prisma.screening.delete({ where: { id: activeStaffScreening.id } }).catch(() => {});
+    }
     await prisma.$disconnect();
   }
 }

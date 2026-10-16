@@ -154,15 +154,23 @@ function TicketLookupContent() {
     }
   };
 
-  // Thực hiện check-in soát vé
-  const handleCheckIn = async (ticketId: number) => {
+  // Thực hiện check-in soát vé kèm chữ ký QR HMAC
+  const handleCheckIn = async (targetTicket: StaffTicketSearchResult) => {
     try {
-      const res = await fetch(`/api/tickets/${ticketId}/mark-used`, {
+      const res = await fetch(`/api/tickets/${targetTicket.id}/mark-used`, {
         method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          sig: targetTicket.sig,
+          qr_payload: targetTicket.qr_payload,
+          room: targetTicket.screening?.room,
+        }),
       });
       const json = await res.json();
       if (res.ok && json.success) {
-        addToast('success', `Đã soát vé #${ticketId} thành công! Khách hàng có thể vào phòng chiếu.`);
+        addToast('success', `Đã soát vé #${targetTicket.id} thành công! Khách hàng có thể vào phòng chiếu.`);
         await handleSearchTickets(query, activeStatusFilter);
       } else {
         addToast('error', json.message || 'Soát vé không thành công');
@@ -583,7 +591,7 @@ function TicketLookupContent() {
                             <Button
                               variant="gold"
                               size="sm"
-                              onClick={() => handleCheckIn(ticket.id)}
+                              onClick={() => handleCheckIn(ticket)}
                             >
                               🎟️ Soát vé (Check-in)
                             </Button>

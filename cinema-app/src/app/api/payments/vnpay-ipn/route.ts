@@ -131,6 +131,7 @@ export async function processVnpayIpnTransaction(
           data: {
             status: SeatStatus.OCCUPIED,
             reservedUntil: null,
+            reservedUserId: null,
           },
         });
 
@@ -249,6 +250,7 @@ export async function processVnpayIpnTransaction(
         data: {
           status: SeatStatus.EMPTY,
           reservedUntil: null,
+          reservedUserId: null,
         },
       });
     }

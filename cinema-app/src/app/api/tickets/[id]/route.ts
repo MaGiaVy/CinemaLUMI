@@ -1,12 +1,12 @@
 import { NextRequest } from 'next/server';
 import { getServerSession } from 'next-auth';
-import crypto from 'crypto';
 import { prisma } from '@/lib/prisma';
 import { authOptions } from '@/lib/auth';
 import { AppError, handleError } from '@/lib/error';
 import { apiResponse } from '@/lib/api-response';
 import { TicketStatus, SeatStatus, DiscountType } from '@prisma/client';
 import { sendVoucherIssued } from '@/lib/email';
+import { generateTicketSignature } from '@/lib/ticket-verification';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,18 +77,6 @@ export interface TicketDetailResult {
 }
 
 /**
- * Tạo chữ ký xác thực số (HMAC) cho vé để chống giả mạo mã QR
- */
-function generateTicketSignature(ticketId: number, userId: number, seatId: number | null, status: string): string {
-  const secret = process.env.NEXTAUTH_SECRET || 'lumi_cinema_ticket_verification_secret_key';
-  return crypto
-    .createHmac('sha256', secret)
-    .update(`LMC-TICKET-${ticketId}-${userId}-${seatId || 0}-${status}`)
-    .digest('hex')
-    .slice(0, 16);
-}
-
-/**
  * GET /api/tickets/[id]
  * 
  * Lấy thông tin chi tiết một vé cụ thể:
@@ -111,27 +99,18 @@ export async function GET(
     }
 
     const session = await getServerSession(authOptions);
-    const searchParams = request.nextUrl.searchParams;
 
-    // 1. Xác định User đang yêu cầu
-    let currentUserId: number | null = session?.user?.id ? Number(session.user.id) : null;
-    const currentUserRole = session?.user?.role;
-
-    // Fallback query param user_id cho script test tự động
-    if (!currentUserId && searchParams.get('user_id')) {
-      const parsedUserId = parseInt(searchParams.get('user_id')!, 10);
-      if (!isNaN(parsedUserId) && parsedUserId > 0) {
-        currentUserId = parsedUserId;
-      }
-    }
-
-    if (!currentUserId) {
+    // 1. Xác định User đang yêu cầu từ Session (Chống SEC-05 IDOR)
+    if (!session?.user?.id) {
       throw new AppError(
         401,
         'Vui lòng đăng nhập để xem chi tiết vé',
         'UNAUTHENTICATED'
       );
     }
+
+    const currentUserId = Number(session.user.id);
+    const currentUserRole = session.user.role;
 
     // 2. Truy vấn chi tiết vé kèm đầy đủ các bảng liên quan
     const ticket = await prisma.ticket.findUnique({
@@ -329,26 +308,18 @@ export async function DELETE(
     }
 
     const session = await getServerSession(authOptions);
-    const searchParams = request.nextUrl.searchParams;
 
-    // 1. Xác định User đang yêu cầu
-    let currentUserId: number | null = session?.user?.id ? Number(session.user.id) : null;
-    const currentUserRole = session?.user?.role;
-
-    if (!currentUserId && searchParams.get('user_id')) {
-      const parsedUserId = parseInt(searchParams.get('user_id')!, 10);
-      if (!isNaN(parsedUserId) && parsedUserId > 0) {
-        currentUserId = parsedUserId;
-      }
-    }
-
-    if (!currentUserId) {
+    // 1. Xác định User đang yêu cầu từ Session (Chống SEC-05 IDOR)
+    if (!session?.user?.id) {
       throw new AppError(
         401,
         'Vui lòng đăng nhập để thực hiện hủy vé',
         'UNAUTHENTICATED'
       );
     }
+
+    const currentUserId = Number(session.user.id);
+    const currentUserRole = session.user.role;
 
     // 2. Tìm vé trong Database
     const ticket = await prisma.ticket.findUnique({

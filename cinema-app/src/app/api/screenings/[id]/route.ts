@@ -384,24 +384,49 @@ export async function DELETE(
 
     const soldTickets = screening.tickets.filter(t => t.status !== 'Cancelled');
     const hasSoldTickets = soldTickets.length > 0;
+    const hasHistoricalTickets = screening.tickets.length > 0;
 
-    // 2. THỰC THI QUA TRANSACTION
+    // 2. THỰC THI QUA TRANSACTION BẢO TOÀN LỊCH SỬ GIAO DỊCH
     const result = await prisma.$transaction(async (tx) => {
-      if (hasSoldTickets) {
-        // Cập nhật trạng thái toàn bộ vé của suất chiếu này thành Cancelled
-        await tx.ticket.updateMany({
+      if (hasHistoricalTickets) {
+        // Suất chiếu đã phát sinh vé/giao dịch: KHÔNG ĐƯỢC HARD DELETE
+        // Chuyển trạng thái suất chiếu sang CANCELLED
+        const updatedScreening = await tx.screening.update({
+          where: { id: screeningId },
+          data: {
+            status: 'CANCELLED',
+          },
+        });
+
+        // Cập nhật trạng thái toàn bộ vé hợp lệ sang Cancelled
+        if (hasSoldTickets) {
+          await tx.ticket.updateMany({
+            where: {
+              screeningId,
+              status: 'Valid',
+            },
+            data: {
+              status: 'Cancelled',
+            },
+          });
+        }
+
+        // Giải phóng toàn bộ ghế của suất chiếu về EMPTY
+        await tx.seat.updateMany({
           where: {
             screeningId,
           },
           data: {
-            status: 'Cancelled',
+            status: 'EMPTY',
+            reservedUntil: null,
+            reservedUserId: null,
           },
         });
 
-        // Tính toán số tiền hoàn trả 100%
+        // Tính toán số tiền hoàn trả 100% cho các vé chưa bị hủy trước đó
         const totalRefundAmount = soldTickets.reduce((sum, t) => sum + Number(t.price), 0);
 
-        // Danh sách khách hàng bị ảnh hưởng để phục vụ gửi email / voucher hoàn tiền ở phase sau
+        // Danh sách khách hàng bị ảnh hưởng để phục vụ hoàn tiền / bồi thường
         const affectedUsers = Array.from(
           new Map(
             soldTickets.map(t => [
@@ -420,28 +445,27 @@ export async function DELETE(
           ).values()
         );
 
-        // Xóa suất chiếu (ghế gắn với suất chiếu sẽ tự động xóa theo CASCADE)
-        await tx.screening.delete({
-          where: { id: screeningId },
-        });
-
         return {
-          deleted_screening_id: screeningId,
+          screening_id: screeningId,
+          status: 'CANCELLED',
+          is_soft_deleted: true,
           movie_title: screening.movie.title,
           refund_flow_recorded: true,
           cancelled_tickets_count: soldTickets.length,
           total_refund_amount: totalRefundAmount,
           affected_users: affectedUsers,
-          note: 'Toàn bộ vé đã được chuyển sang trạng thái CANCELLED và ghi nhận luồng hoàn tiền 100%. API hoàn tiền/cấp voucher sẽ được xử lý ở Phase sau.',
+          note: 'Suất chiếu đã được chuyển sang trạng thái CANCELLED. Toàn bộ vé và lịch sử giao dịch được bảo toàn để phục vụ hoàn tiền và báo cáo kiểm toán.',
         };
       } else {
-        // Chưa có khách mua vé -> Xóa bình thường
+        // Chưa từng phát sinh vé nào -> Xóa suất chiếu và ghế
         await tx.screening.delete({
           where: { id: screeningId },
         });
 
         return {
           deleted_screening_id: screeningId,
+          status: 'DELETED',
+          is_soft_deleted: false,
           movie_title: screening.movie.title,
           refund_flow_recorded: false,
           cancelled_tickets_count: 0,
@@ -449,9 +473,9 @@ export async function DELETE(
       }
     });
 
-    const responseMessage = hasSoldTickets
-      ? `Đã xóa suất chiếu phim "${screening.movie.title}". Hệ thống đã tự động chuyển ${result.cancelled_tickets_count} vé sang trạng thái CANCELLED và ghi nhận hoàn tiền 100% cho khách hàng.`
-      : `Đã xóa suất chiếu phim "${screening.movie.title}" thành công (suất chiếu chưa có vé nào được bán).`;
+    const responseMessage = hasHistoricalTickets
+      ? `Đã hủy suất chiếu phim "${screening.movie.title}" (chuyển sang trạng thái CANCELLED). Toàn bộ dữ liệu vé và giao dịch được bảo toàn để phục vụ hoàn tiền kiểm toán.`
+      : `Đã xóa suất chiếu phim "${screening.movie.title}" thành công (suất chiếu chưa phát sinh giao dịch).`;
 
     return apiResponse(
       true,
@@ -460,6 +484,7 @@ export async function DELETE(
       200
     );
   } catch (error) {
+    console.error('[DELETE_SCREENING_ERROR]', error);
     const errorResponse = handleError(error);
     return apiResponse(
       false,

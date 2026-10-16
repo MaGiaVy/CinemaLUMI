@@ -7,7 +7,10 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-strip-types __tests__/lib/runner.mjs",
+    "typecheck": "tsc --noEmit",
+    "test": "node --experimental-strip-types __tests__/unit/run-unit-tests.mjs",
+    "test:unit": "node --experimental-strip-types __tests__/unit/run-unit-tests.mjs",
+    "test:integration": "node --experimental-strip-types __tests__/integration/run-integration-tests.mjs",
     "test:all": "node --experimental-strip-types __tests__/run-all-tests.mjs"
   },
   "dependencies": {

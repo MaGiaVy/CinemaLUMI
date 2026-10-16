@@ -7,6 +7,11 @@ const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
 const TEST_FILES = [
+  'unit/run-unit-tests.mjs',
+  'integration/test-user-id-bypass.mjs',
+  'integration/test-checkin-qr-verification.mjs',
+  'integration/test-seat-concurrency.mjs',
+  'integration/test-soft-delete-and-audit.mjs',
   'lib/runner.mjs',
   'security/test-middleware.mjs',
   'security/test-error-boundaries.mjs',

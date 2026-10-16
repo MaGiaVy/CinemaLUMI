@@ -151,7 +151,6 @@ export default function PricingManagementPage() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-role': 'ADMIN',
         },
         body: JSON.stringify({
           price_percentage: numPct,
@@ -210,7 +209,6 @@ export default function PricingManagementPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-role': 'ADMIN',
         },
         body: JSON.stringify({ surcharges }),
       });

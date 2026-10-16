@@ -46,6 +46,14 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    const statusParam = searchParams.get('status');
+    const includeCancelled = searchParams.get('include_cancelled') === 'true';
+    if (statusParam) {
+      whereClause.status = statusParam;
+    } else if (!includeCancelled) {
+      whereClause.status = { not: 'CANCELLED' };
+    }
+
     const screenings = await prisma.screening.findMany({
       where: whereClause,
       orderBy: {

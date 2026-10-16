@@ -28,6 +28,7 @@ enum ScreeningStatus {
   UPCOMING
   SHOWING
   ENDED
+  CANCELLED
 }
 
 enum SeatType {
@@ -88,10 +89,11 @@ model User {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Quan hệ (Relations)
-  payments Payment[]
-  tickets  Ticket[]
-  reviews  Review[]
-  coupons  Coupon[]
+  payments      Payment[]
+  tickets       Ticket[]
+  reviews       Review[]
+  coupons       Coupon[]
+  reservedSeats Seat[]
 
   @@map("users")
 }
@@ -103,19 +105,20 @@ model Movie {
   slug        String?     @unique @db.VarChar(255)
   description String?     @db.Text
   duration    Int // Thời lượng (phút)
-  releaseDate DateTime        @map("release_date") @db.Date
-  endDate     DateTime?       @map("end_date") @db.Date
-  ageRating   String?         @map("age_rating") @db.VarChar(20)
-  poster      String          @db.VarChar(500)
-  trailer     String?         @db.VarChar(500)
-  rating      Decimal         @default(0.0) @db.Decimal(3, 1)
-  genre       String          @db.VarChar(100)
-  director    String?         @db.VarChar(100)
-  cast        String?         @db.Text
-  status      MovieStatus     @default(SHOWING)
-  ticketPrice Decimal         @default(120000) @map("ticket_price") @db.Decimal(10, 2)
-  createdAt   DateTime        @default(now()) @map("created_at")
-  updatedAt   DateTime        @updatedAt @map("updated_at")
+  releaseDate DateTime    @map("release_date") @db.Date
+  endDate     DateTime?   @map("end_date") @db.Date
+  ageRating   String?     @map("age_rating") @db.VarChar(20)
+  poster      String      @db.VarChar(500)
+  trailer     String?     @db.VarChar(500)
+  rating      Decimal     @default(0.0) @db.Decimal(3, 1)
+  genre       String      @db.VarChar(100)
+  director    String?     @db.VarChar(100)
+  cast        String?     @db.Text
+  status      MovieStatus @default(SHOWING)
+  isDeleted   Boolean     @default(false) @map("is_deleted")
+  ticketPrice Decimal     @default(120000) @map("ticket_price") @db.Decimal(10, 2)
+  createdAt   DateTime    @default(now()) @map("created_at")
+  updatedAt   DateTime    @updatedAt @map("updated_at")
 
   // Quan hệ (Relations)
   screenings Screening[]
@@ -149,21 +152,23 @@ model Screening {
 
 // 4. Bảng Seats (Ghế ngồi trong phòng chiếu)
 model Seat {
-  id            Int        @id @default(autoincrement()) @map("seat_id")
-  screeningId   Int?       @map("screening_id")
-  room          String?    @db.VarChar(50)
-  row           String     @db.VarChar(5) // Vd: "A", "B", "C"
-  number        Int // Vd: 1, 2, 3
-  code          String     @db.VarChar(10) // Vd: "A1", "A2", "C10"
-  type          SeatType   @default(STANDARD)
-  status        SeatStatus @default(EMPTY)
-  reservedUntil DateTime?  @map("reserved_until")
-  createdAt     DateTime   @default(now()) @map("created_at")
-  updatedAt     DateTime   @updatedAt @map("updated_at")
+  id             Int        @id @default(autoincrement()) @map("seat_id")
+  screeningId    Int?       @map("screening_id")
+  room           String?    @db.VarChar(50)
+  row            String     @db.VarChar(5) // Vd: "A", "B", "C"
+  number         Int // Vd: 1, 2, 3
+  code           String     @db.VarChar(10) // Vd: "A1", "A2", "C10"
+  type           SeatType   @default(STANDARD)
+  status         SeatStatus @default(EMPTY)
+  reservedUntil  DateTime?  @map("reserved_until")
+  reservedUserId Int?       @map("reserved_user_id")
+  createdAt      DateTime   @default(now()) @map("created_at")
+  updatedAt      DateTime   @updatedAt @map("updated_at")
 
   // Quan hệ (Relations)
-  screening Screening? @relation(fields: [screeningId], references: [id], onDelete: Cascade)
-  tickets   Ticket[]
+  screening    Screening? @relation(fields: [screeningId], references: [id], onDelete: Cascade)
+  reservedUser User?      @relation(fields: [reservedUserId], references: [id], onDelete: SetNull)
+  tickets      Ticket[]
 
   @@unique([screeningId, code])
   @@map("seats")

@@ -85,7 +85,6 @@ export default function CouponsManagementPage() {
       setIsLoading(true);
       const res = await fetch('/api/coupons', {
         headers: {
-          'x-user-role': 'ADMIN',
         },
       });
       const data = await res.json();
@@ -172,7 +171,6 @@ export default function CouponsManagementPage() {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-role': 'ADMIN',
         },
         body: JSON.stringify(payload),
       });
@@ -208,7 +206,6 @@ export default function CouponsManagementPage() {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'x-user-role': 'ADMIN',
         },
         body: JSON.stringify({
           expiry_date: dateStr,
@@ -236,7 +233,6 @@ export default function CouponsManagementPage() {
       const res = await fetch(`/api/coupons/${coupon.id}`, {
         method: 'DELETE',
         headers: {
-          'x-user-role': 'ADMIN',
         },
       });
 

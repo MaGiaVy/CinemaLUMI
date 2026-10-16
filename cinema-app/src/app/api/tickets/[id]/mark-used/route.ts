@@ -38,12 +38,19 @@ export async function PATCH(
     }
 
     const session = await getServerSession(authOptions);
-    const searchParams = request.nextUrl.searchParams;
 
-    // 1. Kiểm tra quyền STAFF hoặc ADMIN
-    const userRole = session?.user?.role || searchParams.get('role');
+    // 1. Kiểm tra xác thực và quyền STAFF hoặc ADMIN trên Server Session
+    if (!session || !session.user) {
+      throw new AppError(
+        401,
+        'Vui lòng đăng nhập với tài khoản nhân viên hoặc quản trị viên',
+        'UNAUTHENTICATED'
+      );
+    }
 
-    if (!userRole || (userRole !== 'STAFF' && userRole !== 'ADMIN')) {
+    const userRole = (session.user as { role?: string }).role;
+
+    if (userRole !== 'STAFF' && userRole !== 'ADMIN') {
       throw new AppError(
         403,
         'Chỉ có nhân viên soát vé (STAFF) hoặc quản trị viên (ADMIN) mới có quyền thực hiện soát vé',

@@ -146,16 +146,27 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 2.5 Cập nhật tất cả các ghế thành 'RESERVED' và gán thời gian giữ chỗ
-      await tx.seat.updateMany({
+      // 2.5 CẬP NHẬT CÓ ĐIỀU KIỆN NGUYÊN TỬ (Atomic Conditional Update):
+      // Bắt buộc trạng thái ghế vẫn là 'EMPTY' tại thời điểm cập nhật; nếu có giao dịch khác vừa giữ ghế trước, count sẽ không đủ.
+      const updateResult = await tx.seat.updateMany({
         where: {
           id: { in: seat_ids },
+          screeningId: screening_id,
+          status: 'EMPTY',
         },
         data: {
           status: 'RESERVED',
           reservedUntil,
         },
       });
+
+      if (updateResult.count !== seat_ids.length) {
+        throw new AppError(
+          400,
+          '[E-03] Ghế bạn vừa chọn đã có khách hàng khác giữ trước trong tích tắc. Vui lòng chọn ghế khác!',
+          'SEAT_ALREADY_RESERVED'
+        );
+      }
 
       const reservedSeatList: ReservedSeatInfo[] = seats.map(s => ({
         id: s.id,

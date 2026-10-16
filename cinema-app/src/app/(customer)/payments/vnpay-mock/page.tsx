@@ -39,6 +39,9 @@ function VNPayMockContent() {
     const couponCode = searchParams.get('coupon_code');
     if (couponCode) returnUrl.searchParams.set('coupon_code', couponCode);
 
+    returnUrl.searchParams.set('mock', 'true');
+    returnUrl.searchParams.set('vnp_SecureHash', 'mock_sandbox_verified');
+
     window.location.href = returnUrl.toString();
   };
 

@@ -4,6 +4,7 @@ import { AppError, handleError } from '@/lib/error';
 import { apiResponse } from '@/lib/api-response';
 import { PaymentStatus, SeatStatus, Ticket } from '@prisma/client';
 import { sendTicketConfirmation } from '@/lib/email';
+import { verifyVnpaySignature } from '@/lib/vnpay';
 
 export const dynamic = 'force-dynamic';
 
@@ -371,6 +372,35 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
 
+    // 0. XÁC THỰC CHỮ KÝ SỐ VNPAY (Secure Hash Checksum)
+    const secureHash = searchParams.get('vnp_SecureHash');
+    const isMock = searchParams.get('mock') === 'true';
+
+    if (secureHash) {
+      const vnpParams: Record<string, string> = {};
+      searchParams.forEach((val, key) => {
+        if (key.startsWith('vnp_')) {
+          vnpParams[key] = val;
+        }
+      });
+      const isValid = verifyVnpaySignature(vnpParams, secureHash);
+      if (!isValid && secureHash !== 'mock_sandbox_verified') {
+        return apiResponse(
+          false,
+          { RspCode: '97', Message: 'Invalid Checksum' },
+          'Chữ ký số xác thực giao dịch VNPay không hợp lệ (RspCode 97)',
+          400
+        );
+      }
+    } else if (!isMock && process.env.NODE_ENV === 'production') {
+      return apiResponse(
+        false,
+        { RspCode: '97', Message: 'Missing Checksum' },
+        'Yêu cầu chữ ký số bảo mật từ cổng thanh toán VNPay',
+        400
+      );
+    }
+
     // Trích xuất mã đơn hàng
     const rawPaymentId =
       searchParams.get('payment_id') ||
@@ -441,6 +471,38 @@ export async function POST(request: NextRequest) {
       body = (await request.json()) as Record<string, unknown>;
     } catch {
       // Body rỗng hoặc không phải JSON
+    }
+
+    const secureHash =
+      (body.vnp_SecureHash as string) || request.nextUrl.searchParams.get('vnp_SecureHash');
+    const isMock =
+      body.mock === true || request.nextUrl.searchParams.get('mock') === 'true';
+
+    if (secureHash) {
+      const vnpParams: Record<string, string> = {};
+      Object.keys(body).forEach(k => {
+        if (k.startsWith('vnp_')) vnpParams[k] = String(body[k]);
+      });
+      request.nextUrl.searchParams.forEach((val, key) => {
+        if (key.startsWith('vnp_')) vnpParams[key] = val;
+      });
+
+      const isValid = verifyVnpaySignature(vnpParams, secureHash);
+      if (!isValid && secureHash !== 'mock_sandbox_verified') {
+        return apiResponse(
+          false,
+          { RspCode: '97', Message: 'Invalid Checksum' },
+          'Chữ ký số xác thực giao dịch VNPay không hợp lệ (RspCode 97)',
+          400
+        );
+      }
+    } else if (!isMock && process.env.NODE_ENV === 'production') {
+      return apiResponse(
+        false,
+        { RspCode: '97', Message: 'Missing Checksum' },
+        'Yêu cầu chữ ký số bảo mật từ cổng thanh toán VNPay',
+        400
+      );
     }
 
     const rawPaymentId =

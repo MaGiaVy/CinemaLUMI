@@ -36,27 +36,18 @@ async function processTicketCancellation(
     }
 
     const session = await getServerSession(authOptions);
-    const searchParams = request.nextUrl.searchParams;
 
-    // 1. Xác định User đang yêu cầu
-    let currentUserId: number | null = session?.user?.id ? Number(session.user.id) : null;
-    const currentUserRole = session?.user?.role;
-
-    // Hỗ trợ tham số fallback user_id cho script kiểm thử tự động
-    if (!currentUserId && searchParams.get('user_id')) {
-      const parsedUserId = parseInt(searchParams.get('user_id')!, 10);
-      if (!isNaN(parsedUserId) && parsedUserId > 0) {
-        currentUserId = parsedUserId;
-      }
-    }
-
-    if (!currentUserId) {
+    // 1. Xác định User đang yêu cầu từ Server Session
+    if (!session || !session.user?.id) {
       throw new AppError(
         401,
         'Vui lòng đăng nhập để thực hiện hủy vé',
         'UNAUTHENTICATED'
       );
     }
+
+    const currentUserId = Number(session.user.id);
+    const currentUserRole = (session.user as { role?: string }).role;
 
     // 2. Tìm vé trong Database
     const ticket = await prisma.ticket.findUnique({

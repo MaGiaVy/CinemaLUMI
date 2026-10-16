@@ -76,12 +76,8 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const movieIdParam = searchParams.get('movie_id');
     const isAll = searchParams.get('all') === 'true';
-    const headerRole = request.headers.get('x-user-role');
-    const queryRole = searchParams.get('role');
     const session = await getServerSession(authOptions);
-    const isAdmin =
-      session?.user?.role === 'ADMIN' ||
-      (process.env.NODE_ENV === 'development' && (headerRole === 'ADMIN' || queryRole === 'ADMIN'));
+    const isAdmin = (session?.user as { role?: string })?.role === 'ADMIN';
 
     if (!movieIdParam && !isAll && !isAdmin) {
       throw new AppError(

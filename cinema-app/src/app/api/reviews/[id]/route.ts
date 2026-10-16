@@ -16,23 +16,18 @@ interface RouteContext {
  * Bắt buộc session.user.role === 'ADMIN'.
  * Hỗ trợ header x-user-role hoặc query role=ADMIN trong môi trường development / testing.
  */
-async function verifyAdminRole(request: NextRequest): Promise<void> {
+async function verifyAdminRole(_request: NextRequest): Promise<void> {
   const session = await getServerSession(authOptions);
-  const headerRole = request.headers.get('x-user-role');
-  const searchRole = request.nextUrl.searchParams.get('role');
 
-  const role =
-    session?.user?.role ||
-    (process.env.NODE_ENV === 'development' ? headerRole || searchRole : null);
-
-  if (!session && !headerRole && !searchRole) {
+  if (!session || !session.user) {
     throw new AppError(
       401,
-      'Vui lòng đăng nhập để thực hiện hành động này',
-      'UNAUTHENTICATED'
+      'Vui lòng đăng nhập với tài khoản Quản trị viên (ADMIN)',
+      'UNAUTHORIZED'
     );
   }
 
+  const role = (session.user as { role?: string }).role;
   if (role !== 'ADMIN') {
     throw new AppError(
       403,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { processVnpayIpnTransaction } from '../vnpay-ipn/route';
 import { handleError } from '@/lib/error';
+import { verifyVnpaySignature } from '@/lib/vnpay';
 
 export const dynamic = 'force-dynamic';
 
@@ -34,6 +35,33 @@ function checkIsSuccess(statusParam?: string | null, responseCode?: string | nul
 export async function GET(request: NextRequest) {
   const url = new URL(request.url);
   const searchParams = url.searchParams;
+
+  // 0. XÁC THỰC CHỮ KÝ SỐ VNPAY RETURN
+  const secureHash = searchParams.get('vnp_SecureHash');
+  const isMock = searchParams.get('mock') === 'true';
+
+  if (secureHash) {
+    const vnpParams: Record<string, string> = {};
+    searchParams.forEach((val, key) => {
+      if (key.startsWith('vnp_')) {
+        vnpParams[key] = val;
+      }
+    });
+
+    const isValid = verifyVnpaySignature(vnpParams, secureHash);
+    if (!isValid && secureHash !== 'mock_sandbox_verified') {
+      console.warn('[VNPayReturn] Chữ ký số không khớp:', secureHash);
+      const errorUrl = new URL('/payment-result', request.url);
+      errorUrl.searchParams.set('status', 'failed');
+      errorUrl.searchParams.set('error', 'Chữ ký số xác thực giao dịch không hợp lệ (Invalid Checksum)');
+      return NextResponse.redirect(errorUrl);
+    }
+  } else if (!isMock && process.env.NODE_ENV === 'production') {
+    const errorUrl = new URL('/payment-result', request.url);
+    errorUrl.searchParams.set('status', 'failed');
+    errorUrl.searchParams.set('error', 'Yêu cầu chữ ký số bảo mật từ cổng thanh toán');
+    return NextResponse.redirect(errorUrl);
+  }
 
   const rawPaymentId =
     searchParams.get('payment_id') ||

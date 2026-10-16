@@ -78,20 +78,16 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
     // 1. KIỂM TRA PHÂN QUYỀN (Ràng buộc bắt buộc: session.user.role === 'ADMIN')
     const session = await getServerSession(authOptions);
 
-    // Hỗ trợ header x-admin-role dành cho môi trường test/internal nếu có
-    const headerRole = request.headers.get('x-user-role');
-    const isAdmin =
-      session?.user?.role === 'ADMIN' ||
-      (process.env.NODE_ENV === 'development' && headerRole === 'ADMIN');
+    if (!session || !session.user) {
+      throw new AppError(
+        401,
+        'Yêu cầu xác thực. Vui lòng đăng nhập với tài khoản Quản trị viên (ADMIN)',
+        'UNAUTHORIZED'
+      );
+    }
 
-    if (!isAdmin) {
-      if (!session?.user) {
-        throw new AppError(
-          401,
-          'Yêu cầu xác thực. Vui lòng đăng nhập với tài khoản Quản trị viên (ADMIN)',
-          'UNAUTHORIZED'
-        );
-      }
+    const userRole = (session.user as { role?: string }).role;
+    if (userRole !== 'ADMIN') {
       throw new AppError(
         403,
         'Bạn không có quyền thực hiện thao tác này. Quyền yêu cầu: ADMIN',

@@ -68,14 +68,18 @@ const createComboSchema = z
 /**
  * Helper kiểm tra phân quyền Admin
  */
-async function verifyAdminRole(request: NextRequest): Promise<void> {
+async function verifyAdminRole(_request: NextRequest): Promise<void> {
   const session = await getServerSession(authOptions);
-  const headerRole = request.headers.get('x-user-role');
-  const isAdmin =
-    session?.user?.role === 'ADMIN' ||
-    (process.env.NODE_ENV === 'development' && headerRole === 'ADMIN');
+  if (!session || !session.user) {
+    throw new AppError(
+      401,
+      'Yêu cầu xác thực. Vui lòng đăng nhập với tài khoản Quản trị viên (ADMIN)',
+      'UNAUTHORIZED'
+    );
+  }
 
-  if (!isAdmin) {
+  const userRole = (session.user as { role?: string }).role;
+  if (userRole !== 'ADMIN') {
     throw new AppError(
       403,
       'Bạn không có quyền thực hiện hành động này. Yêu cầu quyền ADMIN.',
@@ -94,10 +98,7 @@ async function verifyAdminRole(request: NextRequest): Promise<void> {
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    const headerRole = request.headers.get('x-user-role');
-    const isAdmin =
-      session?.user?.role === 'ADMIN' ||
-      (process.env.NODE_ENV === 'development' && headerRole === 'ADMIN');
+    const isAdmin = (session?.user as { role?: string })?.role === 'ADMIN';
 
     const searchParams = request.nextUrl.searchParams;
     const forceClientMode = searchParams.get('client') === 'true';

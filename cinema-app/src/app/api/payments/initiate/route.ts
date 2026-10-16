@@ -181,11 +181,19 @@ export async function POST(request: NextRequest) {
     const rawCouponCode = data.coupon_code ?? data.couponCode;
     const paymentMethodEnum = resolvePaymentMethod(data.payment_method ?? data.paymentMethod);
 
-    // 1. Xác định User thực hiện thanh toán
+    // 1. Xác định User thực hiện thanh toán (Server-side Session Validation)
     const session = await getServerSession(authOptions);
-    let effectiveUserId: number | null = session?.user?.id ? Number(session.user.id) : null;
+    if (!session || !session.user?.id) {
+      throw new AppError(401, 'Vui lòng đăng nhập để tiến hành đặt vé trực tuyến', 'UNAUTHORIZED');
+    }
 
-    if (!effectiveUserId && (data.user_id || data.userId)) {
+    const sessionUserId = Number(session.user.id);
+    const sessionUserRole = (session.user as { role?: string }).role;
+
+    let effectiveUserId = sessionUserId;
+
+    // Chỉ nhân viên (STAFF) hoặc quản trị (ADMIN) mới được quyền chỉ định user_id khác (cho khách tại quầy)
+    if ((sessionUserRole === 'STAFF' || sessionUserRole === 'ADMIN') && (data.user_id || data.userId)) {
       const customUserId = (data.user_id ?? data.userId)!;
       const existingUser = await prisma.user.findUnique({
         where: { id: customUserId },
@@ -193,25 +201,6 @@ export async function POST(request: NextRequest) {
       });
       if (existingUser) {
         effectiveUserId = existingUser.id;
-      }
-    }
-
-    // Nếu không có session (khách vãng lai / test), tìm user mặc định để liên kết khóa ngoại
-    if (!effectiveUserId) {
-      const defaultCustomer = await prisma.user.findFirst({
-        where: { role: 'CUSTOMER' },
-        select: { id: true },
-      });
-
-      if (defaultCustomer) {
-        effectiveUserId = defaultCustomer.id;
-      } else {
-        const anyUser = await prisma.user.findFirst({ select: { id: true } });
-        if (anyUser) {
-          effectiveUserId = anyUser.id;
-        } else {
-          throw new AppError(401, 'Vui lòng đăng nhập để tiến hành đặt vé', 'UNAUTHORIZED');
-        }
       }
     }
 

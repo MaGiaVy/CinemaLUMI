@@ -79,19 +79,16 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
     const searchParams = request.nextUrl.searchParams;
 
-    // 1. Ràng buộc bảo mật: Bắt buộc quyền ADMIN
-    const userRole =
-      session?.user?.role ||
-      request.headers.get('x-user-role') ||
-      searchParams.get('role');
-
-    if (!userRole) {
+    // 1. Ràng buộc bảo mật: Bắt buộc quyền ADMIN từ Server Session
+    if (!session || !session.user) {
       throw new AppError(
         401,
-        'Vui lòng đăng nhập để truy cập báo cáo doanh thu',
+        'Vui lòng đăng nhập với tài khoản Quản trị viên (ADMIN)',
         'UNAUTHENTICATED'
       );
     }
+
+    const userRole = (session.user as { role?: string }).role;
 
     if (userRole !== 'ADMIN') {
       throw new AppError(

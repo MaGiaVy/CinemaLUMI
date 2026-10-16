@@ -236,12 +236,15 @@ function PaymentContent() {
   const finalTotal = Math.max(0, originalTotal - discountAmount);
 
   // Xử lý hết thời gian 10 phút giữ chỗ
-  const handleHoldExpire = () => {
-    showToast('Thời gian giữ chỗ thanh toán đã hết hạn! Vui lòng chọn lại vé.', 'warning');
+  const handleHoldExpire = useCallback(() => {
+    showToast('Thời gian giữ chỗ thanh toán (10 phút) đã hết hạn! Đang chuyển về trang chủ...', 'warning');
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.removeItem('lumi_booking_reservation');
+    }
     setTimeout(() => {
-      router.push(`/screenings/${screeningId}/seats`);
+      router.push('/');
     }, 2000);
-  };
+  }, [router, showToast]);
 
   // Xử lý áp dụng mã giảm giá / voucher
   const handleApplyCoupon = async () => {

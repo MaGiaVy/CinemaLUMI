@@ -287,12 +287,15 @@ export default function CheckoutPage() {
   };
 
   // Xử lý hết hạn 10 phút giữ ghế
-  const handleHoldExpire = () => {
-    showToast('Thời gian giữ chỗ đã hết hạn! Vui lòng chọn lại ghế.', 'warning');
+  const handleHoldExpire = useCallback(() => {
+    showToast('Thời gian giữ vé (10 phút) đã hết hạn! Đang chuyển về trang chủ...', 'warning');
+    if (typeof window !== 'undefined') {
+      window.sessionStorage.removeItem('lumi_booking_reservation');
+    }
     setTimeout(() => {
-      router.push(`/screenings/${screeningId}/seats`);
-    }, 2500);
-  };
+      router.push('/');
+    }, 2000);
+  }, [router, showToast]);
 
   // Xác nhận thanh toán
   const handleConfirmPayment = async () => {

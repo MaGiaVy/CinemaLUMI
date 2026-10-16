@@ -81,17 +81,27 @@ export default function StaffDashboardPage() {
               📅 {todayStr} • Ca làm việc: 08:00 - 17:00
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2">
             <Button
               variant="secondary"
               size="sm"
               onClick={fetchRecentTickets}
               disabled={loading}
             >
-              🔄 {loading ? 'Đang cập nhật...' : 'Làm mới dữ liệu'}
+              🔄 {loading ? 'Đang cập nhật...' : 'Làm mới'}
             </Button>
+            <Link href="/staff/pos">
+              <Button variant="primary" size="sm" className="bg-[#E63946] hover:bg-[#D90429]">
+                🎟️ Bán vé tại quầy (POS)
+              </Button>
+            </Link>
+            <Link href="/staff/combos">
+              <Button variant="secondary" size="sm" className="border-[#FFB703]/50 text-[#FFB703] hover:bg-[#FFB703]/10">
+                🍿 Giao combo
+              </Button>
+            </Link>
             <Link href="/staff/lookup">
-              <Button variant="primary" size="sm">
+              <Button variant="secondary" size="sm">
                 🔍 Tra cứu & Hủy vé
               </Button>
             </Link>

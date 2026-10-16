@@ -26,9 +26,19 @@ export interface StaffCancelTicketResult {
   refundPercentage: number;
   refund_amount: number;
   refundAmount: number;
+  refund_method?: 'CASH' | 'VOUCHER';
   reason: string;
   payment_status?: string | null;
   paymentStatus?: string | null;
+  cash_receipt?: {
+    receipt_no: string;
+    ticket_id: number;
+    customer_name: string;
+    refund_amount: number;
+    staff_id: string | null;
+    timestamp: string;
+    status: string;
+  } | null;
   compensation_voucher: {
     id: number;
     code: string;
@@ -49,6 +59,7 @@ export interface StaffCancelTicketResult {
     ticket_price: number;
     refund_rate: string;
     refund_amount: number;
+    refund_method: string;
     reason: string;
     staff_role: string;
     staff_id: string | null;
@@ -108,8 +119,9 @@ export async function POST(
     }
 
     // 2. Đọc thông tin lý do và tùy chọn từ Request Body
-    let reason = 'Xử lý sự cố tại quầy / Đền bù khách hàng 100%';
-    let issueVoucher = true;
+    let reason = 'Xử lý sự cố tại quầy / Sự cố kỹ thuật phòng chiếu (SRS UC-15)';
+    let refundMethod: 'CASH' | 'VOUCHER' = 'CASH'; // Mặc định theo SRS là hoàn tiền mặt 100%
+    let issueVoucher = false;
     let notes = '';
 
     try {
@@ -118,17 +130,19 @@ export async function POST(
         if (typeof body.reason === 'string' && body.reason.trim()) {
           reason = body.reason.trim();
         }
-        if (typeof body.issue_voucher === 'boolean') {
-          issueVoucher = body.issue_voucher;
-        } else if (typeof body.issueVoucher === 'boolean') {
-          issueVoucher = body.issueVoucher;
+        if (body.refund_method === 'VOUCHER' || body.refundMethod === 'VOUCHER' || body.issue_voucher === true || body.issueVoucher === true) {
+          refundMethod = 'VOUCHER';
+          issueVoucher = true;
+        } else if (body.refund_method === 'CASH' || body.refundMethod === 'CASH' || body.issue_voucher === false || body.issueVoucher === false) {
+          refundMethod = 'CASH';
+          issueVoucher = false;
         }
         if (typeof body.notes === 'string') {
           notes = body.notes.trim();
         }
       }
     } catch {
-      // Body trống hoặc không phải JSON hợp lệ: tiếp tục với cấu hình mặc định
+      // Body trống hoặc không phải JSON hợp lệ: tiếp tục với cấu hình mặc định (hoàn tiền mặt)
     }
 
     // 3. Tìm vé trong cơ sở dữ liệu
@@ -253,6 +267,7 @@ export async function POST(
         ticket_price: Number(ticket.price),
         refund_rate: '100%',
         refund_amount: Number(ticket.price),
+        refund_method: refundMethod === 'CASH' ? 'Hoàn 100% tiền mặt tại quầy (SRS UC-15)' : 'Cấp Voucher đền bù 100%',
         reason: notes ? `${reason} (Ghi chú: ${notes})` : reason,
         staff_role: userRole,
         staff_id: staffId,
@@ -260,7 +275,7 @@ export async function POST(
         timestamp: new Date().toISOString(),
       };
 
-      console.log(`[STAFF_INCIDENT_CANCELLATION] Ticket #${ticket.id} force-cancelled by ${userRole} (${staffId || 'anonymous'}). Reason: ${reason}`);
+      console.log(`[STAFF_INCIDENT_CANCELLATION] Ticket #${ticket.id} force-cancelled by ${userRole} (${staffId || 'anonymous'}). Method: ${refundMethod}. Reason: ${reason}`);
 
       return {
         updatedTicket,
@@ -296,6 +311,16 @@ export async function POST(
       refundPercentage: 100,
       refund_amount: Number(ticket.price),
       refundAmount: Number(ticket.price),
+      refund_method: refundMethod,
+      cash_receipt: refundMethod === 'CASH' ? {
+        receipt_no: `REF-CASH-${ticket.id}-${Date.now().toString().slice(-4)}`,
+        ticket_id: ticket.id,
+        customer_name: ticket.user.name,
+        refund_amount: Number(ticket.price),
+        staff_id: staffId,
+        timestamp: new Date().toISOString(),
+        status: 'COMPLETED_CASH_REFUND',
+      } : null,
       reason,
       payment_status: result.paymentStatus,
       paymentStatus: result.paymentStatus,

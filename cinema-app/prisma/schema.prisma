@@ -28,6 +28,7 @@ enum ScreeningStatus {
   UPCOMING
   SHOWING
   ENDED
+  CANCELLED
 }
 
 enum SeatType {
@@ -114,6 +115,7 @@ model Movie {
   cast        String?         @db.Text
   status      MovieStatus     @default(SHOWING)
   ticketPrice Decimal         @default(120000) @map("ticket_price") @db.Decimal(10, 2)
+  isDeleted   Boolean         @default(false) @map("is_deleted")
   createdAt   DateTime        @default(now()) @map("created_at")
   updatedAt   DateTime        @updatedAt @map("updated_at")
 
@@ -291,13 +293,15 @@ model Ticket {
 
 // 10. Bảng Order_Combos (Chi tiết mua bắp nước theo hóa đơn)
 model OrderCombo {
-  id        Int      @id @default(autoincrement()) @map("order_combo_id")
-  paymentId Int      @map("payment_id")
-  comboId   Int      @map("combo_id")
-  quantity  Int
-  price     Decimal  @db.Decimal(10, 2) // Giá combo tại thời điểm mua
-  createdAt DateTime @default(now()) @map("created_at")
-  updatedAt DateTime @updatedAt @map("updated_at")
+  id          Int       @id @default(autoincrement()) @map("order_combo_id")
+  paymentId   Int       @map("payment_id")
+  comboId     Int       @map("combo_id")
+  quantity    Int
+  price       Decimal   @db.Decimal(10, 2) // Giá combo tại thời điểm mua
+  isDelivered Boolean   @default(false) @map("is_delivered")
+  deliveredAt DateTime? @map("delivered_at")
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
 
   // Quan hệ (Relations): Xóa payment thì xóa kèm order combo (CASCADE)
   payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)

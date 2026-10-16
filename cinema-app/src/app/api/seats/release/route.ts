@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { AppError, handleError } from '@/lib/error';
 import { apiResponse } from '@/lib/api-response';
+import { requireAuth } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -18,12 +19,15 @@ interface ReleaseSeatsResponseData {
  * POST /api/seats/release
  * 
  * Hủy giữ chỗ các ghế (người dùng bấm bỏ chọn hoặc rời khỏi trang thanh toán):
+ * - Bắt buộc xác thực người dùng.
  * - Nhận payload: { seat_ids: number[] }
  * - Cập nhật các ghế trong danh sách về status = 'EMPTY' và reserved_until = null.
  * - Chỉ hủy những ghế đang ở trạng thái 'RESERVED' (không hủy các ghế đã 'OCCUPIED' / đã mua vé).
  */
 export async function POST(request: NextRequest) {
   try {
+    const user = await requireAuth();
+
     let body: ReleaseSeatsPayload;
     try {
       body = await request.json();
@@ -48,6 +52,24 @@ export async function POST(request: NextRequest) {
         'Tất cả phần tử trong mảng seat_ids phải là số nguyên dương hợp lệ',
         'INVALID_SEAT_ID_ELEMENT'
       );
+    }
+
+    // Nếu là CUSTOMER, hủy kèm đơn thanh toán Pending liên quan (nếu có)
+    if (user.role === 'CUSTOMER') {
+      const pendingPayment = await prisma.payment.findFirst({
+        where: {
+          userId: user.id,
+          status: 'Pending',
+        },
+        orderBy: { createdAt: 'desc' },
+      });
+
+      if (pendingPayment) {
+        await prisma.payment.update({
+          where: { id: pendingPayment.id },
+          data: { status: 'Failed' },
+        });
+      }
     }
 
     // Cập nhật các ghế đang RESERVED về trạng thái EMPTY và xóa thời gian giữ chỗ

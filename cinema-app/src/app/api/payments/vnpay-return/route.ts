@@ -38,7 +38,8 @@ export async function GET(request: NextRequest) {
 
   // 0. XÁC THỰC CHỮ KÝ SỐ VNPAY RETURN
   const secureHash = searchParams.get('vnp_SecureHash');
-  const isMock = searchParams.get('mock') === 'true';
+  const isProduction = process.env.NODE_ENV === 'production';
+  const isMock = !isProduction && searchParams.get('mock') === 'true';
 
   if (secureHash) {
     const vnpParams: Record<string, string> = {};
@@ -49,14 +50,14 @@ export async function GET(request: NextRequest) {
     });
 
     const isValid = verifyVnpaySignature(vnpParams, secureHash);
-    if (!isValid && secureHash !== 'mock_sandbox_verified') {
+    if (!isValid && (isProduction || secureHash !== 'mock_sandbox_verified')) {
       console.warn('[VNPayReturn] Chữ ký số không khớp:', secureHash);
       const errorUrl = new URL('/payment-result', request.url);
       errorUrl.searchParams.set('status', 'failed');
       errorUrl.searchParams.set('error', 'Chữ ký số xác thực giao dịch không hợp lệ (Invalid Checksum)');
       return NextResponse.redirect(errorUrl);
     }
-  } else if (!isMock && process.env.NODE_ENV === 'production') {
+  } else if (isProduction || !isMock) {
     const errorUrl = new URL('/payment-result', request.url);
     errorUrl.searchParams.set('status', 'failed');
     errorUrl.searchParams.set('error', 'Yêu cầu chữ ký số bảo mật từ cổng thanh toán');
@@ -71,17 +72,13 @@ export async function GET(request: NextRequest) {
   const statusParam = searchParams.get('status');
   const responseCode = searchParams.get('vnp_ResponseCode') || searchParams.get('code') || '99';
   const txnCode = searchParams.get('vnp_TransactionNo') || searchParams.get('txn_code');
-  const amount = searchParams.get('amount') || searchParams.get('vnp_Amount');
-  const orderInfo = searchParams.get('order_info') || searchParams.get('vnp_OrderInfo');
-
-  // Lấy các tham số phụ nếu có
-  const rawSeats = searchParams.get('seat_ids') || searchParams.get('seats');
-  const overrideSeatIds = rawSeats
-    ? rawSeats.split(',').map(s => parseInt(s, 10)).filter(n => !isNaN(n))
+  const rawVnpAmount = searchParams.get('vnp_Amount') || searchParams.get('amount');
+  const paidAmount = rawVnpAmount
+    ? Number(rawVnpAmount) > 1000000 && String(rawVnpAmount).endsWith('00')
+      ? Number(rawVnpAmount) / 100
+      : Number(rawVnpAmount)
     : undefined;
-  const rawScreening = searchParams.get('screening_id');
-  const overrideScreeningId = rawScreening ? parseInt(rawScreening, 10) : undefined;
-  const overrideCouponCode = searchParams.get('coupon_code') || undefined;
+  const orderInfo = searchParams.get('order_info') || searchParams.get('vnp_OrderInfo');
 
   const isSuccess = checkIsSuccess(statusParam, responseCode);
 
@@ -107,9 +104,7 @@ export async function GET(request: NextRequest) {
       paymentId,
       isSuccess,
       txnCode,
-      overrideSeatIds,
-      overrideScreeningId,
-      overrideCouponCode
+      paidAmount
     );
   } catch (error) {
     const errorResponse = handleError(error);
@@ -122,11 +117,8 @@ export async function GET(request: NextRequest) {
   resultUrl.searchParams.set('status', isSuccess ? 'success' : 'failed');
   resultUrl.searchParams.set('code', isSuccess ? '00' : responseCode);
 
-  if (amount) {
-    // VNPay gửi amount x100, chuẩn hóa nếu cần
-    const parsedAmount = Number(amount);
-    const normalizedAmount = parsedAmount > 10000000 && !searchParams.get('amount') ? Math.round(parsedAmount / 100) : parsedAmount;
-    resultUrl.searchParams.set('amount', String(normalizedAmount));
+  if (paidAmount !== undefined) {
+    resultUrl.searchParams.set('amount', String(paidAmount));
   }
 
   if (orderInfo) {

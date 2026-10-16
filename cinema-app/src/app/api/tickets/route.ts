@@ -5,6 +5,7 @@ import { authOptions } from '@/lib/auth';
 import { AppError, handleError } from '@/lib/error';
 import { apiResponse } from '@/lib/api-response';
 import { TicketStatus } from '@prisma/client';
+import { requireAuth } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -77,26 +78,27 @@ export interface TicketListItem {
  */
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
+    const user = await requireAuth();
     const searchParams = request.nextUrl.searchParams;
 
-    // 1. Xác định User ID
-    let currentUserId: number | null = session?.user?.id ? Number(session.user.id) : null;
+    // 1. Xác định User ID: Khách hàng chỉ xem vé của chính mình
+    let currentUserId = user.id;
 
-    // Cho phép fallback query param user_id nếu gọi từ script test hoặc tài khoản Admin/Staff
-    if (!currentUserId && searchParams.get('user_id')) {
-      const parsedUserId = parseInt(searchParams.get('user_id')!, 10);
-      if (!isNaN(parsedUserId) && parsedUserId > 0) {
-        currentUserId = parsedUserId;
+    // Chỉ ADMIN hoặc STAFF mới được phép tra cứu vé của user khác qua ?user_id=
+    const queryUserId = searchParams.get('user_id');
+    if (queryUserId) {
+      if (user.role === 'ADMIN' || user.role === 'STAFF') {
+        const parsedUserId = parseInt(queryUserId, 10);
+        if (!isNaN(parsedUserId) && parsedUserId > 0) {
+          currentUserId = parsedUserId;
+        }
+      } else {
+        throw new AppError(
+          403,
+          'Bạn không có quyền xem danh sách vé của người dùng khác',
+          'FORBIDDEN'
+        );
       }
-    }
-
-    if (!currentUserId) {
-      throw new AppError(
-        401,
-        'Vui lòng đăng nhập để xem danh sách vé của bạn',
-        'UNAUTHENTICATED'
-      );
     }
 
     // Lọc theo trạng thái vé nếu có truyền (ví dụ: ?status=Valid)

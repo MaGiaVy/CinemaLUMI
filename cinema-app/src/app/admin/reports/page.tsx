@@ -114,9 +114,12 @@ export default function AdminReportsPage() {
     }
   };
 
-  // Tính toán số liệu tổng hợp của báo cáo
-  const totalRevenue = reports.reduce((sum, r) => sum + r.total_revenue, 0);
+  // Tính toán số liệu tổng hợp của báo cáo (Phân tách Thực thu, Doanh thu gộp, Tiền hoàn lại)
+  const totalNetRevenue = reports.reduce((sum, r) => sum + (r.net_revenue ?? r.total_revenue), 0);
+  const totalGrossRevenue = reports.reduce((sum, r) => sum + (r.gross_revenue ?? r.total_revenue), 0);
+  const totalRefunded = reports.reduce((sum, r) => sum + (r.refunded_amount ?? 0), 0);
   const totalTickets = reports.reduce((sum, r) => sum + r.tickets_sold, 0);
+  const totalCancelledTickets = reports.reduce((sum, r) => sum + (r.cancelled_tickets ?? 0), 0);
   const totalSeats = reports.reduce((sum, r) => sum + r.total_seats, 0);
   const overallFillRate = totalSeats > 0 ? Number(((totalTickets / totalSeats) * 100).toFixed(1)) : 0;
 
@@ -135,10 +138,13 @@ export default function AdminReportsPage() {
       'Phim',
       'Phòng chiếu',
       'Giá vé',
-      'Vé đã bán',
+      'Vé đã bán (Hợp lệ)',
+      'Vé đã hủy / hoàn',
       'Tổng số ghế',
       'Tỷ lệ lấp đầy (%)',
-      'Doanh thu (VNĐ)',
+      'Doanh thu gộp (VNĐ)',
+      'Tiền hoàn lại (VNĐ)',
+      'Doanh thu thực thu (VNĐ)',
     ];
 
     const rows = reports.map((r) => [
@@ -150,9 +156,12 @@ export default function AdminReportsPage() {
       `"${r.room}"`,
       r.base_price,
       r.tickets_sold,
+      r.cancelled_tickets ?? 0,
       r.total_seats,
       `${r.fill_rate}%`,
-      r.total_revenue,
+      r.gross_revenue ?? r.total_revenue,
+      r.refunded_amount ?? 0,
+      r.net_revenue ?? r.total_revenue,
     ]);
 
     const csvContent = '\uFEFF' + [headers.join(','), ...rows.map((row) => row.join(','))].join('\n');
@@ -341,41 +350,55 @@ export default function AdminReportsPage() {
         </div>
 
         {/* Summary Stats of Current Filter */}
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
           <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4">
             <span className="text-[#A3A3A3] text-xs font-medium uppercase tracking-wider block">
-              TỔNG DOANH THU KỲ LỌC
-            </span>
-            <span className="text-[#FFB703] font-black text-xl lg:text-2xl mt-1 block">
-              {totalRevenue.toLocaleString('vi-VN')} đ
-            </span>
-          </div>
-
-          <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4">
-            <span className="text-[#A3A3A3] text-xs font-medium uppercase tracking-wider block">
-              TỔNG VÉ ĐÃ BÁN
+              DOANH THU THỰC THU
             </span>
             <span className="text-[#2ECC71] font-black text-xl lg:text-2xl mt-1 block">
-              {totalTickets.toLocaleString('vi-VN')} vé
+              {totalNetRevenue.toLocaleString('vi-VN')} đ
             </span>
+            <span className="text-[11px] text-[#737373] mt-1 block">Sau khi trừ các vé hoàn</span>
           </div>
 
           <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4">
             <span className="text-[#A3A3A3] text-xs font-medium uppercase tracking-wider block">
-              SỐ SUẤT CHIẾU
+              DOANH THU GỘP
+            </span>
+            <span className="text-[#FFB703] font-black text-xl lg:text-2xl mt-1 block">
+              {totalGrossRevenue.toLocaleString('vi-VN')} đ
+            </span>
+            <span className="text-[11px] text-[#737373] mt-1 block">Tổng bán vé ban đầu</span>
+          </div>
+
+          <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4">
+            <span className="text-[#A3A3A3] text-xs font-medium uppercase tracking-wider block">
+              TIỀN ĐÃ HOÀN LẠI
+            </span>
+            <span className="text-[#E63946] font-black text-xl lg:text-2xl mt-1 block">
+              {totalRefunded.toLocaleString('vi-VN')} đ
+            </span>
+            <span className="text-[11px] text-[#737373] mt-1 block">{totalCancelledTickets} vé hủy/bồi hoàn</span>
+          </div>
+
+          <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4">
+            <span className="text-[#A3A3A3] text-xs font-medium uppercase tracking-wider block">
+              VÉ HỢP LỆ / ĐÃ BÁN
             </span>
             <span className="text-[#0088FF] font-black text-xl lg:text-2xl mt-1 block">
-              {reports.length} suất
+              {totalTickets.toLocaleString('vi-VN')} vé
             </span>
+            <span className="text-[11px] text-[#737373] mt-1 block">{reports.length} suất chiếu</span>
           </div>
 
           <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4">
             <span className="text-[#A3A3A3] text-xs font-medium uppercase tracking-wider block">
-              TỶ LỆ LẤP ĐẦY BÌNH QUÂN
+              TỶ LỆ LẤP ĐẦY
             </span>
             <span className="text-white font-black text-xl lg:text-2xl mt-1 block">
               {overallFillRate}%
             </span>
+            <span className="text-[11px] text-[#737373] mt-1 block">Bình quân toàn rạp</span>
           </div>
         </div>
 
@@ -423,7 +446,8 @@ export default function AdminReportsPage() {
                     <th className="px-5 py-3.5">Phòng Chiếu</th>
                     <th className="px-5 py-3.5">Vé Bán / Tổng Ghế</th>
                     <th className="px-5 py-3.5">Tỷ Lệ Lấp Đầy</th>
-                    <th className="px-5 py-3.5 text-right">Doanh Thu</th>
+                    <th className="px-5 py-3.5 text-right">Tiền Đã Hoàn</th>
+                    <th className="px-5 py-3.5 text-right">Doanh Thu Thực Thu</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#2D2D2D]">
@@ -492,6 +516,11 @@ export default function AdminReportsPage() {
                           </div>
                           <div className="text-xs text-[#737373]">
                             Còn trống: {r.empty_seats}
+                            {(r.cancelled_tickets ?? 0) > 0 && (
+                              <span className="text-[#E63946] ml-1.5 font-medium">
+                                • {r.cancelled_tickets} vé hủy
+                              </span>
+                            )}
                           </div>
                         </td>
 
@@ -513,8 +542,25 @@ export default function AdminReportsPage() {
                           </div>
                         </td>
 
-                        <td className="px-5 py-4 text-right font-black text-[#FFB703] whitespace-nowrap text-base">
-                          {r.total_revenue.toLocaleString('vi-VN')} đ
+                        <td className="px-5 py-4 text-right whitespace-nowrap text-sm">
+                          {(r.refunded_amount ?? 0) > 0 ? (
+                            <span className="text-[#E63946] font-bold">
+                              -{(r.refunded_amount ?? 0).toLocaleString('vi-VN')} đ
+                            </span>
+                          ) : (
+                            <span className="text-[#737373]">0 đ</span>
+                          )}
+                        </td>
+
+                        <td className="px-5 py-4 text-right whitespace-nowrap">
+                          <div className="font-black text-[#2ECC71] text-base">
+                            {(r.net_revenue ?? r.total_revenue).toLocaleString('vi-VN')} đ
+                          </div>
+                          {(r.gross_revenue ?? r.total_revenue) !== (r.net_revenue ?? r.total_revenue) && (
+                            <div className="text-[11px] text-[#737373]">
+                              Gộp: {(r.gross_revenue ?? r.total_revenue).toLocaleString('vi-VN')} đ
+                            </div>
+                          )}
                         </td>
                       </tr>
                     );

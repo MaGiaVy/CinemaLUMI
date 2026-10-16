@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse } from '@/lib/api-response';
 import { handleError } from '@/lib/error';
+import { requireAuth } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -120,6 +121,8 @@ export async function PUT(
   { params }: RouteContext
 ) {
   try {
+    await requireAuth(['ADMIN']);
+
     const { id } = await params;
     const screeningId = parseInt(id, 10);
 
@@ -321,6 +324,8 @@ export async function DELETE(
   { params }: RouteContext
 ) {
   try {
+    await requireAuth(['ADMIN']);
+
     const { id } = await params;
     const screeningId = parseInt(id, 10);
 
@@ -364,37 +369,58 @@ export async function DELETE(
       return apiResponse(false, undefined, 'Không tìm thấy suất chiếu cần xóa', 404);
     }
 
-    const soldTickets = screening.tickets.filter(t => t.status !== 'Cancelled');
-    const hasSoldTickets = soldTickets.length > 0;
+    // Chỉ lọc các vé hợp lệ chưa sử dụng để hoàn tiền (KHÔNG chạm vào vé đã USED)
+    const validTickets = screening.tickets.filter(t => t.status === 'Valid');
+    const hasTicketsEverSold = screening.tickets.length > 0;
 
     // 2. THỰC THI QUA TRANSACTION
     const result = await prisma.$transaction(async (tx) => {
-      if (hasSoldTickets) {
-        // Cập nhật trạng thái toàn bộ vé của suất chiếu này thành Cancelled
-        await tx.ticket.updateMany({
-          where: {
-            screeningId,
-          },
+      if (hasTicketsEverSold) {
+        // Chỉ cập nhật các vé 'Valid' sang 'Cancelled'
+        if (validTickets.length > 0) {
+          await tx.ticket.updateMany({
+            where: {
+              screeningId,
+              status: 'Valid',
+            },
+            data: {
+              status: 'Cancelled',
+            },
+          });
+        }
+
+        // Giải phóng toàn bộ ghế của suất chiếu về trạng thái EMPTY
+        await tx.seat.updateMany({
+          where: { screeningId },
           data: {
-            status: 'Cancelled',
+            status: 'EMPTY',
+            reservedUntil: null,
           },
         });
 
-        // Tính toán số tiền hoàn trả 100%
-        const totalRefundAmount = soldTickets.reduce((sum, t) => sum + Number(t.price), 0);
+        // Đổi trạng thái suất chiếu sang ENDED (Soft Delete) để bảo toàn liên kết lịch sử vé
+        await tx.screening.update({
+          where: { id: screeningId },
+          data: {
+            status: 'ENDED',
+          },
+        });
 
-        // Danh sách khách hàng bị ảnh hưởng để phục vụ gửi email / voucher hoàn tiền ở phase sau
+        // Tính toán số tiền hoàn trả cho các vé Valid
+        const totalRefundAmount = validTickets.reduce((sum, t) => sum + Number(t.price), 0);
+
+        // Danh sách khách hàng có vé Valid bị ảnh hưởng
         const affectedUsers = Array.from(
           new Map(
-            soldTickets.map(t => [
+            validTickets.map(t => [
               t.user.id,
               {
                 user_id: t.user.id,
                 name: t.user.name,
                 email: t.user.email,
                 phone: t.user.phone,
-                ticket_count: soldTickets.filter(st => st.userId === t.userId).length,
-                refund_amount: soldTickets
+                ticket_count: validTickets.filter(st => st.userId === t.userId).length,
+                refund_amount: validTickets
                   .filter(st => st.userId === t.userId)
                   .reduce((sum, st) => sum + Number(st.price), 0),
               },
@@ -402,22 +428,19 @@ export async function DELETE(
           ).values()
         );
 
-        // Xóa suất chiếu (ghế gắn với suất chiếu sẽ tự động xóa theo CASCADE)
-        await tx.screening.delete({
-          where: { id: screeningId },
-        });
-
         return {
-          deleted_screening_id: screeningId,
+          screening_id: screeningId,
           movie_title: screening.movie.title,
+          soft_deleted: true,
+          status: 'ENDED',
           refund_flow_recorded: true,
-          cancelled_tickets_count: soldTickets.length,
+          cancelled_valid_tickets_count: validTickets.length,
           total_refund_amount: totalRefundAmount,
           affected_users: affectedUsers,
-          note: 'Toàn bộ vé đã được chuyển sang trạng thái CANCELLED và ghi nhận luồng hoàn tiền 100%. API hoàn tiền/cấp voucher sẽ được xử lý ở Phase sau.',
+          note: 'Suất chiếu đã được chuyển sang trạng thái ENDED và giải phóng ghế. Các vé Valid đã được hủy để hoàn tiền 100%. Lịch sử vé đã Used được bảo toàn nguyên vẹn.',
         };
       } else {
-        // Chưa có khách mua vé -> Xóa bình thường
+        // Chưa từng có khách nào mua vé -> Xóa vật lý bình thường
         await tx.screening.delete({
           where: { id: screeningId },
         });
@@ -431,8 +454,8 @@ export async function DELETE(
       }
     });
 
-    const responseMessage = hasSoldTickets
-      ? `Đã xóa suất chiếu phim "${screening.movie.title}". Hệ thống đã tự động chuyển ${result.cancelled_tickets_count} vé sang trạng thái CANCELLED và ghi nhận hoàn tiền 100% cho khách hàng.`
+    const responseMessage = hasTicketsEverSold
+      ? `Suất chiếu phim "${screening.movie.title}" đã được đóng (ENDED). Đã giải phóng ghế, hủy ${result.cancelled_valid_tickets_count} vé chưa dùng để hoàn tiền 100% và bảo toàn toàn bộ lịch sử vé đã xem.`
       : `Đã xóa suất chiếu phim "${screening.movie.title}" thành công (suất chiếu chưa có vé nào được bán).`;
 
     return apiResponse(

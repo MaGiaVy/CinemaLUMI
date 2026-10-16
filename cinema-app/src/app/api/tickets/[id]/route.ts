@@ -7,6 +7,7 @@ import { AppError, handleError } from '@/lib/error';
 import { apiResponse } from '@/lib/api-response';
 import { TicketStatus, SeatStatus, DiscountType } from '@prisma/client';
 import { sendVoucherIssued } from '@/lib/email';
+import { requireAuth } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -112,28 +113,9 @@ export async function GET(
       throw new AppError(400, 'Mã định danh vé (id) không hợp lệ', 'INVALID_TICKET_ID');
     }
 
-    const session = await getServerSession(authOptions);
-    const searchParams = request.nextUrl.searchParams;
-
-    // 1. Xác định User đang yêu cầu
-    let currentUserId: number | null = session?.user?.id ? Number(session.user.id) : null;
-    const currentUserRole = session?.user?.role;
-
-    // Fallback query param user_id cho script test tự động
-    if (!currentUserId && searchParams.get('user_id')) {
-      const parsedUserId = parseInt(searchParams.get('user_id')!, 10);
-      if (!isNaN(parsedUserId) && parsedUserId > 0) {
-        currentUserId = parsedUserId;
-      }
-    }
-
-    if (!currentUserId) {
-      throw new AppError(
-        401,
-        'Vui lòng đăng nhập để xem chi tiết vé',
-        'UNAUTHENTICATED'
-      );
-    }
+    const user = await requireAuth();
+    const currentUserId = user.id;
+    const currentUserRole = user.role;
 
     // 2. Truy vấn chi tiết vé kèm đầy đủ các bảng liên quan
     const ticket = await prisma.ticket.findUnique({
@@ -332,27 +314,9 @@ export async function DELETE(
       throw new AppError(400, 'Mã định danh vé (id) không hợp lệ', 'INVALID_TICKET_ID');
     }
 
-    const session = await getServerSession(authOptions);
-    const searchParams = request.nextUrl.searchParams;
-
-    // 1. Xác định User đang yêu cầu
-    let currentUserId: number | null = session?.user?.id ? Number(session.user.id) : null;
-    const currentUserRole = session?.user?.role;
-
-    if (!currentUserId && searchParams.get('user_id')) {
-      const parsedUserId = parseInt(searchParams.get('user_id')!, 10);
-      if (!isNaN(parsedUserId) && parsedUserId > 0) {
-        currentUserId = parsedUserId;
-      }
-    }
-
-    if (!currentUserId) {
-      throw new AppError(
-        401,
-        'Vui lòng đăng nhập để thực hiện hủy vé',
-        'UNAUTHENTICATED'
-      );
-    }
+    const user = await requireAuth();
+    const currentUserId = user.id;
+    const currentUserRole = user.role;
 
     // 2. Tìm vé trong Database
     const ticket = await prisma.ticket.findUnique({

@@ -274,6 +274,45 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Kiểm tra xem ghế có đang bị người dùng KHÁC giữ chỗ hợp lệ hay không (RESERVED)
+    const currentlyReservedSeats = seats.filter(
+      s => s.status === SeatStatus.RESERVED && s.reservedUntil && new Date(s.reservedUntil) > new Date()
+    );
+
+    if (currentlyReservedSeats.length > 0) {
+      // Tìm xem có đơn thanh toán Pending của người dùng KHÁC đang giữ ghế này trong 10 phút gần nhất không
+      const otherUserPendingPayments = await prisma.payment.findMany({
+        where: {
+          screeningId: finalScreeningId,
+          status: PaymentStatus.Pending,
+          userId: { not: effectiveUserId },
+          createdAt: { gte: new Date(Date.now() - 10 * 60 * 1000) },
+        },
+        select: {
+          seatIds: true,
+        },
+      });
+
+      const otherReservedSeatIds = new Set<number>();
+      for (const p of otherUserPendingPayments) {
+        if (Array.isArray(p.seatIds)) {
+          for (const sId of p.seatIds) {
+            otherReservedSeatIds.add(Number(sId));
+          }
+        }
+      }
+
+      const conflictingSeats = currentlyReservedSeats.filter(s => otherReservedSeatIds.has(s.id));
+      if (conflictingSeats.length > 0) {
+        const conflictCodes = conflictingSeats.map(s => s.code).join(', ');
+        throw new AppError(
+          400,
+          `Ghế [${conflictCodes}] đang được một khách hàng khác giữ chỗ trong phiên thanh toán. Vui lòng chọn ghế khác!`,
+          'SEAT_HELD_BY_ANOTHER_USER'
+        );
+      }
+    }
+
     // 4. SERVER-SIDE CALCULATION: Tính giá vé
     let ticketTotal = 0;
     const ticketBreakdown: TicketBreakdownItem[] = [];
@@ -431,16 +470,16 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // Tính số tiền giảm giá
+      // Tính số tiền giảm giá theo SRS: Voucher chỉ áp dụng trên TIỀN VÉ (ticketTotal), không giảm trên combo
       const discountVal = Number(coupon.discountValue);
       if (coupon.discountType === 'Percentage') {
-        discountAmount = Math.round((subtotal * discountVal) / 100);
+        discountAmount = Math.round((ticketTotal * discountVal) / 100);
       } else {
         discountAmount = discountVal;
       }
 
-      // Số tiền giảm không được vượt quá tổng hóa đơn
-      discountAmount = Math.min(discountAmount, subtotal);
+      // Số tiền giảm không được vượt quá tổng tiền vé
+      discountAmount = Math.min(discountAmount, ticketTotal);
 
       appliedCouponInfo = {
         coupon_id: coupon.id,
@@ -451,8 +490,8 @@ export async function POST(request: NextRequest) {
       };
     }
 
-    // Số tiền cuối cùng khách phải thanh toán
-    const finalAmount = Math.max(0, subtotal - discountAmount);
+    // Số tiền cuối cùng khách phải thanh toán: (tiền vé sau giảm giá) + tiền combo
+    const finalAmount = Math.max(0, (ticketTotal - discountAmount) + comboTotal);
 
     // 7. THỰC THI TRANSACTION: Tạo Payment PENDING và cập nhật trạng thái giữ chỗ
     const HOLD_MINUTES = 10;

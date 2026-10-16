@@ -11,7 +11,9 @@ interface StaffSidebarProps {
 
 const navItems = [
   { icon: '🏠', label: 'Dashboard', page: 'staff-dashboard', href: '/staff' },
-  { icon: '🔍', label: 'Tra cứu vé', page: 'staff-lookup', href: '/staff/lookup' },
+  { icon: '🔍', label: 'Tra cứu & Soát vé', page: 'staff-lookup', href: '/staff/lookup' },
+  { icon: '🎟️', label: 'Bán vé tại quầy (POS)', page: 'staff-pos', href: '/staff/pos' },
+  { icon: '🍿', label: 'Giao nhận combo', page: 'staff-combos', href: '/staff/combos' },
 ];
 
 export default function StaffSidebar({ currentPage, onNavigate: _onNavigate }: StaffSidebarProps) {

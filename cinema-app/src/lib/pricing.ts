@@ -17,6 +17,12 @@ export const DEFAULT_TICKET_PERCENTAGES: Record<string, number> = {
   'trẻ em': 50,
   'vé trẻ em': 50,
   'child': 50,
+  'vip': 120,
+  'vé vip': 120,
+  'ghế đôi': 180,
+  'vé đôi': 180,
+  'couple': 180,
+  'sweetbox': 180,
 };
 
 /**

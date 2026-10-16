@@ -35,7 +35,8 @@ function TicketLookupContent() {
   const [cancelModalOpen, setCancelModalOpen] = useState(false);
   const [selectedReason, setSelectedReason] = useState(INCIDENT_REASONS[0]);
   const [customReason, setCustomReason] = useState('');
-  const [issueVoucher, setIssueVoucher] = useState(true);
+  const [refundMethod, setRefundMethod] = useState<'CASH' | 'VOUCHER'>('CASH');
+  const [issueVoucher, setIssueVoucher] = useState(false);
   const [staffNotes, setStaffNotes] = useState('');
   const [cancelling, setCancelling] = useState(false);
 
@@ -103,7 +104,8 @@ function TicketLookupContent() {
     setSelectedTicketForCancel(ticket);
     setSelectedReason(INCIDENT_REASONS[0]);
     setCustomReason('');
-    setIssueVoucher(true);
+    setRefundMethod('CASH');
+    setIssueVoucher(false);
     setStaffNotes('');
     setCancelModalOpen(true);
   };
@@ -125,7 +127,8 @@ function TicketLookupContent() {
         },
         body: JSON.stringify({
           reason: finalReason,
-          issue_voucher: issueVoucher,
+          refund_method: refundMethod,
+          issue_voucher: refundMethod === 'VOUCHER',
           notes: staffNotes,
         }),
       });
@@ -688,21 +691,57 @@ function TicketLookupContent() {
               )}
             </div>
 
-            {/* Tùy chọn cấp Voucher */}
-            <div className="flex items-start gap-3 p-3 bg-[#1A1A1A] rounded-xl border border-[#333333]">
-              <input
-                type="checkbox"
-                id="issueVoucherCheck"
-                checked={issueVoucher}
-                onChange={(e) => setIssueVoucher(e.target.checked)}
-                className="mt-0.5 w-4 h-4 accent-[#E63946] cursor-pointer"
-              />
-              <label htmlFor="issueVoucherCheck" className="text-xs text-[#D4D4D4] cursor-pointer">
-                <span className="font-bold text-white block">
-                  Cấp mã Voucher đền bù 100% cho khách hàng
-                </span>
-                Mã voucher có hạn sử dụng 30 ngày, áp dụng cho lần xem phim tiếp theo của khách hàng này.
+            {/* Hình thức bồi hoàn theo SRS Mục 3.4.1 & UC-15 */}
+            <div className="space-y-2">
+              <label className="block text-[#D4D4D4] text-xs font-semibold uppercase">
+                Hình thức bồi hoàn (SRS Mục 3.4.1) <span className="text-[#E63946]">*</span>
               </label>
+              
+              <div 
+                onClick={() => { setRefundMethod('CASH'); setIssueVoucher(false); }}
+                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                  refundMethod === 'CASH'
+                    ? 'bg-[#E63946]/10 border-[#E63946] text-white'
+                    : 'bg-[#1A1A1A] border-[#333333] text-[#A3A3A3] hover:border-[#555]'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="refund_method"
+                  checked={refundMethod === 'CASH'}
+                  onChange={() => { setRefundMethod('CASH'); setIssueVoucher(false); }}
+                  className="mt-0.5 accent-[#E63946] cursor-pointer"
+                />
+                <div className="text-xs">
+                  <span className="font-bold text-white block">
+                    💵 Hoàn 100% Tiền Mặt Tại Quầy (Quy chuẩn SRS sự cố rạp)
+                  </span>
+                  Lập chứng từ hoàn tiền mặt và đối soát công nợ tại quầy. Không cấp voucher.
+                </div>
+              </div>
+
+              <div 
+                onClick={() => { setRefundMethod('VOUCHER'); setIssueVoucher(true); }}
+                className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                  refundMethod === 'VOUCHER'
+                    ? 'bg-[#E63946]/10 border-[#E63946] text-white'
+                    : 'bg-[#1A1A1A] border-[#333333] text-[#A3A3A3] hover:border-[#555]'
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="refund_method"
+                  checked={refundMethod === 'VOUCHER'}
+                  onChange={() => { setRefundMethod('VOUCHER'); setIssueVoucher(true); }}
+                  className="mt-0.5 accent-[#E63946] cursor-pointer"
+                />
+                <div className="text-xs">
+                  <span className="font-bold text-white block">
+                    🎟️ Cấp Mã Voucher Đền Bù 100%
+                  </span>
+                  Mã voucher có hạn sử dụng 30 ngày, áp dụng cho lần xem phim tiếp theo của khách hàng này.
+                </div>
+              </div>
             </div>
 
             {/* Ghi chú nhân viên */}
@@ -762,6 +801,30 @@ function TicketLookupContent() {
                 Vé #{cancelSuccessResult.ticket_id} đã được chuyển sang trạng thái ĐÃ HỦY. Ghế {cancelSuccessResult.released_seat || ''} đã sẵn sàng để phục vụ khách khác.
               </p>
             </div>
+
+            {cancelSuccessResult.cash_receipt && (
+              <div className="bg-[#FFB703]/10 border border-[#FFB703]/30 rounded-2xl p-4 space-y-2 text-left">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-[#FFB703] block text-center">
+                  💵 BIÊN NHẬN CHI HOÀN TIỀN MẶT 100% (SRS UC-15)
+                </span>
+                <div className="flex justify-between text-xs">
+                  <span className="text-[#A3A3A3]">Số phiếu chi:</span>
+                  <span className="font-mono font-bold text-white">{cancelSuccessResult.cash_receipt.receipt_no}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-[#A3A3A3]">Khách hàng:</span>
+                  <span className="font-medium text-white">{cancelSuccessResult.cash_receipt.customer_name}</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-[#A3A3A3]">Số tiền thực chi:</span>
+                  <span className="font-black text-[#FFB703] text-sm">{cancelSuccessResult.cash_receipt.refund_amount.toLocaleString('vi-VN')} đ</span>
+                </div>
+                <div className="flex justify-between text-xs">
+                  <span className="text-[#A3A3A3]">Đối soát công nợ:</span>
+                  <span className="text-green-400 font-bold">✓ Đã xuất quỹ tiền mặt tại quầy</span>
+                </div>
+              </div>
+            )}
 
             {cancelSuccessResult.compensation_voucher && (
               <div className="bg-[#2ECC71]/10 border border-[#2ECC71]/30 rounded-2xl p-4 space-y-2">

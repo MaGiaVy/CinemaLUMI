@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse } from '@/lib/api-response';
 import { handleError } from '@/lib/error';
+import { requireAuth } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -90,6 +91,8 @@ export async function PUT(
   { params }: RouteContext
 ) {
   try {
+    await requireAuth(['ADMIN']);
+
     const { id } = await params;
     const movieId = parseInt(id, 10);
 
@@ -191,6 +194,8 @@ export async function DELETE(
   { params }: RouteContext
 ) {
   try {
+    await requireAuth(['ADMIN']);
+
     const { id } = await params;
     const movieId = parseInt(id, 10);
 
@@ -226,7 +231,31 @@ export async function DELETE(
       );
     }
 
-    // 3. Nếu không có suất chiếu đang hoạt động, tiến hành xóa phim
+    // 3. Kiểm tra xem phim đã có vé nào từng được mua chưa để bảo toàn lịch sử giao dịch (SRS)
+    const hasTickets = await prisma.ticket.findFirst({
+      where: {
+        screening: {
+          movieId,
+        },
+      },
+    });
+
+    if (hasTickets) {
+      // Soft delete: Lưu trữ phim bằng cách chuyển trạng thái sang ENDED
+      const archivedMovie = await prisma.movie.update({
+        where: { id: movieId },
+        data: { status: 'ENDED' },
+      });
+
+      return apiResponse(
+        true,
+        { id: movieId, title: archivedMovie.title, status: 'ENDED', archived: true },
+        `Bộ phim "${movie.title}" đã được lưu trữ (chuyển sang trạng thái ENDED) để bảo toàn lịch sử giao dịch vé.`,
+        200
+      );
+    }
+
+    // 4. Nếu chưa từng bán vé nào, tiến hành xóa phim khỏi database
     await prisma.movie.delete({
       where: { id: movieId },
     });

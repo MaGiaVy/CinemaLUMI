@@ -42,8 +42,16 @@ export interface ScreeningRevenueReportItem {
   // Số liệu kinh doanh & Tỷ lệ lấp đầy
   total_revenue: number;
   totalRevenue: number;
+  net_revenue: number;
+  netRevenue: number;
+  gross_revenue: number;
+  grossRevenue: number;
+  refunded_amount: number;
+  refundedAmount: number;
   tickets_sold: number;
   ticketsSold: number;
+  cancelled_tickets: number;
+  cancelledTickets: number;
   seats_sold: number;
   seatsSold: number;
   total_seats: number;
@@ -177,9 +185,6 @@ export async function GET(request: NextRequest) {
           },
         },
         tickets: {
-          where: {
-            status: { in: [TicketStatus.Valid, TicketStatus.Used] },
-          },
           select: {
             id: true,
             price: true,
@@ -196,9 +201,23 @@ export async function GET(request: NextRequest) {
 
     // 5. Tính toán doanh thu và tỷ lệ lấp đầy cho từng suất chiếu
     const reportData: ScreeningRevenueReportItem[] = screenings.map((sc) => {
-      // Tổng doanh thu của suất chiếu (chỉ tính vé Valid / Used)
-      const totalRevenue = sc.tickets.reduce((sum, t) => sum + Number(t.price), 0);
-      const ticketsSold = sc.tickets.length;
+      // Tách riêng vé hợp lệ (Valid, Used) và vé đã hủy/hoàn (Cancelled)
+      const validTickets = sc.tickets.filter(
+        (t) => t.status === TicketStatus.Valid || t.status === TicketStatus.Used
+      );
+      const cancelledTickets = sc.tickets.filter(
+        (t) => t.status === TicketStatus.Cancelled
+      );
+
+      // Doanh thu thực thu (chỉ tính vé hợp lệ/đã dùng)
+      const netRevenue = validTickets.reduce((sum, t) => sum + Number(t.price), 0);
+      // Tiền hoàn lại cho khách
+      const refundedAmount = cancelledTickets.reduce((sum, t) => sum + Number(t.price), 0);
+      // Doanh thu gộp ban đầu
+      const grossRevenue = netRevenue + refundedAmount;
+
+      const ticketsSold = validTickets.length;
+      const cancelledCount = cancelledTickets.length;
       const totalSeats = sc.seats.length > 0 ? sc.seats.length : 50; // Fallback nếu chưa seed seats
       const emptySeats = Math.max(0, totalSeats - ticketsSold);
 
@@ -233,10 +252,18 @@ export async function GET(request: NextRequest) {
           ageRating: sc.movie.ageRating,
         },
 
-        total_revenue: totalRevenue,
-        totalRevenue: totalRevenue,
+        total_revenue: netRevenue,
+        totalRevenue: netRevenue,
+        net_revenue: netRevenue,
+        netRevenue: netRevenue,
+        gross_revenue: grossRevenue,
+        grossRevenue: grossRevenue,
+        refunded_amount: refundedAmount,
+        refundedAmount: refundedAmount,
         tickets_sold: ticketsSold,
         ticketsSold: ticketsSold,
+        cancelled_tickets: cancelledCount,
+        cancelledTickets: cancelledCount,
         seats_sold: ticketsSold,
         seatsSold: ticketsSold,
         total_seats: totalSeats,

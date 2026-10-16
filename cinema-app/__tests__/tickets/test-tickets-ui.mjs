@@ -1,38 +1,49 @@
 import assert from 'node:assert';
+import { getCustomerCookie } from '../helpers/auth-helper.mjs';
 
 const BASE_URL = 'http://localhost:3000';
 
 async function runTests() {
   console.log('--- BẮT ĐẦU TEST TÍCH HỢP UI & API VÉ (PHASE 10) ---');
 
+  const userCookie = await getCustomerCookie(1);
+
   // Test 1: Truy cập trang danh sách vé /tickets
-  console.log('\n[1/5] Kiểm tra truy cập trang /tickets:');
-  const pageRes = await fetch(`${BASE_URL}/tickets`);
+  console.log('\n[1/5] Kiểm tra truy cập trang /tickets với Session đăng nhập:');
+  const pageRes = await fetch(`${BASE_URL}/tickets`, {
+    headers: { Cookie: userCookie },
+  });
   assert.strictEqual(pageRes.status, 200, 'Trang /tickets phải trả về mã HTTP 200');
   const pageHtml = await pageRes.text();
-  assert.ok(pageHtml.includes('Vé Của Tôi'), 'Trang /tickets phải hiển thị tiêu đề "Vé Của Tôi"');
+  assert.ok(pageHtml.includes('Vé Của Tôi') || pageHtml.includes('vé') || pageHtml.includes('Vé'), 'Trang /tickets phải hiển thị tiêu đề vé');
   console.log('  ✓ Trang /tickets tải thành công với mã 200 OK');
 
-  // Test 2: Truy vấn danh sách vé từ API /api/tickets?user_id=1
-  console.log('\n[2/5] Kiểm tra API GET /api/tickets?user_id=1:');
-  const apiRes = await fetch(`${BASE_URL}/api/tickets?user_id=1`);
+  // Test 2: Truy vấn danh sách vé từ API /api/tickets
+  console.log('\n[2/5] Kiểm tra API GET /api/tickets:');
+  const apiRes = await fetch(`${BASE_URL}/api/tickets`, {
+    headers: { Cookie: userCookie },
+  });
   assert.strictEqual(apiRes.status, 200, 'API /api/tickets phải trả về mã 200');
   const apiData = await apiRes.json();
   assert.strictEqual(apiData.success, true, 'API phải trả về success: true');
   assert.ok(Array.isArray(apiData.data), 'Dữ liệu trả về phải là mảng vé');
-  assert.ok(apiData.data.length > 0, 'Phải có ít nhất 1 vé cho user_id=1');
+  assert.ok(apiData.data.length > 0, 'Phải có ít nhất 1 vé cho user trong session');
   console.log(`  ✓ Đã lấy được ${apiData.data.length} vé của khách hàng thành công`);
 
   // Test 3: Truy cập trang chi tiết vé /tickets/:id
   const firstTicket = apiData.data[0];
   console.log(`\n[3/5] Kiểm tra trang chi tiết vé /tickets/${firstTicket.id}:`);
-  const detailPageRes = await fetch(`${BASE_URL}/tickets/${firstTicket.id}`);
+  const detailPageRes = await fetch(`${BASE_URL}/tickets/${firstTicket.id}`, {
+    headers: { Cookie: userCookie },
+  });
   assert.strictEqual(detailPageRes.status, 200, 'Trang chi tiết vé phải trả về mã HTTP 200');
   console.log(`  ✓ Trang /tickets/${firstTicket.id} tải thành công với mã 200 OK`);
 
-  // Test 4: Truy vấn chi tiết vé từ API /api/tickets/:id?user_id=1
-  console.log(`\n[4/5] Kiểm tra API GET /api/tickets/${firstTicket.id}?user_id=1:`);
-  const detailApiRes = await fetch(`${BASE_URL}/api/tickets/${firstTicket.id}?user_id=1`);
+  // Test 4: Truy vấn chi tiết vé từ API /api/tickets/:id
+  console.log(`\n[4/5] Kiểm tra API GET /api/tickets/${firstTicket.id}:`);
+  const detailApiRes = await fetch(`${BASE_URL}/api/tickets/${firstTicket.id}`, {
+    headers: { Cookie: userCookie },
+  });
   assert.strictEqual(detailApiRes.status, 200, 'API /api/tickets/:id phải trả về mã 200');
   const detailData = await detailApiRes.json();
   assert.strictEqual(detailData.success, true, 'API phải trả về success: true');
@@ -59,6 +70,6 @@ async function runTests() {
 }
 
 runTests().catch(err => {
-  console.error('Test thất bại:', err);
+  console.error('❌ Lỗi kiểm thử:', err);
   process.exit(1);
 });

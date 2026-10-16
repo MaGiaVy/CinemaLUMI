@@ -75,23 +75,18 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
       throw new AppError(400, 'Tham số loại vé (type) là bắt buộc', 'MISSING_TICKET_TYPE');
     }
 
-    // 1. KIỂM TRA PHÂN QUYỀN (Ràng buộc bắt buộc: session.user.role === 'ADMIN')
+    // 1. KIỂM TRA PHÂN QUYỀN (Ràng buộc bắt buộc: session.user.role === 'ADMIN' - Chống SEC-02)
     const session = await getServerSession(authOptions);
 
-    // Hỗ trợ header x-admin-role dành cho môi trường test/internal nếu có
-    const headerRole = request.headers.get('x-user-role');
-    const isAdmin =
-      session?.user?.role === 'ADMIN' ||
-      (process.env.NODE_ENV === 'development' && headerRole === 'ADMIN');
+    if (!session?.user?.id) {
+      throw new AppError(
+        401,
+        'Yêu cầu xác thực. Vui lòng đăng nhập với tài khoản Quản trị viên (ADMIN)',
+        'UNAUTHENTICATED'
+      );
+    }
 
-    if (!isAdmin) {
-      if (!session?.user) {
-        throw new AppError(
-          401,
-          'Yêu cầu xác thực. Vui lòng đăng nhập với tài khoản Quản trị viên (ADMIN)',
-          'UNAUTHORIZED'
-        );
-      }
+    if (session.user.role !== 'ADMIN') {
       throw new AppError(
         403,
         'Bạn không có quyền thực hiện thao tác này. Quyền yêu cầu: ADMIN',

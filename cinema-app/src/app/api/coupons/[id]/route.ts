@@ -50,21 +50,17 @@ const updateCouponSchema = z.object({
 /**
  * Helper kiểm tra phân quyền Admin
  */
-async function verifyAdminRole(request: NextRequest): Promise<void> {
+async function verifyAdminRole(): Promise<void> {
   const session = await getServerSession(authOptions);
-  const headerRole = request.headers.get('x-user-role');
-  const isAdmin =
-    session?.user?.role === 'ADMIN' ||
-    (process.env.NODE_ENV === 'development' && headerRole === 'ADMIN');
+  if (!session?.user) {
+    throw new AppError(
+      401,
+      'Yêu cầu xác thực. Vui lòng đăng nhập với tài khoản Quản trị viên (ADMIN)',
+      'UNAUTHORIZED'
+    );
+  }
 
-  if (!isAdmin) {
-    if (!session?.user) {
-      throw new AppError(
-        401,
-        'Yêu cầu xác thực. Vui lòng đăng nhập với tài khoản Quản trị viên (ADMIN)',
-        'UNAUTHORIZED'
-      );
-    }
+  if (session.user.role !== 'ADMIN') {
     throw new AppError(
       403,
       'Bạn không có quyền thực hiện thao tác này. Quyền yêu cầu: ADMIN',
@@ -80,7 +76,7 @@ async function verifyAdminRole(request: NextRequest): Promise<void> {
  */
 export async function GET(request: NextRequest, { params }: RouteContext) {
   try {
-    await verifyAdminRole(request);
+    await verifyAdminRole();
 
     const { id } = await params;
     const couponId = parseInt(id, 10);
@@ -162,7 +158,7 @@ export async function GET(request: NextRequest, { params }: RouteContext) {
 export async function PUT(request: NextRequest, { params }: RouteContext) {
   try {
     // 1. Kiểm tra quyền ADMIN
-    await verifyAdminRole(request);
+    await verifyAdminRole();
 
     // 2. Validate id
     const { id } = await params;
@@ -369,7 +365,7 @@ export async function PUT(request: NextRequest, { params }: RouteContext) {
 export async function DELETE(request: NextRequest, { params }: RouteContext) {
   try {
     // 1. Kiểm tra quyền ADMIN
-    await verifyAdminRole(request);
+    await verifyAdminRole();
 
     // 2. Validate id
     const { id } = await params;

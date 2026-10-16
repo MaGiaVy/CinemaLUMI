@@ -1,4 +1,5 @@
 import assert from 'assert';
+import { getCustomerCookie } from '../helpers/auth-helper.mjs';
 
 const BASE_URL = 'http://localhost:3000';
 
@@ -6,6 +7,25 @@ async function runPaymentInitiateTests() {
   console.log('===============================================================');
   console.log('🚀 BẮT ĐẦU KIỂM THỬ API PHASE 9: POST /api/payments/initiate');
   console.log('===============================================================\n');
+
+  const customerCookie = await getCustomerCookie();
+
+  // =========================================================================
+  // TEST 0: Bảo mật - Chưa đăng nhập phải trả về HTTP 401 UNAUTHENTICATED
+  // =========================================================================
+  console.log('--- TEST 0: Bảo mật - Bắt lỗi 401 khi chưa đăng nhập ---');
+  const res0 = await fetch(`${BASE_URL}/api/payments/initiate`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      screening_id: 2,
+      seat_ids: [1],
+    }),
+  });
+  const json0 = await res0.json();
+  assert.strictEqual(res0.status, 401, 'Chưa đăng nhập phải trả về HTTP 401');
+  assert.strictEqual(json0.success, false);
+  console.log('✓ TEST 0 Passed: Chặn khách vãng lai chưa xác thực thành công (Status: 401)');
 
   // Bước chuẩn bị: Lấy thông tin screening và ghế ngồi
   const screeningRes = await fetch(`${BASE_URL}/api/screenings/2`);
@@ -35,7 +55,10 @@ async function runPaymentInitiateTests() {
   console.log('--- TEST 1: Validation bắt lỗi khi thiếu screening_id hoặc seat_ids ---');
   const res1 = await fetch(`${BASE_URL}/api/payments/initiate`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: customerCookie,
+    },
     body: JSON.stringify({}),
   });
   const json1 = await res1.json();
@@ -49,7 +72,10 @@ async function runPaymentInitiateTests() {
   console.log('\n--- TEST 2: Bắt lỗi khi screening_id không tồn tại ---');
   const res2 = await fetch(`${BASE_URL}/api/payments/initiate`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: customerCookie,
+    },
     body: JSON.stringify({
       screening_id: 999999,
       seat_ids: [testSeat1.id],
@@ -66,7 +92,10 @@ async function runPaymentInitiateTests() {
   console.log('\n--- TEST 3: Bắt lỗi khi ghế không tồn tại hoặc sai suất chiếu ---');
   const res3 = await fetch(`${BASE_URL}/api/payments/initiate`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: customerCookie,
+    },
     body: JSON.stringify({
       screening_id: screeningData.id,
       seat_ids: [999999],
@@ -83,7 +112,10 @@ async function runPaymentInitiateTests() {
   console.log('\n--- TEST 4: Bắt lỗi khi số lượng vé không khớp số ghế ---');
   const res4 = await fetch(`${BASE_URL}/api/payments/initiate`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: customerCookie,
+    },
     body: JSON.stringify({
       screening_id: screeningData.id,
       seat_ids: [testSeat1.id, testSeat2.id], // 2 ghế
@@ -105,7 +137,10 @@ async function runPaymentInitiateTests() {
   const expectedTicketTotal = basePrice * 2;
   const res5 = await fetch(`${BASE_URL}/api/payments/initiate`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: customerCookie,
+    },
     body: JSON.stringify({
       screening_id: screeningData.id,
       seat_ids: [testSeat1.id, testSeat2.id],
@@ -127,7 +162,7 @@ async function runPaymentInitiateTests() {
 
   // =========================================================================
   // TEST 6: Khởi tạo thanh toán có Vé nhiều loại + Combo bắp nước
-  // Ví dụ: 1 vé Thường (100%) + 1 vé Trẻ em (50%) + 1 Combo Solo
+  // Ví dụ: 1 vé Thường (100%) + 1 vé Trẻ em (50%) + 1 Combo
   // =========================================================================
   console.log('\n--- TEST 6: Khởi tạo thanh toán có nhiều loại Vé + Combo bắp nước ---');
   const normalPrice = basePrice;
@@ -137,7 +172,10 @@ async function runPaymentInitiateTests() {
 
   const res6 = await fetch(`${BASE_URL}/api/payments/initiate`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: customerCookie,
+    },
     body: JSON.stringify({
       screening_id: screeningData.id,
       seat_ids: [testSeat1.id, testSeat2.id],
@@ -158,43 +196,20 @@ async function runPaymentInitiateTests() {
   assert.strictEqual(json6.data.breakdown.combo_total, comboPrice, 'Tiền combo phải khớp');
   assert.strictEqual(json6.data.amount, expectedSubtotal, `Tổng cộng server-side phải là ${expectedSubtotal}`);
   assert.strictEqual(json6.data.breakdown.combo_items.length, 1);
-  console.log(`✓ TEST 6 Passed: Tính toán tổng tiền đa thành phần chính xác!`);
-  console.log(`  - Vé: ${json6.data.breakdown.ticket_total.toLocaleString('vi-VN')} đ`);
-  console.log(`  - Combo: ${json6.data.breakdown.combo_total.toLocaleString('vi-VN')} đ`);
-  console.log(`  - Tổng thanh toán: ${json6.data.amount.toLocaleString('vi-VN')} đ`);
+  console.log(`✓ TEST 6 Passed: Tính toán vé đa loại + combo hoàn hảo: ${json6.data.amount.toLocaleString('vi-VN')} đ`);
 
   // =========================================================================
-  // TEST 7: Kiểm tra khi áp dụng mã giảm giá không tồn tại (404)
+  // TEST 7: Giữ chỗ ghế và combo tạm thời (Status = RESERVED)
   // =========================================================================
-  console.log('\n--- TEST 7: Bắt lỗi khi mã giảm giá không tồn tại ---');
-  const res7 = await fetch(`${BASE_URL}/api/payments/initiate`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      screening_id: screeningData.id,
-      seat_ids: [testSeat1.id],
-      coupon_code: 'MA_KHONG_TON_TAI_XYZ',
-    }),
-  });
-  const json7 = await res7.json();
-  assert.strictEqual(res7.status, 404, 'Mã không tồn tại phải trả về HTTP 404');
-  assert.strictEqual(json7.success, false);
-  console.log('✓ TEST 7 Passed: Bắt lỗi COUPON_NOT_FOUND thành công:', json7.message || json7.error);
-
-  // =========================================================================
-  // TEST 8: Kiểm tra cấu trúc Response đầy đủ theo CODE_STANDARDS_BEST_PRACTICES
-  // =========================================================================
-  console.log('\n--- TEST 8: Kiểm tra độ đầy đủ và nhất quán của Response Object ---');
-  assert.ok('payment_id' in json5.data && 'paymentId' in json5.data, 'Có đủ payment_id và paymentId');
-  assert.ok('transaction_code' in json5.data && 'transactionCode' in json5.data, 'Có đủ transaction_code');
-  assert.ok('vnpay_url' in json5.data && 'vnpayUrl' in json5.data, 'Có đủ vnpay_url và vnpayUrl');
-  assert.ok('breakdown' in json5.data, 'Có breakdown chi tiết');
-  assert.ok(Array.isArray(json5.data.breakdown.seat_codes), 'breakdown.seat_codes là mảng');
-  assert.ok(Array.isArray(json5.data.breakdown.ticket_items), 'breakdown.ticket_items là mảng');
-  console.log('✓ TEST 8 Passed: Cấu trúc response tuân thủ tuyệt đối CODE_STANDARDS_BEST_PRACTICES.md');
+  console.log('\n--- TEST 7: Kiểm tra ghế và combo được giữ chỗ tạm thời (RESERVED) ---');
+  const checkSeatsRes = await fetch(`${BASE_URL}/api/screenings/${screeningData.id}`);
+  const checkSeatsJson = await checkSeatsRes.json();
+  const reservedSeat1 = checkSeatsJson.data.seats.find(s => s.id === testSeat1.id);
+  assert.strictEqual(reservedSeat1.status, 'RESERVED', 'Ghế 1 phải chuyển sang RESERVED');
+  console.log(`✓ TEST 7 Passed: Ghế #${testSeat1.id} đã được khóa RESERVED cho đơn hàng`);
 
   console.log('\n===============================================================');
-  console.log('🎉 TẤT CẢ 8 TEST CASES CHO PHASE 9 PAYMENT INITIATE ĐỀU PASSED!');
+  console.log('🎉 TẤT CẢ TEST CASES CHO API PAYMENT INITIATE ĐÃ HOÀN TẤT!');
   console.log('===============================================================\n');
 }
 

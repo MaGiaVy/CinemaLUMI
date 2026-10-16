@@ -80,24 +80,16 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
     const searchParams = request.nextUrl.searchParams;
 
-    // 1. Xác định User ID
-    let currentUserId: number | null = session?.user?.id ? Number(session.user.id) : null;
-
-    // Cho phép fallback query param user_id nếu gọi từ script test hoặc tài khoản Admin/Staff
-    if (!currentUserId && searchParams.get('user_id')) {
-      const parsedUserId = parseInt(searchParams.get('user_id')!, 10);
-      if (!isNaN(parsedUserId) && parsedUserId > 0) {
-        currentUserId = parsedUserId;
-      }
-    }
-
-    if (!currentUserId) {
+    // 1. Xác định User ID từ Session máy chủ (Chống SEC-05 IDOR)
+    if (!session?.user?.id) {
       throw new AppError(
         401,
         'Vui lòng đăng nhập để xem danh sách vé của bạn',
         'UNAUTHENTICATED'
       );
     }
+
+    const currentUserId = Number(session.user.id);
 
     // Lọc theo trạng thái vé nếu có truyền (ví dụ: ?status=Valid)
     const statusQuery = searchParams.get('status');

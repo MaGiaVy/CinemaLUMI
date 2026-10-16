@@ -3,6 +3,9 @@ import { prisma } from '@/lib/prisma';
 import { AppError, handleError } from '@/lib/error';
 import { apiResponse } from '@/lib/api-response';
 
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/lib/auth';
+
 export const dynamic = 'force-dynamic';
 
 interface ReserveSeatsPayload {
@@ -30,16 +33,20 @@ interface ReserveSeatsResponseData {
  * POST /api/seats/reserve
  * 
  * Giữ chỗ tạm thời các ghế được chọn trong 10 phút:
- * - Nhận payload: { screening_id, seat_ids: number[] }
- * - Dùng prisma.$transaction:
- *   1. Kiểm tra dọn dẹp các ghế hết hạn giữ chỗ trước.
- *   2. Kiểm tra nếu TẤT CẢ ghế trong mảng đang ở trạng thái EMPTY.
- *   3. Nếu có bất kỳ ghế nào đã bị đặt hoặc không khả dụng -> throw AppError 400.
- *   4. Nếu tất cả đều hợp lệ -> Cập nhật status = 'RESERVED' và reserved_until = NOW + 10 phút.
- * - Tuân thủ nghiêm ngặt CODE_STANDARDS_BEST_PRACTICES.md (Không dùng any, Centralized Error Handling).
+ * - Bắt buộc xác thực người dùng đã đăng nhập (Chống đặt vé bot/nặc danh).
+ * - Sử dụng Atomic Conditional Update trong prisma.$transaction chống Race Condition tuyệt đối.
  */
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      throw new AppError(
+        401,
+        'Vui lòng đăng nhập tài khoản để thực hiện giữ chỗ ghế',
+        'UNAUTHENTICATED'
+      );
+    }
+
     let body: ReserveSeatsPayload;
     try {
       body = await request.json();
@@ -76,7 +83,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Giới hạn số ghế tối đa mỗi lần giữ chỗ (ví dụ: tối đa 8 ghế)
+    // Giới hạn số ghế tối đa mỗi lần giữ chỗ (tối đa 8 ghế)
     const MAX_SEATS_PER_HOLD = 8;
     if (seat_ids.length > MAX_SEATS_PER_HOLD) {
       throw new AppError(
@@ -108,8 +115,8 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // 2.2 Lấy thông tin các ghế cần giữ chỗ
-      const seats = await tx.seat.findMany({
+      // 2.2 Kiểm tra sự tồn tại của các ghế trong suất chiếu
+      const existingSeats = await tx.seat.findMany({
         where: {
           id: { in: seat_ids },
           screeningId: screening_id,
@@ -124,9 +131,8 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // 2.3 Kiểm tra tất cả ghế có tồn tại trong suất chiếu không
-      if (seats.length !== seat_ids.length) {
-        const foundSeatIds = new Set(seats.map(s => s.id));
+      if (existingSeats.length !== seat_ids.length) {
+        const foundSeatIds = new Set(existingSeats.map(s => s.id));
         const missingSeatIds = seat_ids.filter(id => !foundSeatIds.has(id));
         throw new AppError(
           404,
@@ -135,21 +141,14 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 2.4 KIỂM TRA ĐIỀU KIỆN CỐT LÕI: Nếu có bất kỳ ghế nào đã bị đặt (khác 'EMPTY') -> throw AppError 400
-      const unavailableSeats = seats.filter(s => s.status !== 'EMPTY');
-      if (unavailableSeats.length > 0) {
-        const conflictCodes = unavailableSeats.map(s => s.code).join(', ');
-        throw new AppError(
-          400,
-          `[E-03] Ghế [${conflictCodes}] hiện đã có người giữ chỗ hoặc đã được thanh toán. Vui lòng chọn ghế khác.`,
-          'SEAT_ALREADY_RESERVED'
-        );
-      }
-
-      // 2.5 Cập nhật tất cả các ghế thành 'RESERVED' và gán thời gian giữ chỗ
-      await tx.seat.updateMany({
+      // 2.3 CONDITIONAL ATOMIC UPDATE (Chống SEC-07 Race Condition):
+      // Chỉ cập nhật nếu TẤT CẢ các ghế đều có status = 'EMPTY'.
+      // Nếu có bất kỳ ghế nào đã bị người khác đặt trước đó hoặc tranh chấp, count sẽ < seat_ids.length.
+      const updateResult = await tx.seat.updateMany({
         where: {
           id: { in: seat_ids },
+          screeningId: screening_id,
+          status: 'EMPTY',
         },
         data: {
           status: 'RESERVED',
@@ -157,7 +156,17 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      const reservedSeatList: ReservedSeatInfo[] = seats.map(s => ({
+      if (updateResult.count !== seat_ids.length) {
+        const conflictSeats = existingSeats.filter(s => s.status !== 'EMPTY');
+        const conflictCodes = conflictSeats.map(s => s.code).join(', ');
+        throw new AppError(
+          400,
+          `[E-03] Ghế [${conflictCodes || 'đã chọn'}] hiện đã có người giữ chỗ hoặc đã được thanh toán. Vui lòng chọn ghế khác.`,
+          'SEAT_ALREADY_RESERVED'
+        );
+      }
+
+      const reservedSeatList: ReservedSeatInfo[] = existingSeats.map(s => ({
         id: s.id,
         code: s.code,
         row: s.row,
@@ -167,7 +176,7 @@ export async function POST(request: NextRequest) {
 
       return {
         screening_id,
-        reserved_count: seats.length,
+        reserved_count: reservedSeatList.length,
         reserved_until: reservedUntil.toISOString(),
         hold_duration_minutes: HOLD_MINUTES,
         seats: reservedSeatList,

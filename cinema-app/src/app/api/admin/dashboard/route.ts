@@ -92,13 +92,8 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
     const searchParams = request.nextUrl.searchParams;
 
-    // 1. Ràng buộc bảo mật: Bắt buộc kiểm tra role === 'ADMIN'
-    const userRole =
-      session?.user?.role ||
-      request.headers.get('x-user-role') ||
-      searchParams.get('role');
-
-    if (!userRole) {
+    // 1. Ràng buộc bảo mật: Bắt buộc kiểm tra role === 'ADMIN' từ session máy chủ (Chống SEC-02)
+    if (!session?.user?.id) {
       throw new AppError(
         401,
         'Vui lòng đăng nhập để truy cập trang báo cáo quản trị',
@@ -106,7 +101,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (userRole !== 'ADMIN') {
+    if (session.user.role !== 'ADMIN') {
       throw new AppError(
         403,
         'Chỉ có quản trị viên (ADMIN) mới có quyền truy cập dữ liệu báo cáo thống kê này',

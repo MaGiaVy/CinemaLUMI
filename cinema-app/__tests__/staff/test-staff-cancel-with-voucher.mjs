@@ -1,5 +1,6 @@
 // __tests__/staff/test-staff-cancel-with-voucher.mjs
 import { PrismaClient, TicketStatus, SeatStatus } from '@prisma/client';
+import { getAdminCookie, getStaffCookie, getCustomerCookie } from '../helpers/auth-helper.mjs';
 
 const prisma = new PrismaClient();
 const BASE_URL = 'http://localhost:3000';
@@ -28,6 +29,10 @@ async function runTests() {
   }
 
   try {
+    const adminCookie = await getAdminCookie();
+    const staffCookie = await getStaffCookie();
+    const customerCookie = await getCustomerCookie();
+
     // Chuẩn bị dữ liệu kiểm thử trong DB
     // 1. Lấy một screening đang có
     const screening = await prisma.screening.findFirst({
@@ -66,6 +71,10 @@ async function runTests() {
     const customer = await prisma.user.findFirst({
       where: { role: 'CUSTOMER' },
     });
+
+    if (!customer) {
+      throw new Error('Không tìm thấy khách hàng nào trong DB để test');
+    }
 
     // Lấy hoặc tạo payment
     let payment = await prisma.payment.findFirst({
@@ -108,10 +117,21 @@ async function runTests() {
       `Chặn thành công truy cập chưa đăng nhập (Status: ${res1.status}, Code: ${res1.data.code})`
     );
 
+    // TEST 1b: Chống backdoor query param giả mạo
+    console.log('--- TEST 1b: Kiểm tra chống backdoor query parameter ?role=STAFF ---');
+    const resBypass = await fetchJson(`/api/staff/tickets/${testTicket.id}/cancel-with-voucher?role=STAFF`, {
+      method: 'POST',
+    });
+    assert(
+      resBypass.status === 401,
+      `Chặn thành công nỗ lực bypass query parameter (Status: ${resBypass.status})`
+    );
+
     // TEST 2: Người dùng CUSTOMER -> 403 FORBIDDEN
     console.log('\n--- TEST 2: Bắt lỗi 403 khi role là CUSTOMER ---');
-    const res2 = await fetchJson(`/api/staff/tickets/${testTicket.id}/cancel-with-voucher?role=CUSTOMER`, {
+    const res2 = await fetchJson(`/api/staff/tickets/${testTicket.id}/cancel-with-voucher`, {
       method: 'POST',
+      headers: { Cookie: customerCookie },
     });
     assert(
       res2.status === 403 && res2.data.code === 'FORBIDDEN',
@@ -120,8 +140,9 @@ async function runTests() {
 
     // TEST 3: Vé không tồn tại -> 404 TICKET_NOT_FOUND
     console.log('\n--- TEST 3: Bắt lỗi 404 khi mã vé không tồn tại ---');
-    const res3 = await fetchJson(`/api/staff/tickets/9999999/cancel-with-voucher?role=STAFF`, {
+    const res3 = await fetchJson(`/api/staff/tickets/9999999/cancel-with-voucher`, {
       method: 'POST',
+      headers: { Cookie: staffCookie },
     });
     assert(
       res3.status === 404 && res3.data.code === 'TICKET_NOT_FOUND',
@@ -130,10 +151,11 @@ async function runTests() {
 
     // TEST 4: Nhân viên STAFF thực hiện ép hủy vé và hoàn tiền 100% (UC-15)
     console.log('\n--- TEST 4: Nhân viên STAFF thực hiện ép hủy vé và hoàn tiền 100% ---');
-    const res4 = await fetchJson(`/api/staff/tickets/${testTicket.id}/cancel-with-voucher?role=STAFF`, {
+    const res4 = await fetchJson(`/api/staff/tickets/${testTicket.id}/cancel-with-voucher`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Cookie: staffCookie,
       },
       body: JSON.stringify({
         reason: 'Sự cố máy chiếu tại rạp Cinema 01',
@@ -193,8 +215,9 @@ async function runTests() {
 
     // TEST 6: Cố gắng hủy lại vé đã Cancelled -> 400 TICKET_ALREADY_CANCELLED
     console.log('\n--- TEST 6: Bắt lỗi khi cố gắng hủy lại vé đã bị Cancelled ---');
-    const res6 = await fetchJson(`/api/staff/tickets/${testTicket.id}/cancel-with-voucher?role=STAFF`, {
+    const res6 = await fetchJson(`/api/staff/tickets/${testTicket.id}/cancel-with-voucher`, {
       method: 'POST',
+      headers: { Cookie: staffCookie },
     });
     assert(
       res6.status === 400 && res6.data.code === 'TICKET_ALREADY_CANCELLED',
@@ -203,7 +226,6 @@ async function runTests() {
 
     // TEST 7: Quản trị viên (ADMIN) cũng có toàn quyền thực hiện hủy vé
     console.log('\n--- TEST 7: Quản trị viên (ADMIN) thực hiện hủy vé ---');
-    // Tạo vé test thứ 2
     const testTicket2 = await prisma.ticket.create({
       data: {
         userId: customer.id,
@@ -216,10 +238,11 @@ async function runTests() {
       },
     });
 
-    const res7 = await fetchJson(`/api/staff/tickets/${testTicket2.id}/cancel-with-voucher?role=ADMIN`, {
+    const res7 = await fetchJson(`/api/staff/tickets/${testTicket2.id}/cancel-with-voucher`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
+        Cookie: adminCookie,
       },
       body: JSON.stringify({
         reason: 'Admin phê duyệt xử lý hoàn vé khẩn cấp',

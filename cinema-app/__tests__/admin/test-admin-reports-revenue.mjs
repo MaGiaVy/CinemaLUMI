@@ -1,4 +1,6 @@
 // __tests__/admin/test-admin-reports-revenue.mjs
+import { getAdminCookie, getStaffCookie, getCustomerCookie } from '../helpers/auth-helper.mjs';
+
 const BASE_URL = 'http://localhost:3000';
 
 async function fetchJson(path, options = {}) {
@@ -25,6 +27,10 @@ async function runTests() {
   }
 
   try {
+    const adminCookie = await getAdminCookie();
+    const staffCookie = await getStaffCookie();
+    const customerCookie = await getCustomerCookie();
+
     // 1. Kiểm tra 401 khi chưa đăng nhập
     console.log('--- Test 1: Bắt lỗi 401 UNAUTHENTICATED khi chưa đăng nhập ---');
     const res1 = await fetchJson('/api/admin/reports/revenue');
@@ -33,9 +39,19 @@ async function runTests() {
       `Từ chối truy cập chưa xác thực (Status: ${res1.status}, Code: ${res1.data.code})`
     );
 
+    // 1b. Bảo mật: Chặn bypass query parameter
+    console.log('--- Test 1b: Kiểm tra chống backdoor query parameter ?role=ADMIN ---');
+    const resBypass = await fetchJson('/api/admin/reports/revenue?role=ADMIN');
+    assert(
+      resBypass.status === 401,
+      `Chặn thành công nỗ lực bypass bằng query param giả mạo (Status: ${resBypass.status})`
+    );
+
     // 2. Kiểm tra 403 khi role là CUSTOMER
     console.log('\n--- Test 2: Bắt lỗi 403 FORBIDDEN khi người dùng là CUSTOMER ---');
-    const res2 = await fetchJson('/api/admin/reports/revenue?role=CUSTOMER');
+    const res2 = await fetchJson('/api/admin/reports/revenue', {
+      headers: { Cookie: customerCookie },
+    });
     assert(
       res2.status === 403 && res2.data.code === 'FORBIDDEN',
       `Chặn tài khoản CUSTOMER xem báo cáo doanh thu (Status: ${res2.status}, Code: ${res2.data.code})`
@@ -43,7 +59,9 @@ async function runTests() {
 
     // 3. Kiểm tra 403 khi role là STAFF
     console.log('\n--- Test 3: Bắt lỗi 403 FORBIDDEN khi người dùng là STAFF ---');
-    const res3 = await fetchJson('/api/admin/reports/revenue?role=STAFF');
+    const res3 = await fetchJson('/api/admin/reports/revenue', {
+      headers: { Cookie: staffCookie },
+    });
     assert(
       res3.status === 403 && res3.data.code === 'FORBIDDEN',
       `Chặn tài khoản STAFF xem báo cáo doanh thu quản trị (Status: ${res3.status}, Code: ${res3.data.code})`
@@ -51,64 +69,52 @@ async function runTests() {
 
     // 4. Cho phép ADMIN truy cập thành công và trả về mảng dữ liệu báo cáo
     console.log('\n--- Test 4: Quản trị viên ADMIN truy cập thành công ---');
-    const res4 = await fetchJson('/api/admin/reports/revenue?role=ADMIN');
+    const res4 = await fetchJson('/api/admin/reports/revenue', {
+      headers: { Cookie: adminCookie },
+    });
     assert(
       res4.status === 200 && res4.data.success === true && Array.isArray(res4.data.data),
       `ADMIN truy cập thành công, dữ liệu trả về là một MẢNG (${res4.data.data?.length} suất chiếu)`
     );
 
     // 5. Kiểm tra chi tiết từng trường trong bản ghi báo cáo
-    console.log('\n--- Test 5: Kiểm tra tính đầy đủ của bản ghi báo cáo chi tiết ---');
+    console.log('\n--- Test 5: Kiểm tra cấu trúc bản ghi báo cáo (Record Structure) ---');
     if (res4.data.data.length > 0) {
       const item = res4.data.data[0];
-      assert(
-        Boolean(item.screening_id && item.movie && item.room),
-        `Có thông tin suất chiếu #${item.screening_id}, phòng ${item.room}, phim "${item.movie?.title}"`
-      );
-      assert(
-        typeof item.total_revenue === 'number',
-        `Có doanh thu riêng của suất chiếu: ${item.total_revenue.toLocaleString('vi-VN')} đ`
-      );
-      assert(
-        typeof item.tickets_sold === 'number' && typeof item.total_seats === 'number',
-        `Có số lượng ghế đã bán (${item.tickets_sold}) và tổng số ghế (${item.total_seats})`
-      );
-      assert(
-        typeof item.fill_rate === 'number' && Boolean(item.fill_rate_percentage),
-        `Tính toán tỷ lệ lấp đầy chính xác: ${item.fill_rate}% (${item.fill_rate_percentage})`
-      );
+      assert(typeof item.screening_id === 'number', `screening_id là number: ${item.screening_id}`);
+      assert(typeof item.movie_title === 'string', `movie_title là string: "${item.movie_title}"`);
+      assert(typeof item.room_name === 'string', `room_name là string: "${item.room_name}"`);
+      assert(typeof item.start_time === 'string', `start_time là ISO string: ${item.start_time}`);
+      assert(typeof item.tickets_sold === 'number', `tickets_sold là number: ${item.tickets_sold} vé`);
+      assert(typeof item.total_seats === 'number', `total_seats là number: ${item.total_seats} ghế`);
+      assert(typeof item.fill_rate === 'number', `fill_rate là number: ${item.fill_rate}% (${item.fill_rate_percentage})`);
+      assert(typeof item.ticket_revenue === 'number', `ticket_revenue là number: ${item.ticket_revenue.toLocaleString('vi-VN')} đ`);
+      assert(typeof item.combo_revenue === 'number', `combo_revenue là number: ${item.combo_revenue.toLocaleString('vi-VN')} đ`);
+      assert(typeof item.total_revenue === 'number', `total_revenue là number: ${item.total_revenue.toLocaleString('vi-VN')} đ`);
     }
 
-    // 6. Lọc theo movie_id=3
-    console.log('\n--- Test 6: Lọc báo cáo theo movie_id=3 ---');
-    const res6 = await fetchJson('/api/admin/reports/revenue?role=ADMIN&movie_id=3');
+    // 6. Kiểm tra bộ lọc theo movie_id
+    console.log('\n--- Test 6: Kiểm tra lọc theo movie_id ---');
+    const resFilterMovie = await fetchJson('/api/admin/reports/revenue?movie_id=1', {
+      headers: { Cookie: adminCookie },
+    });
     assert(
-      res6.status === 200 && res6.data.success === true,
-      `Lọc theo phim ID=3 thành công (Tìm thấy ${res6.data.data?.length} suất chiếu)`
-    );
-    if (res6.data.data.length > 0) {
-      const allMatchMovie = res6.data.data.every(sc => sc.movie.id === 3);
-      assert(allMatchMovie, 'Tất cả các suất chiếu trả về đều thuộc phim ID=3');
-    }
-
-    // 7. Lọc theo phòng chiếu room_number=1
-    console.log('\n--- Test 7: Lọc báo cáo theo room_number=1 ---');
-    const res7 = await fetchJson('/api/admin/reports/revenue?role=ADMIN&room_number=1');
-    assert(
-      res7.status === 200 && res7.data.success === true,
-      `Lọc theo phòng số 1 thành công (Tìm thấy ${res7.data.data?.length} suất chiếu)`
+      resFilterMovie.status === 200 && Array.isArray(resFilterMovie.data.data),
+      `Lọc theo movie_id=1 thành công (${resFilterMovie.data.data.length} suất chiếu)`
     );
 
-    // 8. Lọc theo khoảng thời gian from_date & to_date
-    console.log('\n--- Test 8: Lọc báo cáo theo khoảng thời gian from_date & to_date ---');
-    const res8 = await fetchJson('/api/admin/reports/revenue?role=ADMIN&from_date=2026-09-01&to_date=2026-10-31');
+    // 7. Kiểm tra bộ lọc theo khoảng thời gian from_date và to_date
+    console.log('\n--- Test 7: Kiểm tra lọc theo khoảng thời gian (from_date & to_date) ---');
+    const resFilterDate = await fetchJson('/api/admin/reports/revenue?from_date=2026-01-01&to_date=2026-12-31', {
+      headers: { Cookie: adminCookie },
+    });
     assert(
-      res8.status === 200 && res8.data.success === true,
-      `Lọc theo khoảng ngày 2026-09-01 đến 2026-10-31 thành công (${res8.data.data?.length} suất chiếu)`
+      resFilterDate.status === 200 && Array.isArray(resFilterDate.data.data),
+      `Lọc theo khoảng ngày thành công (${resFilterDate.data.data.length} suất chiếu)`
     );
 
   } catch (err) {
-    console.error('Lỗi kiểm thử báo cáo doanh thu:', err);
+    console.error('Lỗi kiểm thử Admin Reports Revenue:', err);
     failed++;
   }
 

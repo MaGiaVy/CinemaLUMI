@@ -1,7 +1,9 @@
 import { NextRequest } from 'next/server';
+import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
+import { authOptions } from '@/lib/auth';
 import { apiResponse } from '@/lib/api-response';
-import { handleError } from '@/lib/error';
+import { AppError, handleError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
 
@@ -90,6 +92,14 @@ export async function PUT(
   { params }: RouteContext
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      throw new AppError(401, 'Vui lòng đăng nhập tài khoản quản trị để cập nhật phim', 'UNAUTHENTICATED');
+    }
+    if (session.user.role !== 'ADMIN') {
+      throw new AppError(403, 'Chỉ có quản trị viên (ADMIN) mới có quyền cập nhật thông tin phim', 'FORBIDDEN');
+    }
+
     const { id } = await params;
     const movieId = parseInt(id, 10);
 
@@ -191,6 +201,14 @@ export async function DELETE(
   { params }: RouteContext
 ) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      throw new AppError(401, 'Vui lòng đăng nhập tài khoản quản trị để xóa phim', 'UNAUTHENTICATED');
+    }
+    if (session.user.role !== 'ADMIN') {
+      throw new AppError(403, 'Chỉ có quản trị viên (ADMIN) mới có quyền xóa phim khỏi hệ thống', 'FORBIDDEN');
+    }
+
     const { id } = await params;
     const movieId = parseInt(id, 10);
 

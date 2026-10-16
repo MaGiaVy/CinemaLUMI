@@ -136,10 +136,8 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
     const searchParams = request.nextUrl.searchParams;
 
-    // 1. Phân quyền truy cập (Staff / Admin)
-    const userRole = session?.user?.role || request.headers.get('x-user-role') || searchParams.get('role');
-
-    if (!userRole) {
+    // 1. Phân quyền truy cập an toàn phía Server (Chống SEC-02)
+    if (!session?.user?.id) {
       throw new AppError(
         401,
         'Vui lòng đăng nhập để truy cập tính năng tìm kiếm vé của nhân viên',
@@ -147,6 +145,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
+    const userRole = session.user.role;
     if (userRole !== 'STAFF' && userRole !== 'ADMIN') {
       throw new AppError(
         403,

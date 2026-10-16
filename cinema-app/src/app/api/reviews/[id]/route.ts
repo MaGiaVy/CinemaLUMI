@@ -14,18 +14,10 @@ interface RouteContext {
 /**
  * Kiểm tra phân quyền Admin:
  * Bắt buộc session.user.role === 'ADMIN'.
- * Hỗ trợ header x-user-role hoặc query role=ADMIN trong môi trường development / testing.
  */
-async function verifyAdminRole(request: NextRequest): Promise<void> {
+async function verifyAdminRole(): Promise<void> {
   const session = await getServerSession(authOptions);
-  const headerRole = request.headers.get('x-user-role');
-  const searchRole = request.nextUrl.searchParams.get('role');
-
-  const role =
-    session?.user?.role ||
-    (process.env.NODE_ENV === 'development' ? headerRole || searchRole : null);
-
-  if (!session && !headerRole && !searchRole) {
+  if (!session?.user) {
     throw new AppError(
       401,
       'Vui lòng đăng nhập để thực hiện hành động này',
@@ -33,7 +25,7 @@ async function verifyAdminRole(request: NextRequest): Promise<void> {
     );
   }
 
-  if (role !== 'ADMIN') {
+  if (session.user.role !== 'ADMIN') {
     throw new AppError(
       403,
       'Bạn không có quyền thực hiện hành động này. Yêu cầu quyền ADMIN.',
@@ -161,7 +153,7 @@ export async function DELETE(
     }
 
     // 1. Ràng buộc bảo mật: Bắt buộc kiểm tra quyền ADMIN
-    await verifyAdminRole(request);
+    await verifyAdminRole();
 
     // 2. Tìm kiếm bản ghi Review trong cơ sở dữ liệu
     const review = await prisma.review.findUnique({

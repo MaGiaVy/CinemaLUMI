@@ -1,7 +1,20 @@
 import { strict as assert } from 'assert';
 import { prisma } from '../../src/lib/prisma.ts';
+import { getCustomerCookie, getStaffCookie } from '../helpers/auth-helper.mjs';
 
 const BASE_URL = 'http://localhost:3000';
+
+async function withRetry(fn, maxRetries = 3, delayMs = 1500) {
+  for (let i = 0; i < maxRetries; i++) {
+    try {
+      return await fn();
+    } catch (err) {
+      if (i === maxRetries - 1) throw err;
+      console.log(`[Retry] Tái kết nối DB lần ${i + 1}/${maxRetries} sau ${delayMs}ms...`);
+      await new Promise((r) => setTimeout(r, delayMs));
+    }
+  }
+}
 
 async function runIntegrationTest() {
   console.log('🚀 === BẮT ĐẦU KIỂM THỬ TÍCH HỢP EMAIL SERVICE (PHASE 14) ===');
@@ -11,7 +24,7 @@ async function runIntegrationTest() {
 
   // Chuẩn bị suất chiếu và vé test ở tương lai > 2 tiếng
   const futureDate = new Date(Date.now() + 5 * 60 * 60 * 1000); // 5 tiếng sau
-  const movie = await prisma.movie.findFirst();
+  const movie = await withRetry(() => prisma.movie.findFirst());
   assert.ok(movie, 'Phải có ít nhất 1 phim trong DB');
 
   const screening = await prisma.screening.create({
@@ -42,6 +55,9 @@ async function runIntegrationTest() {
   });
   assert.ok(user, 'Khách hàng khachhang@lumi.vn phải tồn tại');
 
+  const customerCookie = await getCustomerCookie(user.id);
+  const staffCookie = await getStaffCookie();
+
   let payment = await prisma.payment.findFirst({
     where: { userId: user.id },
   });
@@ -70,10 +86,13 @@ async function runIntegrationTest() {
 
   console.log(`  Đã chuẩn bị vé test #${ticket.id} cho user #${user.id} (${user.email})`);
 
-  // Gọi POST /api/tickets/[id]/cancel
-  const cancelRes = await fetch(`${BASE_URL}/api/tickets/${ticket.id}/cancel?user_id=${user.id}`, {
+  // Gọi POST /api/tickets/[id]/cancel với session cookie của khách hàng
+  const cancelRes = await fetch(`${BASE_URL}/api/tickets/${ticket.id}/cancel`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: customerCookie,
+    },
   });
 
   const cancelData = await cancelRes.json();
@@ -86,11 +105,6 @@ async function runIntegrationTest() {
 
   // 2. Kiểm thử hủy vé có sự cố qua POST /api/staff/tickets/[id]/cancel-with-voucher
   console.log('\n--- KỊCH BẢN 2: NHÂN VIÊN ÉP HỦY VÉ UC-15 /api/staff/tickets/[id]/cancel-with-voucher ---');
-
-  const staffUser = await prisma.user.findFirst({
-    where: { role: 'STAFF' },
-  });
-  assert.ok(staffUser, 'Phải có nhân viên STAFF');
 
   const staffSeat = await prisma.seat.create({
     data: {
@@ -115,9 +129,12 @@ async function runIntegrationTest() {
     },
   });
 
-  const staffCancelRes = await fetch(`${BASE_URL}/api/staff/tickets/${staffTicket.id}/cancel-with-voucher?role=STAFF&staff_id=${staffUser.id}`, {
+  const staffCancelRes = await fetch(`${BASE_URL}/api/staff/tickets/${staffTicket.id}/cancel-with-voucher`, {
     method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      Cookie: staffCookie,
+    },
     body: JSON.stringify({
       reason: 'Sự cố mất điện rạp Cinema 02 (Kiểm thử Phase 14 email)',
       notes: 'Bồi hoàn 100% tự động',

@@ -24,6 +24,8 @@ const nextConfig: NextConfig = {
   async rewrites() {
     return [
       { source: '/admin', destination: '/admin/dashboard' },
+      { source: '/dashboard', destination: '/admin/dashboard' },
+      { source: '/reports', destination: '/admin/reports' },
       { source: '/admin-dashboard', destination: '/admin/dashboard' },
       { source: '/admin-reports', destination: '/admin/reports' },
       { source: '/staff-lookup', destination: '/staff/lookup' },

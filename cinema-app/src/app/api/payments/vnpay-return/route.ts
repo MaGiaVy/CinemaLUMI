@@ -46,15 +46,6 @@ export async function GET(request: NextRequest) {
   const amount = searchParams.get('amount') || searchParams.get('vnp_Amount');
   const orderInfo = searchParams.get('order_info') || searchParams.get('vnp_OrderInfo');
 
-  // Lấy các tham số phụ nếu có
-  const rawSeats = searchParams.get('seat_ids') || searchParams.get('seats');
-  const overrideSeatIds = rawSeats
-    ? rawSeats.split(',').map(s => parseInt(s, 10)).filter(n => !isNaN(n))
-    : undefined;
-  const rawScreening = searchParams.get('screening_id');
-  const overrideScreeningId = rawScreening ? parseInt(rawScreening, 10) : undefined;
-  const overrideCouponCode = searchParams.get('coupon_code') || undefined;
-
   const isSuccess = checkIsSuccess(statusParam, responseCode);
 
   // Nếu không có payment_id, chuyển hướng về trang báo lỗi chung
@@ -75,13 +66,11 @@ export async function GET(request: NextRequest) {
 
   try {
     // Tự động đồng bộ Database thông qua transaction có tính chống trùng lặp (Idempotent)
+    // Toàn bộ ghế và thông tin đơn hàng lấy trực tiếp từ DB (Chống SEC-08 Parameter Tampering)
     await processVnpayIpnTransaction(
       paymentId,
       isSuccess,
-      txnCode,
-      overrideSeatIds,
-      overrideScreeningId,
-      overrideCouponCode
+      txnCode
     );
   } catch (error) {
     const errorResponse = handleError(error);

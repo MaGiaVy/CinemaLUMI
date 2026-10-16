@@ -89,23 +89,20 @@ const createCouponSchema = z.object({
 });
 
 /**
- * Helper kiểm tra phân quyền Admin
+ * Helper kiểm tra phân quyền Admin từ Session máy chủ (Chống SEC-02)
  */
-async function verifyAdminRole(request: NextRequest): Promise<void> {
+async function verifyAdminRole(): Promise<void> {
   const session = await getServerSession(authOptions);
-  const headerRole = request.headers.get('x-user-role');
-  const isAdmin =
-    session?.user?.role === 'ADMIN' ||
-    (process.env.NODE_ENV === 'development' && headerRole === 'ADMIN');
 
-  if (!isAdmin) {
-    if (!session?.user) {
-      throw new AppError(
-        401,
-        'Yêu cầu xác thực. Vui lòng đăng nhập với tài khoản Quản trị viên (ADMIN)',
-        'UNAUTHORIZED'
-      );
-    }
+  if (!session?.user?.id) {
+    throw new AppError(
+      401,
+      'Yêu cầu xác thực. Vui lòng đăng nhập với tài khoản Quản trị viên (ADMIN)',
+      'UNAUTHENTICATED'
+    );
+  }
+
+  if (session.user.role !== 'ADMIN') {
     throw new AppError(
       403,
       'Bạn không có quyền thực hiện thao tác này. Quyền yêu cầu: ADMIN',
@@ -123,7 +120,7 @@ async function verifyAdminRole(request: NextRequest): Promise<void> {
 export async function GET(request: NextRequest) {
   try {
     // 1. Kiểm tra quyền ADMIN
-    await verifyAdminRole(request);
+    await verifyAdminRole();
 
     // 2. Query danh sách coupons kèm thông tin phim
     const coupons = await prisma.coupon.findMany({
@@ -205,7 +202,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // 1. Kiểm tra quyền ADMIN
-    await verifyAdminRole(request);
+    await verifyAdminRole();
 
     // 2. Parse body
     let bodyUnknown: unknown;

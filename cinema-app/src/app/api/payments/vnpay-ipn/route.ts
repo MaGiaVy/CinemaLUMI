@@ -4,6 +4,7 @@ import { AppError, handleError } from '@/lib/error';
 import { apiResponse } from '@/lib/api-response';
 import { PaymentStatus, SeatStatus, Ticket } from '@prisma/client';
 import { sendTicketConfirmation } from '@/lib/email';
+import { verifyVnpaySignature } from '@/lib/vnpay';
 
 export const dynamic = 'force-dynamic';
 
@@ -112,15 +113,15 @@ export async function processVnpayIpnTransaction(
         },
       });
 
-      // 3.2. Lấy danh sách ID các ghế ngồi đã đặt
+      // 3.2. Lấy danh sách ID các ghế ngồi đã đặt TRỰC TIẾP TỪ DATABASE (Chống SEC-08 Parameter Tampering)
       let seatIds: number[] = [];
-      if (overrideSeatIds && overrideSeatIds.length > 0) {
-        seatIds = overrideSeatIds;
-      } else if (Array.isArray(payment.seatIds)) {
+      if (Array.isArray(payment.seatIds) && payment.seatIds.length > 0) {
         seatIds = payment.seatIds as number[];
+      } else if (overrideSeatIds && overrideSeatIds.length > 0) {
+        seatIds = overrideSeatIds;
       }
 
-      const screeningId = overrideScreeningId || payment.screeningId || null;
+      const screeningId = payment.screeningId || overrideScreeningId || null;
       const createdTickets: Ticket[] = [];
 
       if (seatIds.length > 0) {
@@ -371,6 +372,26 @@ export async function GET(request: NextRequest) {
   try {
     const { searchParams } = new URL(request.url);
 
+    // Trích xuất toàn bộ params phục vụ xác thực chữ ký (SEC-03)
+    const allParams: Record<string, string> = {};
+    searchParams.forEach((val, key) => {
+      allParams[key] = val;
+    });
+
+    const vnpSecret = process.env.VNP_HASH_SECRET || 'DEMOHASHSECRET1234567890123456';
+    const isMockRequest =
+      request.headers.get('x-mock-payment') === 'true' ||
+      searchParams.get('mock') === 'true';
+
+    if (allParams['vnp_SecureHash']) {
+      const isValid = verifyVnpaySignature(allParams, vnpSecret);
+      if (!isValid) {
+        throw new AppError(400, 'Chữ ký số VNPay không hợp lệ (Invalid Checksum)', 'INVALID_SIGNATURE');
+      }
+    } else if (process.env.NODE_ENV === 'production' && !isMockRequest) {
+      throw new AppError(400, 'Yêu cầu thanh toán thiếu chữ ký bảo mật vnp_SecureHash', 'MISSING_SIGNATURE');
+    }
+
     // Trích xuất mã đơn hàng
     const rawPaymentId =
       searchParams.get('payment_id') ||
@@ -390,25 +411,12 @@ export async function GET(request: NextRequest) {
     const responseCodeParam = searchParams.get('vnp_ResponseCode') || searchParams.get('code');
     const txnCode = searchParams.get('vnp_TransactionNo') || searchParams.get('txn_code');
 
-    // Các tham số bổ sung nếu có
-    const rawSeats = searchParams.get('seat_ids') || searchParams.get('seats');
-    const overrideSeatIds = rawSeats
-      ? rawSeats.split(',').map(s => parseInt(s, 10)).filter(n => !isNaN(n))
-      : undefined;
-
-    const rawScreening = searchParams.get('screening_id');
-    const overrideScreeningId = rawScreening ? parseInt(rawScreening, 10) : undefined;
-    const overrideCouponCode = searchParams.get('coupon_code') || undefined;
-
     const isSuccess = isPaymentSuccessful(statusParam, responseCodeParam);
 
     const ipnResult = await processVnpayIpnTransaction(
       paymentId,
       isSuccess,
-      txnCode,
-      overrideSeatIds,
-      overrideScreeningId,
-      overrideCouponCode
+      txnCode
     );
 
     return apiResponse(
@@ -421,7 +429,7 @@ export async function GET(request: NextRequest) {
     const errorResponse = handleError(error);
     return apiResponse(
       false,
-      { RspCode: '99', Message: errorResponse.error },
+      { RspCode: errorResponse.code === 'INVALID_SIGNATURE' ? '97' : '99', Message: errorResponse.error },
       errorResponse.error,
       errorResponse.statusCode,
       errorResponse.code,
@@ -441,6 +449,31 @@ export async function POST(request: NextRequest) {
       body = (await request.json()) as Record<string, unknown>;
     } catch {
       // Body rỗng hoặc không phải JSON
+    }
+
+    const allParams: Record<string, string> = {};
+    for (const [k, v] of Object.entries(body)) {
+      if (typeof v === 'string' || typeof v === 'number') {
+        allParams[k] = String(v);
+      }
+    }
+    request.nextUrl.searchParams.forEach((val, key) => {
+      if (!allParams[key]) allParams[key] = val;
+    });
+
+    const vnpSecret = process.env.VNP_HASH_SECRET || 'DEMOHASHSECRET1234567890123456';
+    const isMockRequest =
+      request.headers.get('x-mock-payment') === 'true' ||
+      body.mock === true ||
+      request.nextUrl.searchParams.get('mock') === 'true';
+
+    if (allParams['vnp_SecureHash']) {
+      const isValid = verifyVnpaySignature(allParams, vnpSecret);
+      if (!isValid) {
+        throw new AppError(400, 'Chữ ký số VNPay không hợp lệ (Invalid Checksum)', 'INVALID_SIGNATURE');
+      }
+    } else if (process.env.NODE_ENV === 'production' && !isMockRequest) {
+      throw new AppError(400, 'Yêu cầu thanh toán thiếu chữ ký bảo mật vnp_SecureHash', 'MISSING_SIGNATURE');
     }
 
     const rawPaymentId =

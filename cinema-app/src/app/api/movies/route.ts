@@ -1,7 +1,9 @@
 import { NextRequest } from 'next/server';
+import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
+import { authOptions } from '@/lib/auth';
 import { apiResponse } from '@/lib/api-response';
-import { handleError } from '@/lib/error';
+import { AppError, handleError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
 
@@ -85,6 +87,14 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user?.id) {
+      throw new AppError(401, 'Vui lòng đăng nhập tài khoản quản trị để thêm phim mới', 'UNAUTHENTICATED');
+    }
+    if (session.user.role !== 'ADMIN') {
+      throw new AppError(403, 'Chỉ có quản trị viên (ADMIN) mới có quyền thêm phim mới', 'FORBIDDEN');
+    }
+
     const body = await request.json();
     const {
       title,

@@ -77,12 +77,8 @@ export async function GET(request: NextRequest) {
     const searchParams = request.nextUrl.searchParams;
     const movieIdParam = searchParams.get('movie_id');
     const isAll = searchParams.get('all') === 'true';
-    const headerRole = request.headers.get('x-user-role');
-    const queryRole = searchParams.get('role');
     const session = await getServerSession(authOptions);
-    const isAdmin =
-      session?.user?.role === 'ADMIN' ||
-      (process.env.NODE_ENV === 'development' && (headerRole === 'ADMIN' || queryRole === 'ADMIN'));
+    const isAdmin = session?.user?.role === 'ADMIN';
 
     if (!movieIdParam && !isAll && !isAdmin) {
       throw new AppError(
@@ -215,20 +211,8 @@ export async function POST(request: NextRequest) {
       throw new AppError(400, 'Payload không hợp lệ (yêu cầu định dạng JSON)', 'INVALID_JSON');
     }
 
-    // 2. Xác định User đang yêu cầu
-    let currentUserId: number | null = session?.user?.id ? Number(session.user.id) : null;
-
-    // Fallback cho môi trường kiểm thử tự động
-    if (!currentUserId) {
-      if (body.user_id && typeof body.user_id === 'number') {
-        currentUserId = body.user_id;
-      } else if (searchParams.get('user_id')) {
-        const parsedUserId = parseInt(searchParams.get('user_id')!, 10);
-        if (!isNaN(parsedUserId) && parsedUserId > 0) {
-          currentUserId = parsedUserId;
-        }
-      }
-    }
+    // 2. Xác định User đang yêu cầu qua Session
+    const currentUserId: number | null = session?.user?.id ? Number(session.user.id) : null;
 
     if (!currentUserId) {
       throw new AppError(

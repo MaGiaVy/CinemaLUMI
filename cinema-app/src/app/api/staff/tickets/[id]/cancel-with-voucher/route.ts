@@ -86,19 +86,18 @@ export async function POST(
     }
 
     const session = await getServerSession(authOptions);
-    const searchParams = request.nextUrl.searchParams;
 
-    // 1. Ràng buộc bảo mật chặt chẽ: chỉ STAFF và ADMIN mới được gọi API này
-    const userRole = session?.user?.role || request.headers.get('x-user-role') || searchParams.get('role');
-    const staffId = session?.user?.id || request.headers.get('x-user-id') || searchParams.get('staff_id') || null;
-
-    if (!userRole) {
+    // 1. Ràng buộc bảo mật chặt chẽ: chỉ STAFF và ADMIN có phiên hợp lệ mới được gọi API này (Chống SEC-02)
+    if (!session?.user?.id) {
       throw new AppError(
         401,
         'Vui lòng đăng nhập để thực hiện quyền nhân viên',
         'UNAUTHENTICATED'
       );
     }
+
+    const userRole = session.user.role;
+    const staffId = session.user.id;
 
     if (userRole !== 'STAFF' && userRole !== 'ADMIN') {
       throw new AppError(

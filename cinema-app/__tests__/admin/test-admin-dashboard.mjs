@@ -1,4 +1,6 @@
 // __tests__/admin/test-admin-dashboard.mjs
+import { getAdminCookie, getStaffCookie, getCustomerCookie } from '../helpers/auth-helper.mjs';
+
 const BASE_URL = 'http://localhost:3000';
 
 async function fetchJson(path, options = {}) {
@@ -25,6 +27,10 @@ async function runTests() {
   }
 
   try {
+    const adminCookie = await getAdminCookie();
+    const staffCookie = await getStaffCookie();
+    const customerCookie = await getCustomerCookie();
+
     // 1. Kiểm tra 401 khi chưa đăng nhập
     console.log('--- Test 1: Kiểm tra 401 UNAUTHENTICATED khi chưa đăng nhập ---');
     const res1 = await fetchJson('/api/admin/dashboard');
@@ -33,9 +39,19 @@ async function runTests() {
       `Từ chối truy cập khi chưa đăng nhập (Status: ${res1.status}, Code: ${res1.data.code})`
     );
 
+    // 1b. Bảo mật: Cố tình leo thang bằng query param hoặc header không hợp lệ phải bị chặn 401
+    console.log('--- Test 1b: Kiểm tra chống backdoor query parameter ?role=ADMIN ---');
+    const resBypass = await fetchJson('/api/admin/dashboard?role=ADMIN');
+    assert(
+      resBypass.status === 401,
+      `Chặn thành công nỗ lực bypass bằng query param giả mạo (Status: ${resBypass.status})`
+    );
+
     // 2. Kiểm tra 403 khi role là CUSTOMER
     console.log('\n--- Test 2: Kiểm tra 403 FORBIDDEN khi người dùng là CUSTOMER ---');
-    const res2 = await fetchJson('/api/admin/dashboard?role=CUSTOMER');
+    const res2 = await fetchJson('/api/admin/dashboard', {
+      headers: { Cookie: customerCookie },
+    });
     assert(
       res2.status === 403 && res2.data.code === 'FORBIDDEN',
       `Chặn tài khoản CUSTOMER truy cập (Status: ${res2.status}, Code: ${res2.data.code})`
@@ -43,7 +59,9 @@ async function runTests() {
 
     // 3. Kiểm tra 403 khi role là STAFF (Dashboard Admin chỉ dành riêng cho ADMIN)
     console.log('\n--- Test 3: Kiểm tra 403 FORBIDDEN khi người dùng là STAFF ---');
-    const res3 = await fetchJson('/api/admin/dashboard?role=STAFF');
+    const res3 = await fetchJson('/api/admin/dashboard', {
+      headers: { Cookie: staffCookie },
+    });
     assert(
       res3.status === 403 && res3.data.code === 'FORBIDDEN',
       `Chặn tài khoản STAFF truy cập Dashboard của ADMIN (Status: ${res3.status}, Code: ${res3.data.code})`
@@ -51,7 +69,9 @@ async function runTests() {
 
     // 4. Cho phép ADMIN truy cập thành công
     console.log('\n--- Test 4: Cho phép ADMIN truy cập thành công lấy dữ liệu thống kê ---');
-    const res4 = await fetchJson('/api/admin/dashboard?role=ADMIN');
+    const res4 = await fetchJson('/api/admin/dashboard', {
+      headers: { Cookie: adminCookie },
+    });
     assert(
       res4.status === 200 && res4.data.success === true,
       `Quản trị viên ADMIN truy cập thành công (Status: ${res4.status})`

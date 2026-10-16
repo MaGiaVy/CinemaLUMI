@@ -66,16 +66,15 @@ const createComboSchema = z
   );
 
 /**
- * Helper kiểm tra phân quyền Admin
+ * Helper kiểm tra phân quyền Admin từ Session máy chủ
  */
-async function verifyAdminRole(request: NextRequest): Promise<void> {
+async function verifyAdminRole(): Promise<void> {
   const session = await getServerSession(authOptions);
-  const headerRole = request.headers.get('x-user-role');
-  const isAdmin =
-    session?.user?.role === 'ADMIN' ||
-    (process.env.NODE_ENV === 'development' && headerRole === 'ADMIN');
+  if (!session?.user?.id) {
+    throw new AppError(401, 'Vui lòng đăng nhập tài khoản quản trị', 'UNAUTHENTICATED');
+  }
 
-  if (!isAdmin) {
+  if (session.user.role !== 'ADMIN') {
     throw new AppError(
       403,
       'Bạn không có quyền thực hiện hành động này. Yêu cầu quyền ADMIN.',
@@ -94,10 +93,7 @@ async function verifyAdminRole(request: NextRequest): Promise<void> {
 export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    const headerRole = request.headers.get('x-user-role');
-    const isAdmin =
-      session?.user?.role === 'ADMIN' ||
-      (process.env.NODE_ENV === 'development' && headerRole === 'ADMIN');
+    const isAdmin = session?.user?.role === 'ADMIN';
 
     const searchParams = request.nextUrl.searchParams;
     const forceClientMode = searchParams.get('client') === 'true';
@@ -183,7 +179,7 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     // 1. Kiểm tra quyền ADMIN
-    await verifyAdminRole(request);
+    await verifyAdminRole();
 
     // 2. Parse JSON body
     let body: unknown;

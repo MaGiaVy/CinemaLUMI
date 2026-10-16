@@ -1,4 +1,5 @@
 import assert from 'assert';
+import { getCustomerCookie } from '../helpers/auth-helper.mjs';
 
 const BASE_URL = 'http://localhost:3000';
 
@@ -6,6 +7,9 @@ async function runTicketApiTests() {
   console.log('================================================================');
   console.log('🚀 BẮT ĐẦU KIỂM THỬ API PHASE 10: TICKET MANAGEMENT');
   console.log('================================================================\n');
+
+  const user1Cookie = await getCustomerCookie(1);
+  const user999Cookie = await getCustomerCookie(999);
 
   // =========================================================================
   // TEST 1: GET /api/tickets - Bắt lỗi 401 khi chưa xác thực
@@ -17,16 +21,24 @@ async function runTicketApiTests() {
   assert.strictEqual(json1.success, false);
   console.log('✓ TEST 1 Passed: Bắt lỗi 401 UNAUTHENTICATED thành công:', json1.message || json1.error);
 
+  // TEST 1b: Chống IDOR - Thử truyền ?user_id=1 khi chưa đăng nhập
+  console.log('--- TEST 1b: Chống IDOR backdoor query param ?user_id=1 ---');
+  const resIdor = await fetch(`${BASE_URL}/api/tickets?user_id=1`);
+  assert.strictEqual(resIdor.status, 401, 'Bypass bằng query param phải bị từ chối 401');
+  console.log('✓ TEST 1b Passed: Chặn thành công nỗ lực IDOR bằng query parameter (Status: 401)');
+
   // =========================================================================
-  // TEST 2: GET /api/tickets?user_id=1 - Lấy danh sách toàn bộ vé của User 1
+  // TEST 2: GET /api/tickets - Lấy danh sách toàn bộ vé của User 1 qua Session
   // =========================================================================
-  console.log('\n--- TEST 2: GET /api/tickets?user_id=1 lấy danh sách vé thành công ---');
-  const res2 = await fetch(`${BASE_URL}/api/tickets?user_id=1`);
+  console.log('\n--- TEST 2: GET /api/tickets lấy danh sách vé của chính user trong session ---');
+  const res2 = await fetch(`${BASE_URL}/api/tickets`, {
+    headers: { Cookie: user1Cookie },
+  });
   const json2 = await res2.json();
   assert.strictEqual(res2.status, 200, 'Lấy danh sách vé thành công phải là HTTP 200');
   assert.strictEqual(json2.success, true);
   assert.ok(Array.isArray(json2.data), 'data phải là một mảng vé');
-  assert.ok(json2.data.length > 0, 'User 1 phải có vé đã đặt từ Phase 9');
+  assert.ok(json2.data.length > 0, 'User 1 phải có vé đã đặt');
 
   const sampleTicket = json2.data[0];
   console.log(`✓ TEST 2 Passed: Lấy thành công ${json2.data.length} vé của User 1.`);
@@ -57,7 +69,9 @@ async function runTicketApiTests() {
   // TEST 4: GET /api/tickets/[id] - Bắt lỗi 400 khi ID không hợp lệ
   // =========================================================================
   console.log('\n--- TEST 4: Bắt lỗi khi ID vé không phải số nguyên dương ---');
-  const res4 = await fetch(`${BASE_URL}/api/tickets/abc?user_id=1`);
+  const res4 = await fetch(`${BASE_URL}/api/tickets/abc`, {
+    headers: { Cookie: user1Cookie },
+  });
   const json4 = await res4.json();
   assert.strictEqual(res4.status, 400, 'HTTP 400');
   assert.strictEqual(json4.success, false);
@@ -67,17 +81,21 @@ async function runTicketApiTests() {
   // TEST 5: GET /api/tickets/[id] - Bắt lỗi 404 khi vé không tồn tại
   // =========================================================================
   console.log('\n--- TEST 5: Bắt lỗi khi mã vé không tồn tại trong hệ thống ---');
-  const res5 = await fetch(`${BASE_URL}/api/tickets/999999?user_id=1`);
+  const res5 = await fetch(`${BASE_URL}/api/tickets/999999`, {
+    headers: { Cookie: user1Cookie },
+  });
   const json5 = await res5.json();
   assert.strictEqual(res5.status, 404, 'HTTP 404');
   assert.strictEqual(json5.success, false);
   console.log('✓ TEST 5 Passed: Bắt lỗi TICKET_NOT_FOUND thành công:', json5.message || json5.error);
 
   // =========================================================================
-  // TEST 6: GET /api/tickets/[id] - Bắt lỗi 403 khi truy cập vé của người khác
+  // TEST 6: GET /api/tickets/[id] - Bắt lỗi 403 khi truy cập vé của người khác (Chống IDOR)
   // =========================================================================
-  console.log('\n--- TEST 6: Kiểm tra quyền sở hữu (Vé thuộc về user khác) ---');
-  const res6 = await fetch(`${BASE_URL}/api/tickets/${sampleTicket.id}?user_id=999`);
+  console.log('\n--- TEST 6: Kiểm tra quyền sở hữu (User khác cố xem vé không thuộc về mình) ---');
+  const res6 = await fetch(`${BASE_URL}/api/tickets/${sampleTicket.id}`, {
+    headers: { Cookie: user999Cookie },
+  });
   const json6 = await res6.json();
   assert.strictEqual(res6.status, 403, 'Không phải chủ vé phải trả về HTTP 403 FORBIDDEN');
   assert.strictEqual(json6.success, false);
@@ -87,7 +105,9 @@ async function runTicketApiTests() {
   // TEST 7: GET /api/tickets/[id] - Lấy chi tiết vé thành công & kiểm tra QR Payload
   // =========================================================================
   console.log('\n--- TEST 7: Lấy chi tiết vé thành công và kiểm tra chuỗi QR Payload ---');
-  const res7 = await fetch(`${BASE_URL}/api/tickets/${sampleTicket.id}?user_id=1`);
+  const res7 = await fetch(`${BASE_URL}/api/tickets/${sampleTicket.id}`, {
+    headers: { Cookie: user1Cookie },
+  });
   const json7 = await res7.json();
   assert.strictEqual(res7.status, 200, 'HTTP 200');
   assert.strictEqual(json7.success, true);
@@ -109,7 +129,7 @@ async function runTicketApiTests() {
   console.log(`  - Chuỗi QR Payload: ${detail.qr_payload}`);
 
   console.log('\n================================================================');
-  console.log('🎉 TẤT CẢ 7 TEST CASES CHO PHASE 10 TICKETS API ĐỀU PASSED 100%!');
+  console.log('🎉 TẤT CẢ TEST CASES CHO PHASE 10 TICKETS API ĐỀU PASSED 100%!');
   console.log('================================================================\n');
 }
 

@@ -181,38 +181,12 @@ export async function POST(request: NextRequest) {
     const rawCouponCode = data.coupon_code ?? data.couponCode;
     const paymentMethodEnum = resolvePaymentMethod(data.payment_method ?? data.paymentMethod);
 
-    // 1. Xác định User thực hiện thanh toán
+    // 1. Xác định User thực hiện thanh toán - BẮT BUỘC ĐĂNG NHẬP (Chống SEC-04)
     const session = await getServerSession(authOptions);
-    let effectiveUserId: number | null = session?.user?.id ? Number(session.user.id) : null;
+    const effectiveUserId: number | null = session?.user?.id ? Number(session.user.id) : null;
 
-    if (!effectiveUserId && (data.user_id || data.userId)) {
-      const customUserId = (data.user_id ?? data.userId)!;
-      const existingUser = await prisma.user.findUnique({
-        where: { id: customUserId },
-        select: { id: true },
-      });
-      if (existingUser) {
-        effectiveUserId = existingUser.id;
-      }
-    }
-
-    // Nếu không có session (khách vãng lai / test), tìm user mặc định để liên kết khóa ngoại
-    if (!effectiveUserId) {
-      const defaultCustomer = await prisma.user.findFirst({
-        where: { role: 'CUSTOMER' },
-        select: { id: true },
-      });
-
-      if (defaultCustomer) {
-        effectiveUserId = defaultCustomer.id;
-      } else {
-        const anyUser = await prisma.user.findFirst({ select: { id: true } });
-        if (anyUser) {
-          effectiveUserId = anyUser.id;
-        } else {
-          throw new AppError(401, 'Vui lòng đăng nhập để tiến hành đặt vé', 'UNAUTHORIZED');
-        }
-      }
+    if (!effectiveUserId || isNaN(effectiveUserId) || effectiveUserId <= 0) {
+      throw new AppError(401, 'Vui lòng đăng nhập tài khoản để tiến hành đặt vé', 'UNAUTHENTICATED');
     }
 
     // 2. Kiểm tra thông tin suất chiếu từ Database

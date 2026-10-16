@@ -54,6 +54,14 @@ export interface ScreeningRevenueReportItem {
   fillRate: number;
   fill_rate_percentage: string;
   fillRatePercentage: string;
+  movie_title?: string;
+  movieTitle?: string;
+  room_name?: string;
+  roomName?: string;
+  ticket_revenue?: number;
+  ticketRevenue?: number;
+  combo_revenue?: number;
+  comboRevenue?: number;
 }
 
 /**
@@ -79,13 +87,8 @@ export async function GET(request: NextRequest) {
     const session = await getServerSession(authOptions);
     const searchParams = request.nextUrl.searchParams;
 
-    // 1. Ràng buộc bảo mật: Bắt buộc quyền ADMIN
-    const userRole =
-      session?.user?.role ||
-      request.headers.get('x-user-role') ||
-      searchParams.get('role');
-
-    if (!userRole) {
+    // 1. Ràng buộc bảo mật: Bắt buộc quyền ADMIN từ session máy chủ (Chống SEC-02)
+    if (!session?.user?.id) {
       throw new AppError(
         401,
         'Vui lòng đăng nhập để truy cập báo cáo doanh thu',
@@ -93,7 +96,7 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    if (userRole !== 'ADMIN') {
+    if (session.user.role !== 'ADMIN') {
       throw new AppError(
         403,
         'Chỉ có quản trị viên (ADMIN) mới có quyền truy cập báo cáo doanh thu chi tiết (UC-19)',
@@ -223,6 +226,14 @@ export async function GET(request: NextRequest) {
         base_price: Number(sc.price),
         basePrice: Number(sc.price),
         status: sc.status,
+        movie_title: sc.movie.title,
+        movieTitle: sc.movie.title,
+        room_name: sc.room,
+        roomName: sc.room,
+        ticket_revenue: totalRevenue,
+        ticketRevenue: totalRevenue,
+        combo_revenue: 0,
+        comboRevenue: 0,
 
         movie: {
           id: sc.movie.id,

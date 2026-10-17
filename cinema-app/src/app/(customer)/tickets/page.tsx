@@ -230,34 +230,31 @@ function MyTicketsContent() {
     <>
       <Toast toasts={toasts} onRemove={removeToast} />
 
-      <div className="min-h-screen bg-[#111217] text-white py-8 sm:py-12">
+      <div className="min-h-screen bg-[#1A1A1A] text-white py-8 sm:py-12">
         <div className="max-w-6xl mx-auto px-4 sm:px-6">
           {/* Header tiêu đề */}
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 pb-6 border-b border-[#252836]">
+          <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-8 pb-6 border-b border-[#333]">
             <div>
-              <div className="flex items-center gap-3 mb-1">
-                <span className="text-3xl">🎟️</span>
-                <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
-                  Vé Của Tôi
-                </h1>
-              </div>
-              <p className="text-gray-400 text-sm">
-                Quản lý vé đã đặt, xuất trình mã QR vào phòng chiếu hoặc hủy vé nhận voucher bồi thường
+              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight mb-1">
+                Vé Của Tôi
+              </h1>
+              <p className="text-[#A3A3A3] text-sm">
+                Quản lý vé đã đặt và xuất trình mã QR khi vào phòng chiếu
               </p>
             </div>
 
             {/* Thống kê nhanh */}
             <div className="flex items-center gap-2 text-xs">
-              <span className="px-3 py-1.5 rounded-lg bg-[#1E202B] border border-[#2B2E3D] text-gray-300">
+              <span className="px-3 py-1.5 rounded-lg bg-[#2D2D2D] border border-[#404040] text-gray-300">
                 Tổng: <strong className="text-white ml-1 font-bold">{stats.total}</strong>
               </span>
-              <span className="px-3 py-1.5 rounded-lg bg-green-500/10 border border-green-500/30 text-green-400">
+              <span className="px-3 py-1.5 rounded-lg bg-[#2ECC71]/15 border border-[#2ECC71]/30 text-[#2ECC71]">
                 Còn hạn: <strong className="ml-1 font-bold">{stats.valid}</strong>
               </span>
-              <span className="px-3 py-1.5 rounded-lg bg-[#2B2E3D] text-gray-400">
+              <span className="px-3 py-1.5 rounded-lg bg-[#2D2D2D] text-gray-400">
                 Đã dùng: <strong className="text-gray-200 ml-1 font-bold">{stats.used}</strong>
               </span>
-              <span className="px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/30 text-red-400">
+              <span className="px-3 py-1.5 rounded-lg bg-[#E63946]/15 border border-[#E63946]/30 text-[#E63946]">
                 Đã hủy: <strong className="ml-1 font-bold">{stats.cancelled}</strong>
               </span>
             </div>
@@ -280,14 +277,14 @@ function MyTicketsContent() {
                   onClick={() => setFilter(tab.key)}
                   className={`px-4 py-2 rounded-xl text-sm font-semibold transition-all whitespace-nowrap flex items-center gap-2 cursor-pointer ${
                     filter === tab.key
-                      ? 'bg-[#E63946] text-white shadow-lg shadow-red-600/30'
-                      : 'bg-[#1A1C24] text-gray-400 hover:text-white hover:bg-[#252836] border border-[#2A2D3C]'
+                      ? 'bg-[#E63946] text-white shadow-md'
+                      : 'bg-[#2D2D2D] text-gray-400 hover:text-white hover:bg-[#383838] border border-[#404040]'
                   }`}
                 >
                   <span>{tab.label}</span>
                   <span
                     className={`text-xs px-1.5 py-0.5 rounded-full ${
-                      filter === tab.key ? 'bg-black/30 text-white' : 'bg-[#2E3242] text-gray-400'
+                      filter === tab.key ? 'bg-black/30 text-white' : 'bg-[#1E1E1E] text-gray-400'
                     }`}
                   >
                     {tab.count}
@@ -298,15 +295,12 @@ function MyTicketsContent() {
 
             {/* Ô tìm kiếm */}
             <div className="relative min-w-[240px]">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400 text-sm">
-                🔍
-              </span>
               <input
                 type="text"
                 placeholder="Tìm phim, ghế, mã vé..."
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
-                className="w-full pl-9 pr-4 py-2 bg-[#1A1C24] border border-[#2A2D3C] rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#E63946] transition"
+                className="w-full px-4 py-2 bg-[#2D2D2D] border border-[#404040] rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#E63946] transition"
               />
               {searchTerm && (
                 <button
@@ -325,35 +319,34 @@ function MyTicketsContent() {
               {[1, 2, 3].map(i => (
                 <div
                   key={i}
-                  className="bg-[#1A1C24] border border-[#252836] rounded-2xl p-6 animate-pulse flex flex-col md:flex-row gap-6"
+                  className="bg-[#2D2D2D] border border-[#404040] rounded-2xl p-6 animate-pulse flex flex-col md:flex-row gap-6"
                 >
-                  <div className="w-24 h-36 bg-[#252836] rounded-xl flex-shrink-0" />
+                  <div className="w-24 h-36 bg-[#383838] rounded-xl flex-shrink-0" />
                   <div className="flex-1 space-y-3">
-                    <div className="w-2/3 h-6 bg-[#252836] rounded" />
-                    <div className="w-1/3 h-4 bg-[#252836] rounded" />
-                    <div className="w-1/2 h-4 bg-[#252836] rounded" />
+                    <div className="w-2/3 h-6 bg-[#383838] rounded" />
+                    <div className="w-1/3 h-4 bg-[#383838] rounded" />
+                    <div className="w-1/2 h-4 bg-[#383838] rounded" />
                   </div>
-                  <div className="w-32 h-20 bg-[#252836] rounded-xl" />
+                  <div className="w-32 h-20 bg-[#383838] rounded-xl" />
                 </div>
               ))}
             </div>
           ) : filteredTickets.length === 0 ? (
             /* Trạng thái rỗng */
-            <div className="bg-[#1A1C24] border border-[#252836] rounded-2xl p-12 text-center my-8">
-              <span className="text-6xl mb-4 block">🎟️</span>
+            <div className="bg-[#2D2D2D] border border-[#404040] rounded-2xl p-12 text-center my-8">
               <h3 className="text-xl font-bold text-white mb-2">
                 {searchTerm ? 'Không tìm thấy vé phù hợp' : 'Chưa có vé nào trong danh mục này'}
               </h3>
               <p className="text-gray-400 text-sm max-w-md mx-auto mb-6">
                 {searchTerm
                   ? 'Vui lòng kiểm tra lại từ khóa tìm kiếm hoặc thử với từ khóa khác'
-                  : 'Hãy khám phá lịch chiếu các bộ phim bom tấn đang chiếu và đặt vé ngay hôm nay!'}
+                  : 'Hãy khám phá các phim đang chiếu và đặt vé ngay hôm nay.'}
               </p>
               <Link
                 href="/#showing"
-                className="inline-flex items-center gap-2 px-6 py-3 bg-[#E63946] hover:bg-[#C62B36] text-white font-semibold rounded-xl transition shadow-lg"
+                className="inline-flex items-center gap-2 px-6 py-3 bg-[#E63946] hover:bg-[#D90429] text-white font-semibold rounded-xl transition shadow-md"
               >
-                🎬 Khám phá phim đang chiếu
+                Khám phá phim đang chiếu
               </Link>
             </div>
           ) : (
@@ -371,19 +364,19 @@ function MyTicketsContent() {
                 return (
                   <div
                     key={ticket.id}
-                    className="bg-[#1A1C24] border border-[#252836] hover:border-[#383C4F] rounded-2xl p-5 sm:p-6 transition-all duration-200 shadow-xl flex flex-col lg:flex-row gap-6 items-stretch justify-between"
+                    className="bg-[#2D2D2D] border border-[#404040] hover:border-[#555] rounded-xl p-5 sm:p-6 transition-all duration-200 shadow-md flex flex-col lg:flex-row gap-6 items-stretch justify-between"
                   >
                     {/* Khối Thông tin Phim & Suất chiếu */}
                     <div className="flex gap-4 sm:gap-5 flex-1 min-w-0">
                       {/* Poster phim */}
-                      <div className="relative w-20 sm:w-24 h-28 sm:h-36 rounded-xl overflow-hidden flex-shrink-0 bg-black/40 border border-[#2B2E3D]">
+                      <div className="relative w-20 sm:w-24 h-28 sm:h-36 rounded-lg overflow-hidden flex-shrink-0 bg-black/40 border border-[#404040]">
                         <img
                           src={posterUrl}
                           alt={ticket.movie?.title || 'Phim'}
                           className="w-full h-full object-cover"
                         />
                         {ticket.movie?.ageRating && (
-                          <div className="absolute top-1 left-1 bg-red-600/90 text-white text-[10px] font-black px-1.5 py-0.5 rounded">
+                          <div className="absolute top-1 left-1 bg-[#E63946] text-white text-[10px] font-black px-1.5 py-0.5 rounded">
                             {ticket.movie.ageRating}
                           </div>
                         )}
@@ -409,24 +402,21 @@ function MyTicketsContent() {
 
                         {/* Thông tin suất chiếu: Ngày, Giờ, Phòng */}
                         <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs text-gray-300 pt-1">
-                          <div className="flex items-center gap-1.5 bg-[#12131A] px-2.5 py-1.5 rounded-lg border border-[#222430]">
-                            <span>📅</span>
+                          <div className="bg-[#1E1E1E] px-2.5 py-1.5 rounded-lg border border-[#383838]">
                             <span className="font-medium truncate">{formatDate(startTime)}</span>
                           </div>
-                          <div className="flex items-center gap-1.5 bg-[#12131A] px-2.5 py-1.5 rounded-lg border border-[#222430]">
-                            <span>⏰</span>
+                          <div className="bg-[#1E1E1E] px-2.5 py-1.5 rounded-lg border border-[#383838]">
                             <span className="font-bold text-[#FFB703]">
                               {formatTime(startTime)} - {formatTime(endTime)}
                             </span>
                           </div>
-                          <div className="col-span-2 sm:col-span-1 flex items-center gap-1.5 bg-[#12131A] px-2.5 py-1.5 rounded-lg border border-[#222430]">
-                            <span>🎭</span>
+                          <div className="col-span-2 sm:col-span-1 bg-[#1E1E1E] px-2.5 py-1.5 rounded-lg border border-[#383838]">
                             <span className="truncate">Phòng {ticket.screening?.room || '1'}</span>
                           </div>
                         </div>
 
                         {/* Ghế & Giá vé & Loại vé */}
-                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#252836]">
+                        <div className="flex flex-wrap items-center justify-between gap-2 pt-2 border-t border-[#383838]">
                           <div className="flex items-center gap-2">
                             <span className="text-xs text-gray-400">Vị trí ghế:</span>
                             <Badge variant="gold" size="md">
@@ -449,11 +439,11 @@ function MyTicketsContent() {
                     </div>
 
                     {/* Cột phải: QR Code preview & Nút hành động */}
-                    <div className="flex lg:flex-col items-center justify-between lg:justify-center gap-4 pt-4 lg:pt-0 border-t lg:border-t-0 lg:border-l border-[#252836] lg:pl-6 min-w-[200px]">
+                    <div className="flex lg:flex-col items-center justify-between lg:justify-center gap-4 pt-4 lg:pt-0 border-t lg:border-t-0 lg:border-l border-[#383838] lg:pl-6 min-w-[180px]">
                       {/* Mini QR Box */}
                       <Link
                         href={`/tickets/${ticket.id}`}
-                        className="bg-white p-2 rounded-xl flex flex-col items-center shadow-md hover:scale-105 transition-transform group cursor-pointer"
+                        className="bg-white p-2 rounded-lg flex flex-col items-center shadow-md hover:scale-105 transition-transform group cursor-pointer"
                         title="Bấm để xem mã QR phóng to"
                       >
                         <QRCodeSVG
@@ -466,7 +456,7 @@ function MyTicketsContent() {
                           level="M"
                         />
                         <span className="text-[9px] text-gray-700 font-mono font-bold mt-1 group-hover:text-red-600 transition">
-                          🔍 Xem QR
+                          Xem mã QR
                         </span>
                       </Link>
 
@@ -474,11 +464,11 @@ function MyTicketsContent() {
                       <div className="flex flex-col sm:flex-row lg:flex-col gap-2 w-full sm:w-auto lg:w-full">
                         <Link href={`/tickets/${ticket.id}`} className="w-full">
                           <Button variant="secondary" size="sm" fullWidth className="text-xs">
-                            Chi tiết & QR
+                            Chi tiết vé
                           </Button>
                         </Link>
 
-                        {/* Nút Hủy vé theo ràng buộc BR-03 */}
+                        {/* Nút Hủy vé theo ràng buộc nghiệp vụ */}
                         {isStatusValid && (
                           <div className="w-full">
                             {eligibility.canCancel ? (
@@ -487,7 +477,7 @@ function MyTicketsContent() {
                                 size="sm"
                                 fullWidth
                                 onClick={() => setCancelModalTicket(ticket)}
-                                className="text-xs bg-[#E63946]/20 text-[#E63946] border border-[#E63946]/50 hover:bg-[#E63946] hover:text-white transition"
+                                className="text-xs bg-[#E63946]/15 text-[#E63946] border border-[#E63946]/40 hover:bg-[#E63946] hover:text-white transition"
                               >
                                 Hủy vé
                               </Button>
@@ -505,12 +495,12 @@ function MyTicketsContent() {
 
                         {ticket.status === 'Cancelled' && (
                           <span className="text-[11px] text-red-400 text-center font-medium block">
-                            ✕ Vé đã hủy
+                            Vé đã hủy
                           </span>
                         )}
                         {ticket.status === 'Used' && (
                           <span className="text-[11px] text-gray-400 text-center font-medium block">
-                            ✓ Đã soát vé
+                            Đã soát vé
                           </span>
                         )}
                       </div>
@@ -523,7 +513,7 @@ function MyTicketsContent() {
         </div>
       </div>
 
-      {/* Modal xác nhận Hủy Vé (Ràng buộc nghiệp vụ BR-03) */}
+      {/* Modal xác nhận Hủy Vé */}
       <Modal
         isOpen={!!cancelModalTicket}
         onClose={() => !isCancelling && setCancelModalTicket(null)}
@@ -532,8 +522,8 @@ function MyTicketsContent() {
         {cancelModalTicket && (
           <div className="space-y-4">
             {/* Thông tin vé dự kiến hủy */}
-            <div className="bg-[#1C1E27] border border-[#2B2E3D] rounded-xl p-4 space-y-2 text-sm">
-              <div className="flex justify-between items-center pb-2 border-b border-[#2B2E3D]">
+            <div className="bg-[#1E1E1E] border border-[#383838] rounded-xl p-4 space-y-2 text-sm">
+              <div className="flex justify-between items-center pb-2 border-b border-[#383838]">
                 <span className="text-gray-400">Mã vé:</span>
                 <span className="font-mono font-bold text-white">#LMC-{String(cancelModalTicket.id).padStart(6, '0')}</span>
               </div>
@@ -557,10 +547,10 @@ function MyTicketsContent() {
               </div>
             </div>
 
-            {/* Hộp giải thích chính sách BR-03 */}
-            <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-xs space-y-2">
-              <p className="font-bold text-red-400 flex items-center gap-1.5 text-sm">
-                <span>⚠️</span> Quy định hủy vé & Bồi thường (BR-03)
+            {/* Hộp chính sách hủy vé */}
+            <div className="bg-[#E63946]/10 border border-[#E63946]/30 rounded-xl p-4 text-xs space-y-2">
+              <p className="font-bold text-red-400 text-sm">
+                Quy định hủy vé và voucher hoàn trả
               </p>
               <ul className="text-gray-300 space-y-1.5 list-disc pl-4">
                 <li>
@@ -570,10 +560,10 @@ function MyTicketsContent() {
                   Ghế <strong>{cancelModalTicket.seat?.code}</strong> sẽ được giải phóng ngay lập tức để người khác có thể đặt.
                 </li>
                 <li>
-                  Hệ thống sẽ cấp ngay <strong>Voucher giảm 50%</strong> (áp dụng cho mọi phim, hạn dùng 30 ngày) bồi hoàn vào tài khoản của bạn.
+                  Hệ thống sẽ cấp ngay <strong>Voucher giảm 50%</strong> (hạn dùng 30 ngày) vào tài khoản của bạn.
                 </li>
                 <li>
-                  Vé sau khi hủy sẽ <strong>không thể hoàn tác</strong> hoặc khôi phục lại.
+                  Vé sau khi hủy <strong>không thể hoàn tác</strong> hoặc khôi phục lại.
                 </li>
               </ul>
             </div>
@@ -593,7 +583,7 @@ function MyTicketsContent() {
                 fullWidth
                 disabled={isCancelling}
                 onClick={handleConfirmCancel}
-                className="bg-red-600 hover:bg-red-700"
+                className="bg-[#E63946] hover:bg-[#D90429]"
               >
                 {isCancelling ? (
                   <div className="flex items-center justify-center gap-2">
@@ -616,9 +606,9 @@ export default function MyTicketsPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#111217] text-white flex items-center justify-center">
+        <div className="min-h-screen bg-[#1A1A1A] text-white flex items-center justify-center">
           <div className="flex items-center gap-3">
-            <div className="w-5 h-5 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-[#E63946] border-t-transparent rounded-full animate-spin" />
             <span>Đang tải danh sách vé...</span>
           </div>
         </div>

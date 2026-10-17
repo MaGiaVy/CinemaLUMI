@@ -327,7 +327,7 @@ export default function AdminCombosPage() {
           <div className="w-full md:w-80">
             <input
               type="text"
-              placeholder="🔍 Tìm combo theo tên hoặc mô tả..."
+              placeholder="Tìm combo theo tên hoặc mô tả..."
               value={searchTerm}
               onChange={e => setSearchTerm(e.target.value)}
               className="w-full bg-[#1E1E1E] border border-[#404040] rounded-lg px-4 py-2.5 text-sm text-white placeholder-[#737373] focus:outline-none focus:border-[#E63946] transition-colors"
@@ -386,7 +386,6 @@ export default function AdminCombosPage() {
           </div>
         ) : filteredCombos.length === 0 ? (
           <div className="bg-[#2D2D2D] border border-[#404040] rounded-xl p-16 text-center text-[#B3B3B3]">
-            <span className="text-4xl block mb-2">🍿</span>
             <p className="text-base font-semibold text-white">Không tìm thấy combo nào</p>
             <p className="text-xs mt-1">Hãy bấm &ldquo;Thêm combo mới&rdquo; để tạo sản phẩm bắp nước vào hệ thống.</p>
           </div>
@@ -414,8 +413,8 @@ export default function AdminCombosPage() {
                           sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-4xl">
-                          🍿
+                        <div className="w-full h-full flex items-center justify-center text-sm text-[#737373]">
+                          Không có ảnh
                         </div>
                       )}
 
@@ -506,7 +505,7 @@ export default function AdminCombosPage() {
                               }}
                               className="text-[#0088FF] hover:underline text-xs font-semibold"
                             >
-                              ✏️ Chỉnh
+                              Chỉnh
                             </button>
                           </div>
                         )}
@@ -629,8 +628,8 @@ export default function AdminCombosPage() {
                 }
                 className="w-full bg-[#1E1E1E] border border-[#404040] rounded-lg px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-[#E63946]"
               >
-                <option value="ACTIVE">Kinh doanh (ACTIVE)</option>
-                <option value="INACTIVE">Tạm ngưng (INACTIVE)</option>
+                <option value="ACTIVE">Đang kinh doanh</option>
+                <option value="INACTIVE">Ngừng kinh doanh</option>
               </select>
             </div>
 

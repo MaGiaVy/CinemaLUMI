@@ -49,21 +49,18 @@ interface ValidatedCouponData {
 const PAYMENT_METHODS = [
   {
     id: 'vnpay',
-    label: 'VNPAY-QR',
-    icon: '💳',
-    description: 'Thanh toán quét mã QR qua ứng dụng ngân hàng hoặc VNPAY',
+    label: 'Cổng VNPAY-QR',
+    description: 'Thanh toán trực tuyến quét mã VNPAY-QR hoặc ứng dụng ngân hàng',
   },
   {
     id: 'momo',
     label: 'Ví điện tử MoMo',
-    icon: '📱',
     description: 'Thanh toán trực tiếp qua ứng dụng ví MoMo',
   },
   {
     id: 'banking',
-    label: 'Chuyển khoản Ngân hàng',
-    icon: '🏦',
-    description: 'Chuyển khoản 24/7 với mã QR tự động nhận diện',
+    label: 'Chuyển khoản ngân hàng',
+    description: 'Chuyển khoản 24/7 với mã QR tự động xác nhận',
   },
 ];
 
@@ -481,8 +478,8 @@ export default function CheckoutPage() {
               {/* Box Nhập Mã Giảm Giá */}
               <div className="bg-[#2D2D2D] border border-[#404040] rounded-xl p-5 shadow-lg">
                 <div className="flex items-center justify-between mb-3">
-                  <h3 className="text-white font-bold text-base flex items-center gap-2">
-                    <span className="text-xl">🎟️</span> Mã Giảm Giá / Khuyến Mãi
+                  <h3 className="text-white font-bold text-base">
+                    Mã Giảm Giá / Khuyến Mãi
                   </h3>
                   {appliedCoupon && (
                     <Badge variant="green" size="sm">
@@ -573,8 +570,8 @@ export default function CheckoutPage() {
 
               {/* Box Phương Thức Thanh Toán */}
               <div className="bg-[#2D2D2D] border border-[#404040] rounded-xl p-5 shadow-lg">
-                <h3 className="text-white font-bold text-base mb-4 flex items-center gap-2">
-                  <span className="text-xl">💳</span> Chọn Phương Thức Thanh Toán
+                <h3 className="text-white font-bold text-base mb-4">
+                  Chọn Phương Thức Thanh Toán
                 </h3>
 
                 <div className="space-y-3">
@@ -604,7 +601,6 @@ export default function CheckoutPage() {
                         >
                           {isSelected && <div className="w-2.5 h-2.5 bg-[#E63946] rounded-full" />}
                         </div>
-                        <span className="text-2xl flex-shrink-0">{m.icon}</span>
                         <div className="flex-1 min-w-0">
                           <p className="text-white font-bold text-sm">{m.label}</p>
                           <p className="text-[#B3B3B3] text-xs mt-0.5">{m.description}</p>
@@ -636,8 +632,8 @@ export default function CheckoutPage() {
                       />
                     </div>
                   ) : (
-                    <div className="w-16 h-24 bg-[#1E1E1E] rounded-lg flex items-center justify-center text-2xl flex-shrink-0">
-                      🎬
+                    <div className="w-16 h-24 bg-[#1E1E1E] rounded-lg flex items-center justify-center text-xs text-[#888] flex-shrink-0 border border-[#404040]">
+                      Poster
                     </div>
                   )}
 
@@ -646,10 +642,10 @@ export default function CheckoutPage() {
                       {screening?.movie?.title || 'Phim Lumi Cinema'}
                     </h4>
                     <p className="text-[#B3B3B3] text-xs mt-1.5">
-                      📍 {screening?.room || 'Phòng 01'}
+                      {screening?.room || 'Phòng 01'}
                     </p>
                     <p className="text-[#B3B3B3] text-xs mt-0.5">
-                      📅 {screening?.date ? new Date(screening.date).toLocaleDateString('vi-VN') : ''}
+                      {screening?.date ? new Date(screening.date).toLocaleDateString('vi-VN') : ''}
                       {screening?.startTime ? ` • ${new Date(screening.startTime).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}` : ''}
                     </p>
                   </div>

@@ -10,8 +10,8 @@ interface StaffSidebarProps {
 }
 
 const navItems = [
-  { icon: '🏠', label: 'Dashboard', page: 'staff-dashboard', href: '/staff' },
-  { icon: '🔍', label: 'Tra cứu vé', page: 'staff-lookup', href: '/staff/lookup' },
+  { label: 'Dashboard', page: 'staff-dashboard', href: '/staff' },
+  { label: 'Tra cứu vé', page: 'staff-lookup', href: '/staff/lookup' },
 ];
 
 export default function StaffSidebar({ currentPage, onNavigate: _onNavigate }: StaffSidebarProps) {
@@ -54,14 +54,13 @@ export default function StaffSidebar({ currentPage, onNavigate: _onNavigate }: S
               <Link
                 key={item.page}
                 href={item.href}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
+                className={`w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
                   isActive
                     ? 'bg-[#E63946] text-white'
                     : 'text-[#B3B3B3] hover:text-white hover:bg-[#2D2D2D]'
                 }`}
                 style={{ textDecoration: 'none' }}
               >
-                <span className="text-lg">{item.icon}</span>
                 <span>{item.label}</span>
                 {isActive && (
                   <span className="ml-auto w-1.5 h-1.5 bg-white rounded-full" />
@@ -75,11 +74,10 @@ export default function StaffSidebar({ currentPage, onNavigate: _onNavigate }: S
         <div className="mt-6 pt-4 border-t border-[#404040]">
           <Link
             href="/"
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-[#888888] hover:text-white hover:bg-[#2D2D2D] transition-colors"
+            className="w-full flex items-center px-3 py-2 rounded-lg text-xs font-medium text-[#888888] hover:text-white hover:bg-[#2D2D2D] transition-colors"
             style={{ textDecoration: 'none' }}
           >
-            <span>🌐</span>
-            <span>Xem trang khách</span>
+            <span>Về trang chủ</span>
           </Link>
         </div>
       </nav>

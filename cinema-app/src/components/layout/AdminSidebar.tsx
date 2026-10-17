@@ -10,14 +10,14 @@ interface AdminSidebarProps {
 }
 
 const navItems = [
-  { icon: '📊', label: 'Dashboard', page: 'admin-dashboard', href: '/admin' },
-  { icon: '🎬', label: 'Phim', page: 'admin-movies', href: '/admin/movies' },
-  { icon: '🎭', label: 'Lịch chiếu', page: 'admin-screenings', href: '/admin/screenings' },
-  { icon: '💰', label: 'Giá vé', page: 'admin-pricing', href: '/admin/pricing' },
-  { icon: '🎟️', label: 'Voucher', page: 'admin-vouchers', href: '/admin/vouchers' },
-  { icon: '🍿', label: 'Combo', page: 'admin-combos', href: '/admin/combos' },
-  { icon: '📈', label: 'Báo cáo', page: 'admin-reports', href: '/admin/reports' },
-  { icon: '⭐', label: 'Đánh giá', page: 'admin-reviews', href: '/admin/reviews' },
+  { label: 'Dashboard', page: 'admin-dashboard', href: '/admin' },
+  { label: 'Phim', page: 'admin-movies', href: '/admin/movies' },
+  { label: 'Lịch chiếu', page: 'admin-screenings', href: '/admin/screenings' },
+  { label: 'Giá vé', page: 'admin-pricing', href: '/admin/pricing' },
+  { label: 'Voucher', page: 'admin-vouchers', href: '/admin/vouchers' },
+  { label: 'Combo', page: 'admin-combos', href: '/admin/combos' },
+  { label: 'Báo cáo', page: 'admin-reports', href: '/admin/reports' },
+  { label: 'Đánh giá', page: 'admin-reviews', href: '/admin/reviews' },
 ];
 
 export default function AdminSidebar({ currentPage, onNavigate: _onNavigate }: AdminSidebarProps) {
@@ -41,7 +41,7 @@ export default function AdminSidebar({ currentPage, onNavigate: _onNavigate }: A
           </div>
           <div>
             <div className="font-black text-white text-base leading-tight">LUMI CINEMA</div>
-            <div className="text-[#B3B3B3] text-xs">Admin Panel</div>
+            <div className="text-[#B3B3B3] text-xs">Quản trị viên</div>
           </div>
         </Link>
       </div>
@@ -61,14 +61,13 @@ export default function AdminSidebar({ currentPage, onNavigate: _onNavigate }: A
               <Link
                 key={item.page}
                 href={item.href}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
+                className={`w-full flex items-center px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-150 ${
                   isActive
                     ? 'bg-[#E63946] text-white'
                     : 'text-[#B3B3B3] hover:text-white hover:bg-[#2D2D2D]'
                 }`}
                 style={{ textDecoration: 'none' }}
               >
-                <span className="text-lg">{item.icon}</span>
                 <span>{item.label}</span>
                 {isActive && (
                   <span className="ml-auto w-1.5 h-1.5 bg-white rounded-full" />
@@ -82,11 +81,10 @@ export default function AdminSidebar({ currentPage, onNavigate: _onNavigate }: A
         <div className="mt-6 pt-4 border-t border-[#404040]">
           <Link
             href="/"
-            className="w-full flex items-center gap-2 px-3 py-2 rounded-lg text-xs font-medium text-[#888888] hover:text-white hover:bg-[#2D2D2D] transition-colors"
+            className="w-full flex items-center px-3 py-2 rounded-lg text-xs font-medium text-[#888888] hover:text-white hover:bg-[#2D2D2D] transition-colors"
             style={{ textDecoration: 'none' }}
           >
-            <span>🌐</span>
-            <span>Xem trang khách</span>
+            <span>Về trang chủ</span>
           </Link>
         </div>
       </nav>

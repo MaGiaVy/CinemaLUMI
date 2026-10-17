@@ -276,7 +276,7 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
 
         if (isConflict) {
           showToast(
-            result.message || 'Lỗi [E-03]: Ghế bạn vừa chọn đã có người giữ trước. Vui lòng chọn ghế khác!',
+            'Ghế bạn vừa chọn đã có người giữ chỗ. Vui lòng chọn ghế khác.',
             'error'
           );
         } else {
@@ -411,14 +411,14 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
                   </h1>
 
                   <div className="flex items-center gap-3 sm:gap-6 mt-2 text-xs sm:text-sm text-[#B3B3B3] flex-wrap">
-                    <span className="flex items-center gap-1">
-                      📅 <strong className="text-white">{formatDateDisplay(screening.date)}</strong>
+                    <span>
+                      Ngày: <strong className="text-white">{formatDateDisplay(screening.date)}</strong>
                     </span>
-                    <span className="flex items-center gap-1">
-                      🕐 Suất: <strong className="text-[#FFB703] font-bold">{formatTimeDisplay(screening.startTime)}</strong>
+                    <span>
+                      Suất: <strong className="text-[#FFB703] font-bold">{formatTimeDisplay(screening.startTime)}</strong>
                     </span>
-                    <span className="flex items-center gap-1">
-                      🎭 Phòng: <strong className="text-white">{screening.room}</strong>
+                    <span>
+                      Phòng: <strong className="text-white">{screening.room}</strong>
                     </span>
                   </div>
                 </div>
@@ -449,16 +449,15 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
 
         {/* Loading Skeleton */}
         {isLoading ? (
-          <div className="bg-[#2D2D2D] border border-[#404040] rounded-2xl p-16 text-center">
-            <div className="inline-block w-8 h-8 border-4 border-[#FFB703] border-t-transparent rounded-full animate-spin mb-4" />
-            <p className="text-white font-semibold">Đang tải sơ đồ ghế phòng chiếu...</p>
-            <p className="text-[#808080] text-xs mt-1">Áp dụng Lazy Evaluation dọn dẹp các ghế hết hạn</p>
+          <div className="bg-[#2D2D2D] border border-[#404040] rounded-xl p-16 text-center">
+            <div className="inline-block w-8 h-8 border-3 border-[#FFB703] border-t-transparent rounded-full animate-spin mb-4" />
+            <p className="text-white font-medium">Đang tải sơ đồ phòng chiếu...</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Seat Map Left Column */}
             <div className="lg:col-span-2">
-              <div className="bg-[#2D2D2D] border border-[#404040] rounded-2xl p-6 sm:p-8 shadow-xl">
+              <div className="bg-[#2D2D2D] border border-[#404040] rounded-xl p-6 sm:p-8 shadow-xl">
                 <SeatMap
                   seats={seats}
                   selectedSeatIds={selectedSeatIds}
@@ -469,9 +468,9 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
 
             {/* Right Sidebar: Selected seats & Checkout CTA */}
             <div className="lg:col-span-1">
-              <div className="bg-[#2D2D2D] border border-[#404040] rounded-2xl p-6 shadow-xl sticky top-6">
+              <div className="bg-[#2D2D2D] border border-[#404040] rounded-xl p-6 shadow-xl sticky top-6">
                 <div className="flex items-center justify-between pb-4 border-b border-[#404040]">
-                  <h3 className="text-white font-bold text-lg flex items-center gap-2">
+                  <h3 className="text-white font-bold text-base flex items-center gap-2">
                     <span>Ghế đã chọn</span>
                     <Badge variant="gold">{selectedSeatIds.length}/{MAX_SEATS}</Badge>
                   </h3>
@@ -481,7 +480,7 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
                       onClick={() => setSelectedSeatIds([])}
                       className="text-xs text-[#E63946] hover:underline"
                     >
-                      Xóa tất cả
+                      Bỏ chọn tất cả
                     </button>
                   )}
                 </div>
@@ -489,10 +488,9 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
                 {/* Empty State or Selected Seats List */}
                 {selectedSeatsList.length === 0 ? (
                   <div className="text-center py-10">
-                    <p className="text-4xl mb-3">🪑</p>
                     <p className="text-white font-medium text-sm">Chưa có ghế nào được chọn</p>
                     <p className="text-[#808080] text-xs mt-1 max-w-[220px] mx-auto">
-                      Nhấn vào các ghế trống trên sơ đồ bên trái để tiến hành chọn chỗ ngồi
+                      Vui lòng chọn ghế trên sơ đồ phòng chiếu để tiếp tục
                     </p>
                   </div>
                 ) : (
@@ -502,29 +500,29 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
                       return (
                         <div
                           key={seat.id}
-                          className="flex items-center justify-between bg-[#383838] border border-[#484848] rounded-xl px-3.5 py-2.5 transition-all hover:border-[#FFB703]"
+                          className="flex items-center justify-between bg-[#383838] border border-[#484848] rounded-lg px-3.5 py-2.5 transition-colors hover:border-[#FFB703]"
                         >
                           <div className="flex items-center gap-3">
-                            <span className="w-8 h-8 bg-[#FFB703] rounded-lg flex items-center justify-center text-[#1A1A1A] font-black text-xs shadow-md">
+                            <span className="w-8 h-8 bg-[#FFB703] rounded-md flex items-center justify-center text-[#1A1A1A] font-bold text-xs">
                               {seat.code}
                             </span>
                             <div>
-                              <div className="text-white text-sm font-bold">Ghế {seat.code}</div>
+                              <div className="text-white text-sm font-semibold">Ghế {seat.code}</div>
                               <span className="text-[11px] text-[#A0A0A0]">
-                                Ghế tiêu chuẩn
+                                Tiêu chuẩn
                               </span>
                             </div>
                           </div>
 
                           <div className="flex items-center gap-3">
-                            <span className="text-[#FFB703] text-sm font-bold">
-                              {price.toLocaleString('vi-VN')}đ
+                            <span className="text-[#FFB703] text-sm font-semibold">
+                              {price.toLocaleString('vi-VN')} đ
                             </span>
                             <button
                               type="button"
                               onClick={() => handleToggleSeat(seat)}
                               aria-label={`Xóa ghế ${seat.code}`}
-                              className="w-6 h-6 rounded-full flex items-center justify-center text-[#808080] hover:text-[#E63946] hover:bg-[#E63946]/10 transition-colors"
+                              className="w-6 h-6 rounded-full flex items-center justify-center text-[#808080] hover:text-[#E63946] transition-colors"
                             >
                               ✕
                             </button>
@@ -539,18 +537,18 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
                 <div className="border-t border-[#404040] pt-4 mt-2 space-y-2.5">
                   <div className="flex justify-between text-sm text-[#B3B3B3]">
                     <span>Số lượng ghế:</span>
-                    <span className="text-white font-bold">{selectedSeatIds.length} ghế</span>
+                    <span className="text-white font-semibold">{selectedSeatIds.length} ghế</span>
                   </div>
 
                   <div className="flex justify-between text-sm text-[#B3B3B3]">
                     <span>Giá vé cơ bản:</span>
-                    <span className="text-white font-medium">{basePrice.toLocaleString('vi-VN')}đ</span>
+                    <span className="text-white font-medium">{basePrice.toLocaleString('vi-VN')} đ</span>
                   </div>
 
                   <div className="flex justify-between items-baseline pt-2 border-t border-[#383838]">
-                    <span className="text-white font-bold">Tạm tính:</span>
-                    <span className="text-2xl font-black text-[#FFB703]">
-                      {totalPrice.toLocaleString('vi-VN')}đ
+                    <span className="text-white font-semibold">Tạm tính:</span>
+                    <span className="text-xl font-bold text-[#FFB703]">
+                      {totalPrice.toLocaleString('vi-VN')} đ
                     </span>
                   </div>
                 </div>
@@ -561,15 +559,15 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
                     fullWidth
                     disabled={selectedSeatIds.length === 0 || isReserving}
                     onClick={handleReserveSeats}
-                    className="h-12 text-base font-bold shadow-lg shadow-[#E63946]/30 flex items-center justify-center gap-2"
+                    className="h-11 text-sm font-semibold shadow-md flex items-center justify-center gap-2"
                   >
                     {isReserving ? (
                       <>
                         <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                        <span>Đang giữ chỗ 10 phút...</span>
+                        <span>Đang xử lý...</span>
                       </>
                     ) : (
-                      <span>Tiếp tục chọn loại vé →</span>
+                      <span>Tiếp tục chọn combo</span>
                     )}
                   </Button>
                 </div>

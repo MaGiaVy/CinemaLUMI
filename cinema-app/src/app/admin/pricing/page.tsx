@@ -252,8 +252,8 @@ export default function PricingManagementPage() {
         {/* Header trang */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-8">
           <div>
-            <h1 className="text-2xl sm:text-3xl font-black text-white flex items-center gap-2">
-              <span>💰</span> Cấu Hình Giá Vé & Phụ Thu
+            <h1 className="text-2xl sm:text-3xl font-black text-white">
+              Cấu Hình Giá Vé & Phụ Thu
             </h1>
             <p className="text-[#B3B3B3] text-sm mt-1">
               Quản lý giá vé cơ bản, tỷ lệ phần trăm theo từng loại vé và tùy chỉnh phụ thu linh hoạt
@@ -265,9 +265,9 @@ export default function PricingManagementPage() {
             size="sm"
             onClick={fetchPricing}
             disabled={isLoading}
-            className="self-start sm:self-auto flex items-center gap-1.5"
+            className="self-start sm:self-auto"
           >
-            <span>🔄</span> Làm mới
+            Làm mới
           </Button>
         </div>
 
@@ -275,8 +275,8 @@ export default function PricingManagementPage() {
         <div className="bg-[#2D2D2D] border border-[#404040] rounded-2xl p-6 mb-8 shadow-xl">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <h3 className="text-white font-bold text-base flex items-center gap-2">
-                <span>🎯</span> Giá Vé Cơ Bản Tham Chiếu
+              <h3 className="text-white font-bold text-base">
+                Giá Vé Cơ Bản Tham Chiếu
               </h3>
               <p className="text-[#808080] text-xs mt-1">
                 Dùng để tính toán giá tiền minh họa tự động theo công thức: Giá = Giá gốc × Tỷ lệ%
@@ -314,11 +314,10 @@ export default function PricingManagementPage() {
           {isLoading ? (
             <div className="py-16 text-center">
               <div className="inline-block w-8 h-8 border-4 border-[#FFB703] border-t-transparent rounded-full animate-spin mb-3" />
-              <p className="text-white font-semibold text-sm">Đang tải danh sách giá vé từ API...</p>
+              <p className="text-white font-semibold text-sm">Đang tải danh sách giá vé...</p>
             </div>
           ) : pricingList.length === 0 ? (
             <div className="py-16 text-center text-[#808080]">
-              <p className="text-3xl mb-2">🏷️</p>
               <p>Chưa có loại vé nào được cấu hình trong cơ sở dữ liệu.</p>
             </div>
           ) : (
@@ -387,7 +386,7 @@ export default function PricingManagementPage() {
                               disabled={isSaving}
                               className="px-3"
                             >
-                              {isSaving ? 'Lưu...' : '✓ Lưu'}
+                              {isSaving ? 'Đang lưu...' : 'Lưu'}
                             </Button>
 
                             <Button
@@ -397,7 +396,7 @@ export default function PricingManagementPage() {
                               disabled={isSaving}
                               className="px-2 text-[#808080] hover:text-white"
                             >
-                              ✕
+                              Hủy
                             </Button>
                           </div>
                         ) : (
@@ -418,9 +417,9 @@ export default function PricingManagementPage() {
                               variant="secondary"
                               size="sm"
                               onClick={() => handleStartEdit(item)}
-                              className="flex items-center gap-1 border border-[#525252] hover:border-[#FFB703]"
+                              className="border border-[#525252] hover:border-[#FFB703]"
                             >
-                              <span>✏️</span> Sửa
+                              Sửa
                             </Button>
                           </div>
                         )}
@@ -437,11 +436,11 @@ export default function PricingManagementPage() {
         <div className="bg-[#2D2D2D] border border-[#404040] rounded-2xl p-6 shadow-xl">
           <div className="flex items-center justify-between mb-4">
             <div>
-              <h3 className="text-white font-bold text-base flex items-center gap-2">
-                <span>⏱️</span> Phụ Thu Thêm (Surcharges)
+              <h3 className="text-white font-bold text-base">
+                Phụ Thu Thêm
               </h3>
               <p className="text-[#808080] text-xs mt-0.5">
-                Các khoản phụ thu linh hoạt theo khung giờ hoặc ngày lễ (Có thể chỉnh sửa số tiền và bật/tắt)
+                Các khoản phụ thu theo khung giờ hoặc ngày lễ (Có thể chỉnh sửa số tiền và bật/tắt)
               </p>
             </div>
           </div>
@@ -493,7 +492,7 @@ export default function PricingManagementPage() {
               disabled={isSavingSurcharges}
               onClick={handleSaveSurcharges}
             >
-              {isSavingSurcharges ? 'Đang lưu...' : '💾 Lưu cấu hình phụ thu'}
+              {isSavingSurcharges ? 'Đang lưu...' : 'Lưu cấu hình phụ thu'}
             </Button>
           </div>
         </div>

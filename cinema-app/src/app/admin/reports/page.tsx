@@ -210,7 +210,7 @@ export default function AdminReportsPage() {
               </Link>
               <span className="text-[#404040]">/</span>
               <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tight">
-                Báo Cáo Doanh Thu Theo Suất Chiếu (UC-19)
+                Báo Cáo Doanh Thu Theo Suất Chiếu
               </h1>
             </div>
             <p className="text-[#A3A3A3] text-sm mt-1">
@@ -220,14 +220,14 @@ export default function AdminReportsPage() {
 
           <div className="flex items-center gap-2">
             <Button variant="secondary" size="sm" onClick={handleExportCSV}>
-              📊 Xuất Excel / CSV
+              Xuất Excel / CSV
             </Button>
             <Button
               variant="secondary"
               size="sm"
               onClick={() => addToast('info', 'Tính năng xuất file PDF đang hoàn thiện bản in')}
             >
-              📄 Xuất PDF
+              Xuất PDF
             </Button>
           </div>
         </div>
@@ -333,7 +333,7 @@ export default function AdminReportsPage() {
 
               <div className="flex items-center gap-2">
                 <Button type="submit" variant="primary" size="sm" disabled={loading}>
-                  {loading ? 'Đang trích xuất...' : '🔍 Áp dụng bộ lọc'}
+                  {loading ? 'Đang trích xuất...' : 'Áp dụng bộ lọc'}
                 </Button>
               </div>
             </div>
@@ -383,8 +383,8 @@ export default function AdminReportsPage() {
         <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl overflow-hidden shadow-xl">
           <div className="p-5 border-b border-[#2D2D2D] flex items-center justify-between">
             <div>
-              <h2 className="text-white font-bold text-base flex items-center gap-2">
-                <span>📋</span> Bảng Dữ Liệu Suất Chiếu & Doanh Thu Chi Tiết
+              <h2 className="text-white font-bold text-base">
+                Bảng Dữ Liệu Suất Chiếu & Doanh Thu Chi Tiết
               </h2>
               <p className="text-[#A3A3A3] text-xs mt-0.5">
                 Hiển thị từng suất chiếu với doanh thu và tỷ lệ lấp đầy chính xác
@@ -397,18 +397,17 @@ export default function AdminReportsPage() {
 
           {error && (
             <div className="p-4 bg-[#E63946]/10 border-b border-[#E63946]/20 text-[#E63946] text-sm">
-              ⚠️ {error}
+              {error}
             </div>
           )}
 
           {loading ? (
             <div className="py-20 text-center text-[#737373]">
-              <div className="inline-block animate-spin text-3xl mb-3">⏳</div>
+              <div className="w-8 h-8 border-2 border-[#E63946] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
               <p className="text-sm font-medium">Đang trích xuất dữ liệu báo cáo...</p>
             </div>
           ) : reports.length === 0 ? (
             <div className="py-20 text-center text-[#737373]">
-              <p className="text-4xl mb-3">📊</p>
               <p className="text-white font-bold text-base">Không có dữ liệu suất chiếu</p>
               <p className="text-xs mt-1">Thử thay đổi bộ lọc ngày hoặc chọn phim khác</p>
             </div>

@@ -179,10 +179,10 @@ function TicketDetailContent() {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen bg-[#111217] text-white flex items-center justify-center py-20">
+      <div className="min-h-screen bg-[#1A1A1A] text-white flex items-center justify-center py-20">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-3 border-red-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-400 text-sm">Đang tải thông tin chi tiết vé và tạo mã QR...</p>
+          <div className="w-8 h-8 border-3 border-[#E63946] border-t-transparent rounded-full animate-spin" />
+          <p className="text-[#A3A3A3] text-sm">Đang tải thông tin chi tiết vé...</p>
         </div>
       </div>
     );
@@ -190,18 +190,17 @@ function TicketDetailContent() {
 
   if (errorMessage || !ticket) {
     return (
-      <div className="min-h-screen bg-[#111217] text-white py-16 px-4">
-        <div className="max-w-md mx-auto bg-[#1A1C24] border border-[#2B2E3D] rounded-2xl p-8 text-center shadow-2xl">
-          <span className="text-5xl block mb-4">⚠️</span>
+      <div className="min-h-screen bg-[#1A1A1A] text-white py-16 px-4">
+        <div className="max-w-md mx-auto bg-[#2D2D2D] border border-[#404040] rounded-xl p-8 text-center shadow-xl">
           <h2 className="text-xl font-bold text-white mb-2">Không tìm thấy vé</h2>
           <p className="text-gray-400 text-sm mb-6">
             {errorMessage || 'Vé không tồn tại hoặc bạn không có quyền truy cập vé này.'}
           </p>
           <Link
             href="/tickets"
-            className="inline-block py-2.5 px-6 bg-[#E63946] hover:bg-[#C62B36] text-white text-sm font-semibold rounded-xl transition"
+            className="inline-block py-2.5 px-6 bg-[#E63946] hover:bg-[#D90429] text-white text-sm font-semibold rounded-xl transition"
           >
-            ← Quay lại danh sách vé
+            Quay lại danh sách vé
           </Link>
         </div>
       </div>
@@ -219,13 +218,13 @@ function TicketDetailContent() {
     <>
       <Toast toasts={toasts} onRemove={removeToast} />
 
-      <div className="min-h-screen bg-[#111217] text-white py-8 sm:py-12">
+      <div className="min-h-screen bg-[#1A1A1A] text-white py-8 sm:py-12">
         <div className="max-w-4xl mx-auto px-4 sm:px-6">
           {/* Breadcrumb quay lại */}
           <div className="mb-6">
             <Link
               href="/tickets"
-              className="inline-flex items-center gap-2 text-sm text-gray-400 hover:text-white transition"
+              className="inline-flex items-center gap-2 text-sm text-[#A3A3A3] hover:text-white transition"
             >
               <span>←</span>
               <span>Danh sách vé của tôi</span>
@@ -233,9 +232,9 @@ function TicketDetailContent() {
           </div>
 
           {/* Header mã vé và trạng thái */}
-          <div className="bg-[#1A1C24] border border-[#252836] rounded-2xl p-6 mb-6 shadow-xl flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="bg-[#2D2D2D] border border-[#404040] rounded-xl p-6 mb-6 shadow-md flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <div>
-              <div className="flex items-center gap-2 text-xs text-gray-400 mb-1">
+              <div className="flex items-center gap-2 text-xs text-[#A3A3A3] mb-1">
                 <span>VÉ ĐIỆN TỬ VÀO RẠP</span>
                 <span>•</span>
                 <span className="font-mono text-gray-300">LUMI CINEMA</span>
@@ -247,19 +246,19 @@ function TicketDetailContent() {
 
             <div className="flex items-center gap-3">
               {ticket.status === 'Valid' && (
-                <span className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-green-500/20 text-green-400 border border-green-500/30 flex items-center gap-1.5">
-                  <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse" />
+                <span className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-[#2ECC71]/15 text-[#2ECC71] border border-[#2ECC71]/30 flex items-center gap-1.5">
+                  <span className="w-2 h-2 rounded-full bg-[#2ECC71] animate-pulse" />
                   CÒN HIỆU LỰC
                 </span>
               )}
               {ticket.status === 'Used' && (
                 <span className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-gray-600/20 text-gray-400 border border-gray-600/40">
-                  ✓ ĐÃ SỬ DỤNG
+                  ĐÃ SỬ DỤNG
                 </span>
               )}
               {ticket.status === 'Cancelled' && (
-                <span className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-red-500/20 text-red-400 border border-red-500/30">
-                  ✕ ĐÃ HỦY VÉ
+                <span className="px-3.5 py-1.5 rounded-full text-xs font-bold bg-[#E63946]/15 text-[#E63946] border border-[#E63946]/30">
+                  ĐÃ HỦY VÉ
                 </span>
               )}
             </div>
@@ -269,15 +268,15 @@ function TicketDetailContent() {
           <div className="grid grid-cols-1 md:grid-cols-12 gap-6">
             {/* Cột trái: Mã QR Code soát vé (5 cols) */}
             <div className="md:col-span-5 flex flex-col gap-4">
-              <div className="bg-[#1A1C24] border border-[#252836] rounded-2xl p-6 shadow-xl text-center flex flex-col items-center">
+              <div className="bg-[#2D2D2D] border border-[#404040] rounded-xl p-6 shadow-md text-center flex flex-col items-center">
                 <div className="mb-3">
-                  <span className="text-xs uppercase font-bold tracking-wider text-gray-400">
+                  <span className="text-xs uppercase font-bold tracking-wider text-[#A3A3A3]">
                     Mã QR Check-in Vào Rạp
                   </span>
                 </div>
 
                 {/* Khung chứa QR Code trắng viền chuẩn */}
-                <div className="bg-white p-4 rounded-2xl shadow-2xl flex items-center justify-center mb-3">
+                <div className="bg-white p-4 rounded-xl shadow-inner flex items-center justify-center mb-3">
                   <QRCodeSVG
                     value={qrValue}
                     size={200}
@@ -290,25 +289,24 @@ function TicketDetailContent() {
                   <p className="font-mono text-sm font-bold text-white tracking-widest">
                     LMC-{ticket.id}-{ticket.seat?.code || 'X'}
                   </p>
-                  <p className="text-[11px] text-gray-400 max-w-[220px]">
+                  <p className="text-[11px] text-[#A3A3A3] max-w-[220px]">
                     Xuất trình mã này cho nhân viên soát vé tại cửa phòng chiếu để quét mã
                   </p>
                 </div>
 
-                {/* Bảo mật chữ ký HMAC */}
-                <div className="w-full bg-[#12131A] border border-[#252836] rounded-xl p-3 text-left space-y-1 text-[11px] text-gray-400">
-                  <div className="flex items-center gap-1.5 text-gray-300 font-semibold">
-                    <span>🔒</span>
-                    <span>Xác thực số chống giả mạo</span>
-                  </div>
+                {/* Xác thực vé */}
+                <div className="w-full bg-[#1E1E1E] border border-[#383838] rounded-lg p-3 text-left space-y-1 text-[11px] text-[#A3A3A3]">
+                  <p className="text-gray-300 font-semibold">
+                    Xác thực số chính hãng
+                  </p>
                   <p className="text-[10px] text-gray-500 leading-tight">
-                    Mã QR đã được ký điện tử HMAC-SHA256, chỉ có hiệu lực tại hệ thống rạp Lumi Cinema.
+                    Vé điện tử chính thức từ Lumi Cinema. Vui lòng xuất trình mã tại cửa kiểm soát vào rạp.
                   </p>
                 </div>
               </div>
 
               {/* Các nút thao tác nhanh: In vé / Hủy vé */}
-              <div className="bg-[#1A1C24] border border-[#252836] rounded-2xl p-4 shadow-xl space-y-3">
+              <div className="bg-[#2D2D2D] border border-[#404040] rounded-xl p-4 shadow-md space-y-3">
                 <Button
                   variant="secondary"
                   fullWidth
@@ -316,10 +314,10 @@ function TicketDetailContent() {
                   onClick={() => window.print()}
                   className="text-xs"
                 >
-                  🖨️ In Vé / Lưu Ảnh
+                  In vé / Lưu ảnh
                 </Button>
 
-                {/* Nút hủy vé tuân theo ràng buộc BR-03 */}
+                {/* Nút hủy vé tuân theo quy định */}
                 {ticket.status === 'Valid' && (
                   <div>
                     {cancellationStatus.canCancel ? (
@@ -328,16 +326,16 @@ function TicketDetailContent() {
                         fullWidth
                         size="md"
                         onClick={() => setIsCancelModalOpen(true)}
-                        className="text-xs bg-[#E63946]/20 text-[#E63946] border border-[#E63946]/40 hover:bg-[#E63946] hover:text-white transition"
+                        className="text-xs bg-[#E63946]/15 text-[#E63946] border border-[#E63946]/40 hover:bg-[#E63946] hover:text-white transition"
                       >
-                        Hủy Vé & Nhận Voucher 50%
+                        Hủy vé & Nhận voucher 50%
                       </Button>
                     ) : (
-                      <div className="text-center p-2.5 bg-[#12131A] rounded-xl border border-[#252836]">
+                      <div className="text-center p-2.5 bg-[#1E1E1E] rounded-lg border border-[#383838]">
                         <span className="text-[11px] text-gray-400 block mb-0.5">
-                          ⚠️ Không thể hủy vé
+                          Không thể hủy vé
                         </span>
-                        <span className="text-[10px] text-red-400 leading-tight block">
+                        <span className="text-[10px] text-[#E63946] leading-tight block">
                           {cancellationStatus.reason}
                         </span>
                       </div>
@@ -350,15 +348,15 @@ function TicketDetailContent() {
             {/* Cột phải: Toàn bộ thông tin chi tiết vé (7 cols) */}
             <div className="md:col-span-7 space-y-4">
               {/* Card Phim */}
-              <div className="bg-[#1A1C24] border border-[#252836] rounded-2xl p-5 shadow-xl flex gap-4">
-                <div className="relative w-20 h-28 rounded-xl overflow-hidden flex-shrink-0 bg-black/40 border border-[#2B2E3D]">
+              <div className="bg-[#2D2D2D] border border-[#404040] rounded-xl p-5 shadow-md flex gap-4">
+                <div className="relative w-20 h-28 rounded-lg overflow-hidden flex-shrink-0 bg-black/40 border border-[#404040]">
                   <img
                     src={posterUrl}
                     alt={ticket.movie?.title || 'Phim'}
                     className="w-full h-full object-cover"
                   />
                   {ticket.movie?.ageRating && (
-                    <div className="absolute top-1 left-1 bg-red-600/90 text-white text-[10px] font-black px-1.5 py-0.5 rounded">
+                    <div className="absolute top-1 left-1 bg-[#E63946] text-white text-[10px] font-black px-1.5 py-0.5 rounded">
                       {ticket.movie.ageRating}
                     </div>
                   )}
@@ -368,12 +366,12 @@ function TicketDetailContent() {
                   <h2 className="text-lg font-black text-white leading-snug">
                     {ticket.movie?.title}
                   </h2>
-                  <div className="flex flex-wrap gap-2 text-xs text-gray-400">
-                    {ticket.movie?.genre && <span>🎭 {ticket.movie.genre}</span>}
-                    {ticket.movie?.duration && <span>⏱️ {ticket.movie.duration} phút</span>}
+                  <div className="flex flex-wrap gap-2 text-xs text-[#A3A3A3]">
+                    {ticket.movie?.genre && <span>{ticket.movie.genre}</span>}
+                    {ticket.movie?.duration && <span>{ticket.movie.duration} phút</span>}
                   </div>
                   <div className="pt-1">
-                    <span className="text-xs px-2 py-0.5 rounded bg-[#252836] text-gray-300">
+                    <span className="text-xs px-2 py-0.5 rounded bg-[#1E1E1E] text-gray-300 border border-[#383838]">
                       Định dạng 2D Phụ Đề
                     </span>
                   </div>
@@ -381,28 +379,28 @@ function TicketDetailContent() {
               </div>
 
               {/* Card Suất Chiếu & Phòng Chiếu */}
-              <div className="bg-[#1A1C24] border border-[#252836] rounded-2xl p-5 shadow-xl space-y-3">
-                <h3 className="text-xs uppercase font-bold tracking-wider text-gray-400">
+              <div className="bg-[#2D2D2D] border border-[#404040] rounded-xl p-5 shadow-md space-y-3">
+                <h3 className="text-xs uppercase font-bold tracking-wider text-[#A3A3A3]">
                   Thông Tin Suất Chiếu
                 </h3>
                 <div className="grid grid-cols-2 gap-3 text-sm">
-                  <div className="bg-[#12131A] p-3 rounded-xl border border-[#252836]">
+                  <div className="bg-[#1E1E1E] p-3 rounded-lg border border-[#383838]">
                     <span className="text-xs text-gray-500 block mb-1">Ngày chiếu:</span>
                     <span className="font-semibold text-white">{formatDate(startTime)}</span>
                   </div>
-                  <div className="bg-[#12131A] p-3 rounded-xl border border-[#252836]">
+                  <div className="bg-[#1E1E1E] p-3 rounded-lg border border-[#383838]">
                     <span className="text-xs text-gray-500 block mb-1">Thời gian:</span>
                     <span className="font-bold text-[#FFB703]">
                       {formatTime(startTime)} - {formatTime(endTime)}
                     </span>
                   </div>
-                  <div className="bg-[#12131A] p-3 rounded-xl border border-[#252836]">
+                  <div className="bg-[#1E1E1E] p-3 rounded-lg border border-[#383838]">
                     <span className="text-xs text-gray-500 block mb-1">Phòng chiếu:</span>
                     <span className="font-bold text-white">
                       Phòng {ticket.screening?.room || '1'}
                     </span>
                   </div>
-                  <div className="bg-[#12131A] p-3 rounded-xl border border-[#252836]">
+                  <div className="bg-[#1E1E1E] p-3 rounded-lg border border-[#383838]">
                     <span className="text-xs text-gray-500 block mb-1">Cụm rạp:</span>
                     <span className="font-semibold text-white">Lumi Cinema Landmark</span>
                   </div>
@@ -410,11 +408,11 @@ function TicketDetailContent() {
               </div>
 
               {/* Card Vị Trí Ghế & Loại Vé */}
-              <div className="bg-[#1A1C24] border border-[#252836] rounded-2xl p-5 shadow-xl space-y-3">
-                <h3 className="text-xs uppercase font-bold tracking-wider text-gray-400">
+              <div className="bg-[#2D2D2D] border border-[#404040] rounded-xl p-5 shadow-md space-y-3">
+                <h3 className="text-xs uppercase font-bold tracking-wider text-[#A3A3A3]">
                   Vị Trí Ghế Ngồi
                 </h3>
-                <div className="flex items-center justify-between p-3.5 bg-[#12131A] rounded-xl border border-[#252836]">
+                <div className="flex items-center justify-between p-3.5 bg-[#1E1E1E] rounded-lg border border-[#383838]">
                   <div className="flex items-center gap-3">
                     <Badge variant="gold" size="md">
                       Ghế {ticket.seat?.code || '---'}
@@ -437,29 +435,29 @@ function TicketDetailContent() {
               </div>
 
               {/* Card Khách Hàng & Thanh Toán */}
-              <div className="bg-[#1A1C24] border border-[#252836] rounded-2xl p-5 shadow-xl space-y-3">
-                <h3 className="text-xs uppercase font-bold tracking-wider text-gray-400">
+              <div className="bg-[#2D2D2D] border border-[#404040] rounded-xl p-5 shadow-md space-y-3">
+                <h3 className="text-xs uppercase font-bold tracking-wider text-[#A3A3A3]">
                   Thông Tin Thanh Toán
                 </h3>
                 <div className="space-y-2 text-xs">
-                  <div className="flex justify-between py-1.5 border-b border-[#252836]">
+                  <div className="flex justify-between py-1.5 border-b border-[#383838]">
                     <span className="text-gray-400">Họ và tên khách:</span>
                     <span className="text-white font-medium">{ticket.user?.name || 'Khách hàng'}</span>
                   </div>
-                  <div className="flex justify-between py-1.5 border-b border-[#252836]">
+                  <div className="flex justify-between py-1.5 border-b border-[#383838]">
                     <span className="text-gray-400">Email:</span>
                     <span className="text-white font-mono">{ticket.user?.email || '---'}</span>
                   </div>
-                  <div className="flex justify-between py-1.5 border-b border-[#252836]">
+                  <div className="flex justify-between py-1.5 border-b border-[#383838]">
                     <span className="text-gray-400">Mã giao dịch:</span>
                     <span className="text-white font-mono">
                       #{ticket.payment?.transactionCode || ticket.payment?.id || '---'}
                     </span>
                   </div>
-                  <div className="flex justify-between py-1.5 border-b border-[#252836]">
+                  <div className="flex justify-between py-1.5 border-b border-[#383838]">
                     <span className="text-gray-400">Cổng thanh toán:</span>
                     <span className="text-white font-medium">
-                      {ticket.payment?.paymentMethod || 'VNPay Sandbox'}
+                      {ticket.payment?.paymentMethod || 'VNPay'}
                     </span>
                   </div>
                   <div className="flex justify-between py-1.5">
@@ -475,15 +473,15 @@ function TicketDetailContent() {
         </div>
       </div>
 
-      {/* Modal xác nhận Hủy Vé (BR-03) */}
+      {/* Modal xác nhận Hủy Vé */}
       <Modal
         isOpen={isCancelModalOpen}
         onClose={() => !isCancelling && setIsCancelModalOpen(false)}
         title="Xác Nhận Hủy Vé Xem Phim"
       >
         <div className="space-y-4">
-          <div className="bg-[#1C1E27] border border-[#2B2E3D] rounded-xl p-4 space-y-2 text-sm">
-            <div className="flex justify-between items-center pb-2 border-b border-[#2B2E3D]">
+          <div className="bg-[#1E1E1E] border border-[#383838] rounded-xl p-4 space-y-2 text-sm">
+            <div className="flex justify-between items-center pb-2 border-b border-[#383838]">
               <span className="text-gray-400">Mã vé:</span>
               <span className="font-mono font-bold text-white">#LMC-{String(ticket.id).padStart(6, '0')}</span>
             </div>
@@ -503,9 +501,9 @@ function TicketDetailContent() {
             </div>
           </div>
 
-          <div className="bg-red-500/10 border border-red-500/30 rounded-xl p-4 text-xs space-y-2">
-            <p className="font-bold text-red-400 flex items-center gap-1.5 text-sm">
-              <span>⚠️</span> Quy định hủy vé & Bồi thường (BR-03)
+          <div className="bg-[#E63946]/10 border border-[#E63946]/30 rounded-xl p-4 text-xs space-y-2">
+            <p className="font-bold text-red-400 text-sm">
+              Quy định hủy vé và voucher bồi hoàn
             </p>
             <ul className="text-gray-300 space-y-1.5 list-disc pl-4">
               <li>
@@ -537,7 +535,7 @@ function TicketDetailContent() {
               fullWidth
               disabled={isCancelling}
               onClick={handleCancelTicket}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-[#E63946] hover:bg-[#D90429]"
             >
               {isCancelling ? (
                 <div className="flex items-center justify-center gap-2">
@@ -559,9 +557,9 @@ export default function TicketDetailPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#111217] text-white flex items-center justify-center">
+        <div className="min-h-screen bg-[#1A1A1A] text-white flex items-center justify-center">
           <div className="flex items-center gap-3">
-            <div className="w-5 h-5 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
+            <div className="w-5 h-5 border-2 border-[#E63946] border-t-transparent rounded-full animate-spin" />
             <span>Đang tải thông tin vé...</span>
           </div>
         </div>

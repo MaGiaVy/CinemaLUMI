@@ -215,11 +215,11 @@ function TicketLookupContent() {
               </Link>
               <span className="text-[#404040]">/</span>
               <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tight">
-                Tra Cứu & Xử Lý Sự Cố Vé (UC-15)
+                Tra Cứu & Xử Lý Vé
               </h1>
             </div>
             <p className="text-[#A3A3A3] text-sm mt-1">
-              Tìm kiếm vé qua SĐT, Email, Mã vé. Hỗ trợ soát vé và hủy/hoàn vé đền bù 100% cho khách hàng tại quầy.
+              Tìm kiếm vé qua số điện thoại, email, mã vé hoặc kiểm tra trạng thái vé vào rạp.
             </p>
           </div>
 
@@ -230,25 +230,22 @@ function TicketLookupContent() {
               onClick={() => handleSearchTickets(query, activeStatusFilter)}
               disabled={loading}
             >
-              🔄 {loading ? 'Đang tải...' : 'Làm mới'}
+              {loading ? 'Đang tải...' : 'Làm mới'}
             </Button>
           </div>
         </div>
 
         {/* Search Box Card */}
-        <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl p-5 lg:p-6 shadow-xl">
+        <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl p-5 lg:p-6 shadow-md">
           <form onSubmit={handleSubmitSearch} className="space-y-4">
             <div className="flex flex-col sm:flex-row gap-3">
               <div className="relative flex-1">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#737373] text-base">
-                  🔍
-                </span>
                 <input
                   type="text"
-                  placeholder="Nhập số điện thoại, email, mã vé (#LMC-...), mã ghế (A1) hoặc tên khách..."
+                  placeholder="Nhập số điện thoại, email, mã vé (#LMC-...), mã ghế hoặc tên khách..."
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  className="w-full bg-[#141414] border border-[#404040] focus:border-[#E63946] rounded-xl pl-10 pr-10 py-3 text-white text-sm outline-none transition-colors"
+                  className="w-full bg-[#141414] border border-[#404040] focus:border-[#E63946] rounded-xl px-4 py-3 text-white text-sm outline-none transition-colors"
                 />
                 {query && (
                   <button
@@ -297,24 +294,6 @@ function TicketLookupContent() {
                   </button>
                 ))}
               </div>
-
-              {/* Sample Search Pills */}
-              <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                <span className="text-[#737373]">Mẫu thử:</span>
-                {['0901234567', 'khachhang@lumi.vn', '#LMC-000003', 'A1'].map((sample) => (
-                  <button
-                    key={sample}
-                    type="button"
-                    onClick={() => {
-                      setQuery(sample);
-                      handleSearchTickets(sample, activeStatusFilter);
-                    }}
-                    className="bg-[#0088FF]/10 text-[#0088FF] hover:bg-[#0088FF]/20 px-2 py-0.5 rounded text-[11px] font-mono transition-colors"
-                  >
-                    {sample}
-                  </button>
-                ))}
-              </div>
             </div>
           </form>
         </div>
@@ -322,8 +301,8 @@ function TicketLookupContent() {
         {/* Results List */}
         <div>
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <span>📋</span> Danh Sách Vé Tìm Thấy ({tickets.length})
+            <h2 className="text-lg font-bold text-white">
+              Danh Sách Vé Tìm Thấy ({tickets.length})
             </h2>
             {query && (
               <span className="text-xs text-[#A3A3A3]">
@@ -334,12 +313,11 @@ function TicketLookupContent() {
 
           {loading ? (
             <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl py-20 text-center text-[#737373]">
-              <div className="inline-block animate-spin text-3xl mb-3">⏳</div>
+              <div className="w-8 h-8 border-2 border-[#E63946] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
               <p className="text-sm font-medium">Đang tìm kiếm thông tin vé và ghế...</p>
             </div>
           ) : tickets.length === 0 ? (
             <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl py-20 text-center text-[#737373]">
-              <p className="text-4xl mb-3">🔍</p>
               <p className="text-white font-bold text-base">Không tìm thấy vé nào phù hợp</p>
               <p className="text-xs mt-1">
                 Thử kiểm tra lại số điện thoại, địa chỉ email hoặc mã vé được cung cấp.
@@ -432,7 +410,7 @@ function TicketLookupContent() {
                       {/* Cột 1: Thông tin phim & Suất chiếu */}
                       <div className="space-y-3">
                         <div className="text-xs font-semibold uppercase tracking-wider text-[#737373]">
-                          🎬 Phim & Suất chiếu
+                          Phim & Suất chiếu
                         </div>
                         <div className="flex gap-3">
                           {ticket.movie?.poster && (
@@ -451,13 +429,12 @@ function TicketLookupContent() {
                               {ticket.movie?.title || 'Phim rạp'}
                             </h3>
                             <p className="text-xs text-[#A3A3A3] mt-1">
-                              ⏱️ {ticket.movie?.duration} phút • {ticket.movie?.genre}
+                              {ticket.movie?.duration} phút • {ticket.movie?.genre}
                             </p>
                             <p className="text-xs text-[#0088FF] font-medium mt-1">
-                              🏛️ {ticket.screening?.room}
+                              Phòng {ticket.screening?.room}
                             </p>
                             <p className="text-xs text-[#A3A3A3]">
-                              ⏰{' '}
                               {ticket.screening?.start_time
                                 ? new Date(ticket.screening.start_time).toLocaleTimeString('vi-VN', {
                                     hour: '2-digit',
@@ -498,7 +475,7 @@ function TicketLookupContent() {
                       {/* Cột 2: Thông tin Khách hàng & Ghế ngồi */}
                       <div className="space-y-3">
                         <div className="text-xs font-semibold uppercase tracking-wider text-[#737373]">
-                          👤 Khách hàng & Ghế ngồi
+                          Khách hàng & Ghế ngồi
                         </div>
                         <div className="bg-[#171717] rounded-xl p-3 border border-[#2D2D2D] space-y-2 text-xs">
                           <div>
@@ -521,7 +498,7 @@ function TicketLookupContent() {
                           </div>
                         </div>
 
-                        {/* Chi tiết Ghế & Trạng thái ghế trực tiếp của hệ thống */}
+                        {/* Chi tiết Ghế & Trạng thái ghế */}
                         <div className="bg-[#171717] rounded-xl p-3 border border-[#2D2D2D] space-y-2 text-xs">
                           <div className="flex items-center justify-between">
                             <span className="text-[#737373]">Vị trí ghế:</span>
@@ -540,7 +517,7 @@ function TicketLookupContent() {
                       <div className="space-y-3 flex flex-col justify-between">
                         <div>
                           <div className="text-xs font-semibold uppercase tracking-wider text-[#737373] mb-3">
-                            💳 Thanh toán & Bắp nước
+                            Thanh toán & Bắp nước
                           </div>
                           <div className="bg-[#171717] rounded-xl p-3 border border-[#2D2D2D] space-y-1.5 text-xs">
                             <div className="flex justify-between">
@@ -560,7 +537,7 @@ function TicketLookupContent() {
                                 <span className="text-[#737373] block mb-1">Bắp nước kèm theo:</span>
                                 {ticket.payment.combos.map((c) => (
                                   <div key={c.id} className="text-white text-xs flex justify-between">
-                                    <span>🍿 {c.name} x{c.quantity}</span>
+                                    <span>{c.name} x{c.quantity}</span>
                                     <span className="text-[#FFB703]">{(c.price * c.quantity).toLocaleString('vi-VN')} đ</span>
                                   </div>
                                 ))}
@@ -576,7 +553,7 @@ function TicketLookupContent() {
                             size="sm"
                             onClick={() => setQrModalTicket(ticket)}
                           >
-                            🔍 Xem QR
+                            Xem mã QR
                           </Button>
 
                           {ticket.status === 'Valid' && (
@@ -585,7 +562,7 @@ function TicketLookupContent() {
                               size="sm"
                               onClick={() => handleCheckIn(ticket.id)}
                             >
-                              🎟️ Soát vé (Check-in)
+                              Soát vé (Check-in)
                             </Button>
                           )}
 
@@ -595,11 +572,11 @@ function TicketLookupContent() {
                               size="sm"
                               onClick={() => openCancelModal(ticket)}
                             >
-                              ⚠️ Hủy & Hoàn tiền (UC-15)
+                              Hủy & Hoàn tiền
                             </Button>
                           ) : (
                             <Button variant="ghost" size="sm" disabled>
-                              ❌ Đã hủy vé
+                              Đã hủy vé
                             </Button>
                           )}
                         </div>
@@ -613,22 +590,22 @@ function TicketLookupContent() {
         </div>
       </div>
 
-      {/* Modal Hủy & Hoàn vé đặc quyền (UC-15) */}
+      {/* Modal Hủy & Hoàn vé */}
       <Modal
         isOpen={cancelModalOpen}
         onClose={() => !cancelling && setCancelModalOpen(false)}
-        title="Xử Lý Sự Cố: Hủy & Hoàn Tiền Vé (UC-15)"
+        title="Xử Lý Sự Cố: Hủy & Hoàn Tiền Vé"
         maxWidth="max-w-xl"
       >
         {selectedTicketForCancel && (
           <div className="space-y-4">
             {/* Banner chính sách đền bù */}
             <div className="bg-[#E63946]/10 border border-[#E63946]/30 rounded-xl p-4">
-              <div className="flex items-center gap-2 text-[#E63946] font-bold text-sm">
-                <span>⚠️</span> QUY TRÌNH ÉP HỦY VÉ & ĐỀN BÙ 100% CỦA NHÂN VIÊN
+              <div className="text-[#E63946] font-bold text-sm mb-1">
+                Quy trình hủy vé và bồi hoàn tại quầy
               </div>
-              <p className="text-[#D4D4D4] text-xs mt-1 leading-relaxed">
-                Khác với khách tự hủy (chỉ trước 2 giờ và chỉ hoàn 50%), nhân viên có thẩm quyền ép hủy vé và hệ thống sẽ tự động hoàn trả 100% giá vé, giải phóng ghế về trạng thái TRỐNG và cấp Voucher bồi hoàn.
+              <p className="text-[#D4D4D4] text-xs leading-relaxed">
+                Nhân viên có thẩm quyền hỗ trợ hủy vé khi có sự cố kỹ thuật hoặc yêu cầu từ quản lý. Hệ thống sẽ giải phóng ghế về trạng thái trống và cấp voucher bồi hoàn cho khách hàng.
               </p>
             </div>
 
@@ -750,13 +727,13 @@ function TicketLookupContent() {
       >
         {cancelSuccessResult && (
           <div className="space-y-4 text-center">
-            <div className="w-16 h-16 bg-[#2ECC71]/20 border border-[#2ECC71]/40 rounded-full flex items-center justify-center text-3xl mx-auto">
-              🎉
+            <div className="w-12 h-12 bg-[#2ECC71]/20 border border-[#2ECC71]/40 rounded-full flex items-center justify-center text-[#2ECC71] font-bold text-xl mx-auto">
+              ✓
             </div>
 
             <div>
               <h3 className="text-lg font-bold text-white">
-                Giao dịch xử lý sự cố hoàn tất!
+                Giao dịch xử lý sự cố hoàn tất
               </h3>
               <p className="text-xs text-[#A3A3A3] mt-1">
                 Vé #{cancelSuccessResult.ticket_id} đã được chuyển sang trạng thái ĐÃ HỦY. Ghế {cancelSuccessResult.released_seat || ''} đã sẵn sàng để phục vụ khách khác.
@@ -815,9 +792,7 @@ function TicketLookupContent() {
         {qrModalTicket && (
           <div className="text-center space-y-4">
             <div className="p-4 bg-white rounded-xl inline-block shadow-lg">
-              {/* Fallback giả lập QR bằng icon và thông tin */}
               <div className="w-48 h-48 bg-slate-900 rounded-lg flex flex-col items-center justify-center p-3 text-white text-center">
-                <span className="text-4xl mb-2">📱</span>
                 <span className="font-mono font-black text-sm text-[#FFB703]">
                   {qrModalTicket.ticket_code || `#LMC-${qrModalTicket.id}`}
                 </span>
@@ -852,7 +827,7 @@ export default function TicketLookupPage() {
     <Suspense
       fallback={
         <div className="p-8 text-center text-[#737373]">
-          <div className="animate-spin text-2xl mb-2">⏳</div>
+          <div className="w-6 h-6 border-2 border-[#E63946] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
           Đang tải trang tra cứu vé...
         </div>
       }

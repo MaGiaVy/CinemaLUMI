@@ -54,20 +54,17 @@ const PAYMENT_METHODS = [
   {
     id: 'vnpay',
     label: 'Cổng VNPAY-QR',
-    icon: '💳',
     description: 'Thanh toán trực tuyến quét mã VNPAY-QR hoặc ứng dụng ngân hàng',
     badge: 'Khuyên dùng',
   },
   {
     id: 'momo',
     label: 'Ví điện tử MoMo',
-    icon: '📱',
     description: 'Thanh toán bảo mật qua ứng dụng ví điện tử MoMo',
   },
   {
     id: 'banking',
     label: 'Chuyển khoản Ngân hàng',
-    icon: '🏦',
     description: 'Chuyển khoản liên ngân hàng 24/7 với mã QR tự động nhận diện',
   },
 ];
@@ -410,31 +407,15 @@ function PaymentContent() {
             </div>
 
             {/* QR Mock Box */}
-            <div className="bg-[#2D2D2D] border border-[#404040] rounded-2xl p-6 text-center shadow-xl">
-              <div className="flex items-center justify-center gap-2 mb-3">
-                <span className="text-red-500 font-black text-lg tracking-wider">VNPAY</span>
-                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-yellow-500/20 text-yellow-400 border border-yellow-500/30 rounded">
+            <div className="bg-[#2D2D2D] border border-[#404040] rounded-xl p-5 text-left shadow-md">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="text-[#E63946] font-bold text-base tracking-wide">VNPAY</span>
+                <span className="text-[10px] uppercase font-bold tracking-wider px-2 py-0.5 bg-[#FFB703]/20 text-[#FFB703] border border-[#FFB703]/30 rounded">
                   Cổng thanh toán chính thức
                 </span>
               </div>
-              <p className="text-[#B3B3B3] text-xs mb-4">
-                Quét mã QR qua ứng dụng VNPAY hoặc 30+ ứng dụng Mobile Banking
-              </p>
-              <div className="w-36 h-36 bg-white rounded-xl mx-auto flex items-center justify-center p-2.5 shadow-inner">
-                <div className="grid grid-cols-5 gap-1 w-full h-full">
-                  {Array.from({ length: 25 }, (_, i) => (
-                    <div
-                      key={i}
-                      className="rounded-[1px]"
-                      style={{
-                        background: (i % 2 === 0 || i % 6 === 0 || i === 0 || i === 24) ? '#111' : '#eee',
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-              <p className="text-[#888] text-xs mt-3">
-                Thanh toán an toàn với tiêu chuẩn bảo mật PCI DSS quốc tế
+              <p className="text-[#B3B3B3] text-xs">
+                Thanh toán an toàn hỗ trợ quét mã VNPAY-QR, thẻ ATM nội địa và thẻ quốc tế Visa / Mastercard.
               </p>
             </div>
 
@@ -473,7 +454,6 @@ function PaymentContent() {
 
                       <div className="flex-1">
                         <div className="flex items-center gap-2">
-                          <span className="text-xl">{m.icon}</span>
                           <span className="text-white font-bold text-sm sm:text-base">{m.label}</span>
                           {m.badge && (
                             <span className="text-[10px] font-bold px-2 py-0.5 bg-[#E63946]/20 text-[#E63946] border border-[#E63946]/40 rounded-full">
@@ -513,19 +493,15 @@ function PaymentContent() {
                     <h4 className="text-white font-bold text-base leading-snug line-clamp-2">
                       {screening.movie.title}
                     </h4>
-                    <p className="text-[#BBB] text-xs mt-1.5 flex items-center gap-1.5">
-                      <span>📅</span>
-                      <span>
-                        {new Date(screening.date).toLocaleDateString('vi-VN')} •{' '}
-                        {new Date(screening.startTime).toLocaleTimeString('vi-VN', {
-                          hour: '2-digit',
-                          minute: '2-digit',
-                        })}
-                      </span>
+                    <p className="text-[#BBB] text-xs mt-1.5">
+                      {new Date(screening.date).toLocaleDateString('vi-VN')} •{' '}
+                      {new Date(screening.startTime).toLocaleTimeString('vi-VN', {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
                     </p>
-                    <p className="text-[#999] text-xs mt-1 flex items-center gap-1.5">
-                      <span>🏛️</span>
-                      <span>{screening.room}</span>
+                    <p className="text-[#999] text-xs mt-1">
+                      {screening.room}
                     </p>
                   </div>
                 </div>
@@ -582,7 +558,6 @@ function PaymentContent() {
                 {appliedCoupon ? (
                   <div className="flex items-center justify-between bg-green-500/10 border border-green-500/30 p-2.5 rounded-lg">
                     <div className="flex items-center gap-2">
-                      <span className="text-base">🏷️</span>
                       <div>
                         <div className="text-green-400 font-bold text-sm tracking-wide">
                           {appliedCoupon.code}
@@ -644,7 +619,7 @@ function PaymentContent() {
                 size="lg"
                 onClick={handlePayment}
                 disabled={isProcessing}
-                className="py-4 text-base font-bold bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 active:scale-[0.99] shadow-xl cursor-pointer"
+                className="py-4 text-base font-bold bg-[#E63946] hover:bg-[#D90429] shadow-xl cursor-pointer"
               >
                 {isProcessing ? (
                   <div className="flex items-center justify-center gap-2">
@@ -652,7 +627,7 @@ function PaymentContent() {
                     <span>Đang kết nối cổng VNPay...</span>
                   </div>
                 ) : (
-                  '💳 Thanh toán VNPay'
+                  'Thanh toán VNPay'
                 )}
               </Button>
 

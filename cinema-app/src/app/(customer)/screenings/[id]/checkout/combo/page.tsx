@@ -316,19 +316,19 @@ export default function ComboSelectionPage() {
           <div className="flex-1">
             <div className="flex items-center justify-between mb-4">
               <div>
-                <h1 className="text-2xl font-black text-white tracking-tight">
-                  Chọn Combo Bắp Nước
+                <h1 className="text-2xl font-bold text-white tracking-tight">
+                  Chọn combo bắp nước
                 </h1>
                 <p className="text-[#B3B3B3] text-sm mt-0.5">
-                  Thưởng thức bắp rang bơ giòn rụm và nước ngọt mát lạnh khi xem phim. (Không bắt buộc)
+                  Thêm combo bắp nước kèm vé xem phim (không bắt buộc).
                 </p>
               </div>
               <button
                 type="button"
                 onClick={handleSkip}
-                className="text-xs text-[#B3B3B3] hover:text-white underline font-semibold transition-colors"
+                className="text-xs text-[#B3B3B3] hover:text-white underline font-medium transition-colors"
               >
-                Bỏ qua bước này →
+                Bỏ qua bước này
               </button>
             </div>
 
@@ -339,9 +339,8 @@ export default function ComboSelectionPage() {
               </div>
             ) : combos.length === 0 ? (
               <div className="bg-[#2D2D2D] border border-[#404040] rounded-xl p-12 text-center text-[#B3B3B3]">
-                <span className="text-4xl block mb-2">🍿</span>
-                <p className="text-base font-bold text-white">Hiện tại chưa có combo bắp nước nào</p>
-                <p className="text-xs mt-1">Bạn có thể tiếp tục chuyển sang màn hình thanh toán vé.</p>
+                <p className="text-base font-semibold text-white">Hiện tại chưa có combo bắp nước</p>
+                <p className="text-xs mt-1">Bạn có thể tiếp tục chuyển sang bước thanh toán.</p>
                 <Button onClick={handleSkip} className="mt-4" variant="primary">
                   Sang thanh toán vé
                 </Button>
@@ -357,8 +356,8 @@ export default function ComboSelectionPage() {
                       key={combo.id}
                       className={`bg-[#2D2D2D] border rounded-xl overflow-hidden flex flex-col justify-between transition-all ${
                         qty > 0
-                          ? 'border-[#E63946] shadow-lg shadow-[#E63946]/10'
-                          : 'border-[#404040] hover:border-[#666]'
+                          ? 'border-[#E63946]'
+                          : 'border-[#404040] hover:border-[#525252]'
                       }`}
                     >
                       <div>
@@ -373,8 +372,8 @@ export default function ComboSelectionPage() {
                               sizes="(max-width: 768px) 100vw, 50vw"
                             />
                           ) : (
-                            <div className="w-full h-full flex items-center justify-center text-4xl">
-                              🍿
+                            <div className="w-full h-full flex items-center justify-center text-sm text-gray-500">
+                              Combo
                             </div>
                           )}
 
@@ -462,11 +461,11 @@ export default function ComboSelectionPage() {
                 )}
                 <div className="flex-1 min-w-0">
                   <h4 className="text-white font-bold text-sm leading-snug line-clamp-2">
-                    {screening?.movie?.title || 'Phim Lumi'}
+                    {screening?.movie?.title || 'Phim'}
                   </h4>
-                  <p className="text-[#888] text-xs mt-1">📍 {screening?.room}</p>
+                  <p className="text-[#888] text-xs mt-1">Phòng: {screening?.room}</p>
                   <p className="text-[#888] text-xs">
-                    📅 {screening?.date ? new Date(screening.date).toLocaleDateString('vi-VN') : ''}
+                    Ngày: {screening?.date ? new Date(screening.date).toLocaleDateString('vi-VN') : ''}
                   </p>
                 </div>
               </div>
@@ -474,7 +473,7 @@ export default function ComboSelectionPage() {
               {/* Chi tiết tiền vé */}
               <div className="space-y-2 text-sm mb-4">
                 <div className="flex justify-between text-xs text-[#B3B3B3]">
-                  <span>Ghế chọn ({selectedSeatCodes.join(', ')}):</span>
+                  <span>Ghế ({selectedSeatCodes.join(', ')}):</span>
                   <span className="text-white font-medium">{ticketSubtotal.toLocaleString('vi-VN')} đ</span>
                 </div>
               </div>
@@ -505,8 +504,8 @@ export default function ComboSelectionPage() {
               {/* Tổng cộng */}
               <div className="border-t border-[#404040] pt-3 mb-5">
                 <div className="flex justify-between items-baseline">
-                  <span className="text-white font-bold text-base">Tổng thanh toán:</span>
-                  <span className="text-[#FFB703] font-black text-2xl">
+                  <span className="text-white font-semibold text-base">Tổng cộng:</span>
+                  <span className="text-[#FFB703] font-bold text-xl">
                     {grandTotal.toLocaleString('vi-VN')} đ
                   </span>
                 </div>
@@ -520,15 +519,15 @@ export default function ComboSelectionPage() {
                   fullWidth
                   onClick={handleProceed}
                   disabled={isReserving}
-                  className="font-bold shadow-lg shadow-[#E63946]/20 py-3.5 text-base"
+                  className="font-semibold shadow-md py-3 text-sm"
                 >
                   {isReserving ? (
                     <div className="flex items-center gap-2">
                       <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                      <span>Đang giữ chỗ tồn kho...</span>
+                      <span>Đang xử lý...</span>
                     </div>
                   ) : (
-                    'Tiếp tục sang thanh toán →'
+                    'Tiếp tục thanh toán'
                   )}
                 </Button>
 
@@ -540,7 +539,7 @@ export default function ComboSelectionPage() {
                   disabled={isReserving}
                   className="text-xs text-[#888] hover:text-white"
                 >
-                  Bỏ qua bắp nước, thanh toán ngay
+                  Bỏ qua bắp nước
                 </Button>
               </div>
             </div>

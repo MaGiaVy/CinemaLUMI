@@ -71,14 +71,14 @@ export default function StaffDashboardPage() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tight">
-                Dashboard Nhân Viên Quầy
+                Quầy Vé
               </h1>
               <span className="bg-[#E63946]/20 border border-[#E63946]/40 text-[#E63946] text-xs font-semibold px-2.5 py-0.5 rounded-full">
-                STAFF COUNTER
+                Nhân viên
               </span>
             </div>
             <p className="text-[#A3A3A3] text-sm mt-1">
-              📅 {todayStr} • Ca làm việc: 08:00 - 17:00
+              {todayStr} • Ca làm việc: 08:00 - 17:00
             </p>
           </div>
           <div className="flex items-center gap-3">
@@ -88,11 +88,11 @@ export default function StaffDashboardPage() {
               onClick={fetchRecentTickets}
               disabled={loading}
             >
-              🔄 {loading ? 'Đang cập nhật...' : 'Làm mới dữ liệu'}
+              {loading ? 'Đang cập nhật...' : 'Làm mới dữ liệu'}
             </Button>
             <Link href="/staff/lookup">
               <Button variant="primary" size="sm">
-                🔍 Tra cứu & Hủy vé
+                Tra cứu & Hủy vé
               </Button>
             </Link>
           </div>
@@ -101,33 +101,23 @@ export default function StaffDashboardPage() {
         {/* Quick Stats Grid */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 transition-all hover:border-[#404040]">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-[#E63946]/10 border border-[#E63946]/30 flex items-center justify-center text-xl text-[#E63946]">
-                🎟️
-              </div>
-              <div>
-                <p className="text-[#A3A3A3] text-xs font-medium uppercase tracking-wider">Tổng số vé đặt</p>
-                <p className="text-white font-black text-xl lg:text-2xl mt-0.5">
-                  {loading ? '...' : totalTickets}
-                </p>
-              </div>
+            <div>
+              <p className="text-[#A3A3A3] text-xs font-medium uppercase tracking-wider">Tổng số vé đặt</p>
+              <p className="text-white font-black text-xl lg:text-2xl mt-1">
+                {loading ? '...' : totalTickets}
+              </p>
             </div>
             <div className="mt-2 text-[11px] text-[#737373]">
-              Bao gồm cả vé đặt tại quầy và online
+              Bao gồm vé tại quầy và online
             </div>
           </div>
 
           <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 transition-all hover:border-[#404040]">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-[#FFB703]/10 border border-[#FFB703]/30 flex items-center justify-center text-xl text-[#FFB703]">
-                💰
-              </div>
-              <div>
-                <p className="text-[#A3A3A3] text-xs font-medium uppercase tracking-wider">Doanh thu vé</p>
-                <p className="text-[#FFB703] font-black text-xl lg:text-2xl mt-0.5">
-                  {loading ? '...' : `${(totalRevenue / 1000).toLocaleString('vi-VN')}k`}
-                </p>
-              </div>
+            <div>
+              <p className="text-[#A3A3A3] text-xs font-medium uppercase tracking-wider">Doanh thu vé</p>
+              <p className="text-[#FFB703] font-black text-xl lg:text-2xl mt-1">
+                {loading ? '...' : `${(totalRevenue / 1000).toLocaleString('vi-VN')}k`}
+              </p>
             </div>
             <div className="mt-2 text-[11px] text-[#737373]">
               Chỉ tính các vé chưa bị hoàn tiền
@@ -135,122 +125,89 @@ export default function StaffDashboardPage() {
           </div>
 
           <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 transition-all hover:border-[#404040]">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-[#2ECC71]/10 border border-[#2ECC71]/30 flex items-center justify-center text-xl text-[#2ECC71]">
-                ✅
-              </div>
-              <div>
-                <p className="text-[#A3A3A3] text-xs font-medium uppercase tracking-wider">Vé hợp lệ / Đã dùng</p>
-                <p className="text-white font-black text-xl lg:text-2xl mt-0.5">
-                  {loading ? '...' : `${validTickets} / ${usedTickets}`}
-                </p>
-              </div>
+            <div>
+              <p className="text-[#A3A3A3] text-xs font-medium uppercase tracking-wider">Hợp lệ / Đã dùng</p>
+              <p className="text-white font-black text-xl lg:text-2xl mt-1">
+                {loading ? '...' : `${validTickets} / ${usedTickets}`}
+              </p>
             </div>
             <div className="mt-2 text-[11px] text-[#737373]">
-              {validTickets} vé chờ xem • {usedTickets} đã quét vào rạp
+              {validTickets} vé chờ xem • {usedTickets} đã soát vé
             </div>
           </div>
 
           <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4 transition-all hover:border-[#404040]">
-            <div className="flex items-center gap-3">
-              <div className="w-11 h-11 rounded-xl bg-[#0088FF]/10 border border-[#0088FF]/30 flex items-center justify-center text-xl text-[#0088FF]">
-                ⚠️
-              </div>
-              <div>
-                <p className="text-[#A3A3A3] text-xs font-medium uppercase tracking-wider">Vé đã hủy / Hoàn tiền</p>
-                <p className="text-[#E63946] font-black text-xl lg:text-2xl mt-0.5">
-                  {loading ? '...' : cancelledTickets}
-                </p>
-              </div>
+            <div>
+              <p className="text-[#A3A3A3] text-xs font-medium uppercase tracking-wider">Vé đã hủy</p>
+              <p className="text-[#E63946] font-black text-xl lg:text-2xl mt-1">
+                {loading ? '...' : cancelledTickets}
+              </p>
             </div>
             <div className="mt-2 text-[11px] text-[#737373]">
-              Đã bồi hoàn theo quy trình UC-15 / BR-03
+              Đã bồi hoàn theo quy định hủy vé
             </div>
           </div>
         </div>
 
         {/* Quick Search Card */}
-        <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl p-5 lg:p-6 shadow-lg">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h2 className="text-white font-bold text-lg flex items-center gap-2">
-                <span>⚡</span> Tra Cứu Nhanh Vé Khách Hàng Tại Quầy
-              </h2>
-              <p className="text-[#A3A3A3] text-xs mt-0.5">
-                Nhập số điện thoại, email, hoặc mã vé để kiểm tra thông tin và xử lý sự cố tức thì
-              </p>
-            </div>
+        <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl p-5 lg:p-6 shadow-md">
+          <div className="mb-4">
+            <h2 className="text-white font-bold text-lg">
+              Tra Cứu Vé Khách Hàng
+            </h2>
+            <p className="text-[#A3A3A3] text-xs mt-0.5">
+              Nhập số điện thoại, email hoặc mã vé để kiểm tra thông tin và hỗ trợ khách hàng
+            </p>
           </div>
 
           <form onSubmit={handleQuickSearch} className="flex flex-col sm:flex-row gap-3">
             <div className="relative flex-1">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#737373] text-base">
-                🔍
-              </span>
               <input
                 type="text"
-                placeholder="Nhập số điện thoại khách hàng, email hoặc mã vé (#LMC-...)..."
+                placeholder="Nhập số điện thoại, email hoặc mã vé (#LMC-...)..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#141414] border border-[#404040] focus:border-[#E63946] rounded-xl pl-10 pr-4 py-3 text-white text-sm outline-none transition-colors"
+                className="w-full bg-[#141414] border border-[#404040] focus:border-[#E63946] rounded-xl px-4 py-3 text-white text-sm outline-none transition-colors"
               />
             </div>
             <Button type="submit" variant="primary" size="md">
-              Tìm kiếm ngay
+              Tìm kiếm
             </Button>
           </form>
-
-          <div className="flex flex-wrap items-center gap-2 mt-4 pt-3 border-t border-[#2D2D2D] text-xs">
-            <span className="text-[#737373]">Từ khóa gợi ý:</span>
-            {['0901234567', 'khachhang@lumi.vn', '#LMC-000003', 'Cinema 01', 'A1'].map((sample) => (
-              <button
-                key={sample}
-                type="button"
-                onClick={() => {
-                  setSearchQuery(sample);
-                  router.push(`/staff/lookup?q=${encodeURIComponent(sample)}`);
-                }}
-                className="text-[#0088FF] hover:underline bg-[#0088FF]/10 px-2.5 py-1 rounded-md transition-colors"
-              >
-                {sample}
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Recent Tickets Table */}
-        <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl overflow-hidden shadow-lg">
+        <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl overflow-hidden shadow-md">
           <div className="p-5 border-b border-[#2D2D2D] flex items-center justify-between">
             <div>
-              <h2 className="text-white font-bold text-base flex items-center gap-2">
-                <span>📋</span> Vé Đặt Mới Nhất Trong Hệ Thống
+              <h2 className="text-white font-bold text-base">
+                Vé Đặt Gần Đây
               </h2>
               <p className="text-[#A3A3A3] text-xs mt-0.5">
-                Hiển thị dữ liệu trực tiếp từ cơ sở dữ liệu rạp chiếu
+                Danh sách vé đặt mới nhất trong hệ thống rạp
               </p>
             </div>
             <Link
               href="/staff/lookup"
               className="text-xs text-[#0088FF] hover:underline flex items-center gap-1 font-medium"
             >
-              Mở trang tra cứu chi tiết →
+              Xem tất cả →
             </Link>
           </div>
 
           {error && (
             <div className="p-4 bg-[#E63946]/10 border-b border-[#E63946]/20 text-[#E63946] text-sm">
-              ⚠️ {error}
+              {error}
             </div>
           )}
 
           {loading ? (
             <div className="py-16 text-center text-[#737373]">
-              <div className="inline-block animate-spin text-2xl mb-3">⏳</div>
+              <div className="w-6 h-6 border-2 border-[#E63946] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
               <p className="text-sm">Đang tải danh sách vé mới nhất...</p>
             </div>
           ) : tickets.length === 0 ? (
             <div className="py-16 text-center text-[#737373]">
-              <p className="text-3xl mb-2">🎟️</p>
               <p className="text-white font-medium text-sm">Chưa có vé nào trong hệ thống</p>
             </div>
           ) : (

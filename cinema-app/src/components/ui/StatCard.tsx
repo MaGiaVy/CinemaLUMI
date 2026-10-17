@@ -2,7 +2,7 @@ interface StatCardProps {
   title: string;
   value: string;
   subtitle?: string;
-  icon: string;
+  icon?: React.ReactNode;
   color?: 'red' | 'gold' | 'blue' | 'green';
   trend?: number;
 }
@@ -32,9 +32,11 @@ export default function StatCard({ title, value, subtitle, icon, color = 'red', 
             </div>
           )}
         </div>
-        <div className={`${c.bg} ${c.border} border rounded-xl p-3`}>
-          <span className={`text-2xl ${c.text}`}>{icon}</span>
-        </div>
+        {icon && (
+          <div className={`${c.bg} ${c.border} border rounded-xl p-3 flex items-center justify-center`}>
+            <span className={`text-xl ${c.text}`}>{icon}</span>
+          </div>
+        )}
       </div>
     </div>
   );

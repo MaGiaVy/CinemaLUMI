@@ -47,19 +47,18 @@ export default function ReviewForm({
   // Nếu người dùng CHƯA đăng nhập: Hiển thị lời nhắc đăng nhập thay vì form
   if (!isLoggedIn) {
     return (
-      <div className="bg-[#1A1C24] border border-[#252836] rounded-2xl p-6 text-center shadow-xl">
-        <span className="text-3xl block mb-2">⭐</span>
-        <h3 className="text-base font-bold text-white mb-1">
-          Bạn đã thưởng thức bộ phim này?
+      <div className="bg-[#2D2D2D] border border-[#404040] rounded-xl p-6 text-center">
+        <h3 className="text-base font-semibold text-white mb-1">
+          Đánh giá phim
         </h3>
         <p className="text-gray-400 text-xs mb-4 max-w-md mx-auto">
-          Đăng nhập ngay để chấm điểm và chia sẻ cảm nghĩ của bạn cùng cộng đồng khán giả Lumi Cinema.
+          Đăng nhập tài khoản để gửi đánh giá và nhận xét về bộ phim.
         </p>
         <Link
           href={`/login?callbackUrl=/movies/${movieId}`}
-          className="inline-flex items-center gap-2 px-5 py-2.5 bg-[#E63946] hover:bg-[#C62B36] text-white text-xs font-bold rounded-xl transition shadow-lg"
+          className="inline-flex items-center gap-2 px-4 py-2 bg-[#E63946] hover:bg-[#C62B36] text-white text-xs font-semibold rounded-lg transition-colors"
         >
-          🔑 Đăng nhập để đánh giá
+          Đăng nhập để đánh giá
         </Link>
       </div>
     );
@@ -91,10 +90,9 @@ export default function ReviewForm({
 
       const data = await res.json();
 
-      // Bắt lỗi 403: Người dùng chưa xem phim (chưa có vé USED)
       if (res.status === 403) {
         onShowToast(
-          data.error || 'Bạn chỉ được đánh giá phim sau khi đã xem',
+          data.error || 'Vui lòng đăng nhập để đánh giá phim',
           'error'
         );
         return;
@@ -104,9 +102,8 @@ export default function ReviewForm({
         throw new Error(data.message || data.error || 'Không thể gửi đánh giá');
       }
 
-      // Thành công
       onShowToast(
-        'Cảm ơn bạn! Đánh giá của bạn đã được ghi nhận thành công.',
+        'Đánh giá của bạn đã được ghi nhận.',
         'success'
       );
 
@@ -129,29 +126,31 @@ export default function ReviewForm({
   };
 
   return (
-    <div className="bg-[#1A1C24] border border-[#252836] rounded-2xl p-6 shadow-xl">
-      <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#252836]">
+    <div className="bg-[#2D2D2D] border border-[#404040] rounded-xl p-5">
+      <div className="flex items-center justify-between mb-4 pb-3 border-b border-[#383838]">
         <div>
-          <h3 className="text-base font-bold text-white">Gửi Đánh Giá Của Bạn</h3>
-          <p className="text-xs text-gray-400 mt-0.5">
-            {movieTitle ? `Dành cho: ${movieTitle}` : 'Đánh giá sau khi đã thưởng thức suất chiếu'}
-          </p>
+          <h3 className="text-base font-semibold text-white">Đánh giá của bạn</h3>
+          {movieTitle && (
+            <p className="text-xs text-gray-400 mt-0.5">
+              Phim: {movieTitle}
+            </p>
+          )}
         </div>
-        <span className="text-xs text-green-400 bg-green-500/10 border border-green-500/20 px-2.5 py-1 rounded-full font-medium">
-          ✓ Đã đăng nhập
+        <span className="text-xs text-green-400 bg-green-500/10 border border-green-500/20 px-2 py-0.5 rounded font-medium">
+          Đã đăng nhập
         </span>
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Chọn số sao */}
         <div>
-          <label className="block text-xs font-semibold uppercase tracking-wider text-gray-400 mb-2">
-            Mức độ hài lòng của bạn
+          <label className="block text-xs font-medium text-gray-400 mb-2">
+            Đánh giá sao
           </label>
           <div className="flex items-center gap-3">
             <StarRating value={rating} onChange={setRating} size="lg" />
             {rating > 0 && (
-              <span className="text-sm font-bold text-[#FFB703] ml-2">
+              <span className="text-sm font-semibold text-[#FFB703] ml-2">
                 {RATING_LABELS[rating]}
               </span>
             )}
@@ -161,21 +160,21 @@ export default function ReviewForm({
         {/* Nhập nội dung bình luận */}
         <div>
           <div className="flex justify-between items-center mb-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-gray-400">
-              Nhận xét chi tiết (không bắt buộc)
+            <label className="text-xs font-medium text-gray-400">
+              Nhận xét (không bắt buộc)
             </label>
             <span className="text-[11px] text-gray-500 font-mono">
-              {comment.length}/1000 ký tự
+              {comment.length}/1000
             </span>
           </div>
           <textarea
             rows={3}
             maxLength={1000}
-            placeholder="Chia sẻ cảm xúc, đánh giá về diễn xuất, kỹ xảo, âm thanh hoặc cốt truyện..."
+            placeholder="Cảm nhận của bạn về bộ phim..."
             value={comment}
             onChange={e => setComment(e.target.value)}
             disabled={isSubmitting}
-            className="w-full p-3.5 bg-[#12131A] border border-[#2B2E3D] rounded-xl text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#E63946] transition resize-y"
+            className="w-full p-3 bg-[#1E1E1E] border border-[#404040] rounded-lg text-sm text-white placeholder-gray-500 focus:outline-none focus:border-[#E63946] transition resize-y"
           />
         </div>
 
@@ -185,7 +184,7 @@ export default function ReviewForm({
             type="submit"
             size="md"
             disabled={isSubmitting}
-            className="px-6 bg-[#E63946] hover:bg-[#C62B36] text-white font-bold rounded-xl shadow-lg transition"
+            className="px-5 bg-[#E63946] hover:bg-[#C62B36] text-white font-medium rounded-lg transition"
           >
             {isSubmitting ? (
               <div className="flex items-center gap-2">
@@ -193,7 +192,7 @@ export default function ReviewForm({
                 <span>Đang gửi...</span>
               </div>
             ) : (
-              '⭐ Gửi Đánh Giá'
+              'Gửi đánh giá'
             )}
           </Button>
         </div>

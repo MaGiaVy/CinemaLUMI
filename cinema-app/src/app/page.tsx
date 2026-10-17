@@ -27,12 +27,17 @@ export default async function HomePage() {
   try {
     const rawDbMovies = await prisma.movie.findMany({
       orderBy: { createdAt: 'desc' },
-      include: {
-        screenings: {
-          where: { status: 'UPCOMING' },
-          orderBy: { startTime: 'asc' },
-          take: 3,
-        },
+      select: {
+        id: true,
+        title: true,
+        poster: true,
+        trailer: true,
+        genre: true,
+        duration: true,
+        rating: true,
+        ageRating: true,
+        ticketPrice: true,
+        description: true,
       },
     });
 
@@ -112,65 +117,56 @@ export default async function HomePage() {
             {/* Cột trái: Thông tin phim & Action buttons */}
             <div className="max-w-2xl flex-1 text-left">
               <div className="flex flex-wrap items-center gap-2 mb-3">
-                <span className="px-3 py-1 rounded-full bg-[#E63946] text-white text-xs font-black tracking-wider uppercase shadow-md">
-                  HOT NHẤT TUẦN
-                </span>
-                <span className="px-2.5 py-1 rounded-full bg-slate-800/80 border border-slate-700 text-amber-400 text-xs font-bold">
+                <span className="px-2.5 py-0.5 rounded bg-slate-800 border border-slate-700 text-amber-400 text-xs font-semibold">
                   ★ {Number(heroMovie.rating || 4.8).toFixed(1)} / 5.0
                 </span>
-                <span className="text-slate-300 text-xs">• {heroMovie.duration} phút</span>
+                <span className="text-slate-300 text-xs">{heroMovie.duration} phút</span>
                 {heroMovie.ageRating && (
-                  <span className="px-2 py-0.5 rounded bg-yellow-500/20 text-yellow-400 border border-yellow-500/40 text-[11px] font-bold">
+                  <span className="px-2 py-0.5 rounded bg-red-600/20 text-red-400 border border-red-500/30 text-xs font-semibold">
                     {heroMovie.ageRating}
                   </span>
                 )}
               </div>
 
-              <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white leading-tight tracking-tight mb-3 drop-shadow-lg">
+              <h1 className="text-3xl sm:text-4xl md:text-5xl font-black text-white leading-tight tracking-tight mb-2">
                 {heroMovie.title}
               </h1>
 
-              <div className="text-sm font-semibold text-[#FFB703] mb-3 flex items-center gap-2">
-                <span>🎭</span> <span>{heroMovie.genre}</span>
+              <div className="text-sm text-slate-300 mb-3">
+                {heroMovie.genre}
               </div>
 
-              <p className="text-slate-200 text-sm sm:text-base leading-relaxed mb-6 line-clamp-3 max-w-xl">
+              <p className="text-slate-300 text-sm leading-relaxed mb-6 line-clamp-3 max-w-xl">
                 {heroMovie.description ||
-                  'Khám phá trải nghiệm điện ảnh đỉnh cao tại Lumi Cinema với hệ thống máy chiếu Laser 4K và âm thanh vòm Dolby Atmos sống động nhất.'}
+                  'Khám phá trải nghiệm điện ảnh tại CinemaLUMI với hệ thống phòng chiếu hiện đại và âm thanh sống động.'}
               </p>
 
               <div className="flex flex-wrap items-center gap-3">
                 <Link
                   href={heroMovie.id ? `/movies/${heroMovie.id}` : '#showing'}
-                  className="px-6 py-3.5 rounded-xl bg-[#E63946] hover:bg-[#C62B36] text-white font-bold text-sm sm:text-base transition-all shadow-xl hover:shadow-red-500/30 active:scale-95 inline-flex items-center gap-2 cursor-pointer"
+                  className="px-6 py-3 rounded-lg bg-[#E63946] hover:bg-[#C62B36] text-white font-semibold text-sm transition-colors cursor-pointer"
                   style={{ textDecoration: 'none' }}
                 >
-                  <span>🎟️</span> Đặt Vé Ngay
+                  Đặt vé ngay
                 </Link>
                 <Link
                   href={`/movies/${heroMovie.id}`}
-                  className="px-5 py-3.5 rounded-xl bg-slate-800/90 hover:bg-slate-700 text-white font-semibold text-sm sm:text-base border border-slate-600 transition-all inline-flex items-center gap-2 cursor-pointer"
+                  className="px-5 py-3 rounded-lg bg-[#2D2D2D] hover:bg-[#383838] text-white font-medium text-sm border border-[#404040] transition-colors cursor-pointer"
                   style={{ textDecoration: 'none' }}
                 >
-                  <span>🎬</span> Chi Tiết Phim
+                  Chi tiết phim
                 </Link>
               </div>
             </div>
 
-            {/* Cột phải: Poster 3D sáng đẹp, nổi bật rõ ràng */}
-            <div className="flex-shrink-0 relative group">
-              <div className="w-56 sm:w-64 md:w-72 aspect-[2/3] rounded-2xl overflow-hidden border-2 border-red-500/40 shadow-[0_10px_40px_rgba(230,57,70,0.35)] relative transform transition-all duration-500 group-hover:scale-105 group-hover:shadow-[0_15px_50px_rgba(230,57,70,0.5)]">
+            {/* Cột phải: Poster */}
+            <div className="flex-shrink-0 relative">
+              <div className="w-56 sm:w-64 md:w-72 aspect-[2/3] rounded-xl overflow-hidden border border-[#404040] shadow-xl relative">
                 <img
                   src={heroMovie.poster}
                   alt={heroMovie.title}
                   className="w-full h-full object-cover"
                 />
-                <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-transparent to-transparent opacity-80" />
-                <div className="absolute bottom-3 left-3 right-3 text-center">
-                  <span className="inline-block px-3 py-1 rounded-full bg-[#E63946] text-white text-[11px] font-black tracking-wider uppercase shadow-md">
-                    Chiếu Rạp IMAX Laser 4K
-                  </span>
-                </div>
               </div>
             </div>
           </div>
@@ -179,19 +175,16 @@ export default async function HomePage() {
         {/* ========================================================= */}
         {/* 2. FILTER & MOVIE GRID SECTION (Responsive Web & Mobile)  */}
         {/* ========================================================= */}
-        <section id="showing" className="max-w-7xl mx-auto px-4 sm:px-6 py-10 md:py-16">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4 mb-8">
+        <section id="showing" className="max-w-7xl mx-auto px-4 sm:px-6 py-10 md:py-14">
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-3 mb-8">
             <div>
-              <div className="inline-block px-3 py-1 rounded-full bg-[#E63946]/10 text-[#E63946] text-xs font-bold uppercase tracking-wider mb-2">
-                Đang Chiếu Tại Rạp
-              </div>
-              <h2 className="text-2xl sm:text-3xl md:text-4xl font-black text-white tracking-tight">
-                Phim Đang Khởi Chiếu
+              <h2 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
+                Phim đang chiếu
               </h2>
+              <p className="text-slate-400 text-sm mt-1">
+                Lịch chiếu và thông tin các bộ phim tại CinemaLUMI
+              </p>
             </div>
-            <p className="text-slate-400 text-sm max-w-md">
-              Cập nhật lịch chiếu mới nhất theo thời gian thực. Đặt trước chỗ ngồi ưng ý với giá vé ưu đãi.
-            </p>
           </div>
 
           {/* Responsive Movie Cards Grid */}
@@ -204,53 +197,57 @@ export default async function HomePage() {
               return (
                 <div
                   key={movie.id}
-                  className="group bg-[#1E1E1E] rounded-2xl overflow-hidden border border-[#2D2D2D] hover:border-[#E63946]/50 transition-all duration-300 hover:shadow-2xl hover:shadow-red-500/10 flex flex-col"
+                  className="bg-[#1E1E1E] rounded-xl overflow-hidden border border-[#2D2D2D] hover:border-[#404040] transition-colors flex flex-col"
                 >
                   {/* Poster Image Container */}
-                  <div className="relative aspect-[2/3] w-full overflow-hidden bg-slate-900">
+                  <Link href={`/movies/${movie.id}`} className="relative aspect-[2/3] w-full overflow-hidden bg-slate-900 block">
                     <img
                       src={movie.poster}
                       alt={movie.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-300"
                       loading="lazy"
                     />
-                    <div className="absolute top-3 left-3 flex flex-col gap-1.5">
-                      <span className="px-2 py-0.5 rounded bg-black/75 backdrop-blur-md text-[#FFB703] font-bold text-xs">
+                    <div className="absolute top-2.5 left-2.5 flex flex-col gap-1">
+                      <span className="px-2 py-0.5 rounded bg-black/80 text-amber-400 font-semibold text-xs">
                         ★ {Number(movie.rating || 4.5).toFixed(1)}
                       </span>
                       {movie.ageRating && (
-                        <span className="px-2 py-0.5 rounded bg-[#E63946] text-white font-bold text-[10px]">
+                        <span className="px-1.5 py-0.5 rounded bg-[#E63946] text-white font-bold text-[10px]">
                           {movie.ageRating}
                         </span>
                       )}
                     </div>
-                    <div className="absolute bottom-3 right-3 px-2 py-0.5 rounded bg-black/70 backdrop-blur-md text-slate-300 text-xs">
+                    <div className="absolute bottom-2.5 right-2.5 px-2 py-0.5 rounded bg-black/75 text-slate-300 text-xs">
                       {movie.duration} phút
                     </div>
-                  </div>
+                  </Link>
 
                   {/* Movie Info */}
-                  <div className="p-4 sm:p-5 flex-1 flex flex-col justify-between">
+                  <div className="p-4 flex-1 flex flex-col justify-between">
                     <div>
-                      <div className="text-xs text-slate-400 mb-1.5 line-clamp-1">{genreText}</div>
-                      <h3 className="font-extrabold text-base sm:text-lg text-white group-hover:text-[#E63946] transition-colors line-clamp-1 mb-2">
-                        {movie.title}
-                      </h3>
-                      <p className="text-slate-400 text-xs leading-relaxed line-clamp-2 mb-4">
-                        {movie.description || 'Trải nghiệm điện ảnh công nghệ cao tại cụm rạp Lumi Cinema.'}
-                      </p>
+                      <div className="text-xs text-slate-400 mb-1 line-clamp-1">{genreText}</div>
+                      <Link href={`/movies/${movie.id}`}>
+                        <h3 className="font-bold text-base text-white hover:text-[#E63946] transition-colors line-clamp-1 mb-2">
+                          {movie.title}
+                        </h3>
+                      </Link>
+                      {movie.description && (
+                        <p className="text-slate-400 text-xs leading-relaxed line-clamp-2 mb-3">
+                          {movie.description}
+                        </p>
+                      )}
                     </div>
 
                     <div className="pt-3 border-t border-[#2B2B2B] flex items-center justify-between gap-2">
-                      <div className="text-sm font-black text-[#FFB703]">
+                      <div className="text-sm font-bold text-amber-400">
                         {Number(movie.ticketPrice || 120000).toLocaleString('vi-VN')} đ
                       </div>
                       <Link
                         href={`/movies/${movie.id}`}
-                        className="px-4 py-2 rounded-xl bg-[#E63946] hover:bg-[#C62B36] text-white text-xs font-bold transition-all shadow-md active:scale-95"
+                        className="px-3.5 py-1.5 rounded-lg bg-[#E63946] hover:bg-[#C62B36] text-white text-xs font-semibold transition-colors"
                         style={{ textDecoration: 'none' }}
                       >
-                        Đặt Vé
+                        Đặt vé
                       </Link>
                     </div>
                   </div>
@@ -261,57 +258,33 @@ export default async function HomePage() {
         </section>
 
         {/* ========================================================= */}
-        {/* 3. WHY CHOOSE LUMI CINEMA (Feature Highlights)            */}
+        {/* 3. CINEMA GUIDELINES SECTION                               */}
         {/* ========================================================= */}
-        <section className="bg-[#181818] border-y border-[#262626] py-12 md:py-16">
+        <section className="bg-[#181818] border-t border-[#262626] py-12">
           <div className="max-w-7xl mx-auto px-4 sm:px-6">
-            <div className="text-center max-w-2xl mx-auto mb-12">
-              <h2 className="text-2xl sm:text-3xl font-black text-white mb-3">
-                Trải Nghiệm Điện Ảnh Đẳng Cấp
-              </h2>
-              <p className="text-slate-400 text-sm">
-                Lumi Cinema mang đến hệ thống phòng chiếu hiện đại và dịch vụ tận tâm nhất.
-              </p>
-            </div>
+            <h2 className="text-xl font-bold text-white mb-6">
+              Quy định đặt vé & dịch vụ rạp
+            </h2>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-              <div className="bg-[#1F1F1F] p-6 rounded-2xl border border-[#2D2D2D] text-center">
-                <div className="w-12 h-12 mx-auto mb-4 bg-red-500/10 text-red-500 rounded-xl flex items-center justify-center text-2xl">
-                  🎬
-                </div>
-                <h3 className="font-bold text-white text-base mb-2">Laser 4K & IMAX</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div className="bg-[#1F1F1F] p-5 rounded-xl border border-[#2D2D2D]">
+                <h3 className="font-semibold text-white text-sm mb-1.5">1. Đặt vé trực tuyến</h3>
                 <p className="text-slate-400 text-xs leading-relaxed">
-                  Hình ảnh siêu sắc nét, độ tương phản ấn tượng với màn chiếu công nghệ laser hiện đại.
+                  Ghế được giữ chỗ trong 10 phút. Hỗ trợ thanh toán nhanh qua VNPAY và MoMo với mã QR xác nhận gửi về tài khoản.
                 </p>
               </div>
 
-              <div className="bg-[#1F1F1F] p-6 rounded-2xl border border-[#2D2D2D] text-center">
-                <div className="w-12 h-12 mx-auto mb-4 bg-amber-500/10 text-amber-500 rounded-xl flex items-center justify-center text-2xl">
-                  🔊
-                </div>
-                <h3 className="font-bold text-white text-base mb-2">Dolby Atmos Đa Chiều</h3>
+              <div className="bg-[#1F1F1F] p-5 rounded-xl border border-[#2D2D2D]">
+                <h3 className="font-semibold text-white text-sm mb-1.5">2. Chính sách hủy vé</h3>
                 <p className="text-slate-400 text-xs leading-relaxed">
-                  Âm thanh vòm vòm chuyển động chân thực, bao trùm toàn bộ không gian phòng chiếu.
+                  Khách hàng chủ động hủy vé trước giờ chiếu ít nhất 2 tiếng sẽ nhận voucher giảm 50% áp dụng cho lần mua tiếp theo.
                 </p>
               </div>
 
-              <div className="bg-[#1F1F1F] p-6 rounded-2xl border border-[#2D2D2D] text-center">
-                <div className="w-12 h-12 mx-auto mb-4 bg-emerald-500/10 text-emerald-500 rounded-xl flex items-center justify-center text-2xl">
-                  ⚡
-                </div>
-                <h3 className="font-bold text-white text-base mb-2">Đặt Vé Trong 30 Giây</h3>
+              <div className="bg-[#1F1F1F] p-5 rounded-xl border border-[#2D2D2D]">
+                <h3 className="font-semibold text-white text-sm mb-1.5">3. Soát vé & Combo bắp nước</h3>
                 <p className="text-slate-400 text-xs leading-relaxed">
-                  Giữ ghế thời gian thực, thanh toán VNPay tiện lợi và nhận mã QR qua email tức thì.
-                </p>
-              </div>
-
-              <div className="bg-[#1F1F1F] p-6 rounded-2xl border border-[#2D2D2D] text-center">
-                <div className="w-12 h-12 mx-auto mb-4 bg-blue-500/10 text-blue-500 rounded-xl flex items-center justify-center text-2xl">
-                  🎁
-                </div>
-                <h3 className="font-bold text-white text-base mb-2">Bồi Hoàn 100% Tự Động</h3>
-                <p className="text-slate-400 text-xs leading-relaxed">
-                  Chính sách bảo vệ khách hàng (UC-15): Cấp voucher đền bù tức thì khi xảy ra sự cố rạp.
+                  Soát vé bắt đầu 30 phút trước giờ chiếu. Quý khách đặt combo online xuất trình mã đơn tại quầy để nhận phần bắp nước.
                 </p>
               </div>
             </div>

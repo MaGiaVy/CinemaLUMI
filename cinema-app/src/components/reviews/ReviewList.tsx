@@ -46,11 +46,10 @@ export default function ReviewList({ reviews, isLoading = false }: ReviewListPro
 
   if (reviews.length === 0) {
     return (
-      <div className="bg-[#1A1C24] border border-[#252836] rounded-2xl p-10 text-center shadow-lg">
-        <span className="text-5xl block mb-3">💬</span>
-        <h3 className="text-lg font-bold text-white mb-1">Chưa có đánh giá nào</h3>
-        <p className="text-gray-400 text-sm max-w-sm mx-auto">
-          Chưa có khán giả nào đánh giá bộ phim này. Hãy là người đầu tiên thưởng thức và chia sẻ cảm nhận!
+      <div className="bg-[#2D2D2D] border border-[#404040] rounded-xl p-8 text-center">
+        <h3 className="text-base font-semibold text-white mb-1">Chưa có đánh giá</h3>
+        <p className="text-gray-400 text-xs max-w-sm mx-auto">
+          Các nhận xét từ khán giả sẽ được hiển thị tại đây.
         </p>
       </div>
     );
@@ -61,15 +60,15 @@ export default function ReviewList({ reviews, isLoading = false }: ReviewListPro
   const avg = (reviews.reduce((acc, r) => acc + r.rating, 0) / total).toFixed(1);
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4">
       {/* Khối tóm tắt điểm đánh giá */}
-      <div className="bg-[#1A1C24] border border-[#252836] rounded-2xl p-5 sm:p-6 shadow-xl flex flex-col sm:flex-row items-center gap-6">
-        <div className="text-center sm:border-r sm:border-[#252836] sm:pr-8 flex-shrink-0">
-          <div className="text-4xl sm:text-5xl font-black text-[#FFB703] tracking-tight">{avg}</div>
+      <div className="bg-[#2D2D2D] border border-[#404040] rounded-xl p-5 flex flex-col sm:flex-row items-center gap-6">
+        <div className="text-center sm:border-r sm:border-[#404040] sm:pr-8 flex-shrink-0">
+          <div className="text-4xl font-black text-[#FFB703] tracking-tight">{avg}</div>
           <div className="my-1.5 flex justify-center">
             <StarRating value={Math.round(Number(avg))} readonly size="sm" />
           </div>
-          <p className="text-xs text-gray-400">Dựa trên {total} lượt đánh giá</p>
+          <p className="text-xs text-gray-400">{total} lượt đánh giá</p>
         </div>
 
         {/* Thanh phân bố sao */}
@@ -80,9 +79,9 @@ export default function ReviewList({ reviews, isLoading = false }: ReviewListPro
             return (
               <div key={star} className="flex items-center gap-2">
                 <span className="w-5 text-gray-400 font-medium">{star}★</span>
-                <div className="flex-1 bg-[#12131A] rounded-full h-2 overflow-hidden border border-[#252836]">
+                <div className="flex-1 bg-[#1E1E1E] rounded-full h-2 overflow-hidden border border-[#404040]">
                   <div
-                    className="bg-gradient-to-r from-amber-500 to-[#FFB703] h-full rounded-full transition-all duration-500"
+                    className="bg-[#FFB703] h-full rounded-full transition-all duration-300"
                     style={{ width: `${percentage}%` }}
                   />
                 </div>
@@ -94,7 +93,7 @@ export default function ReviewList({ reviews, isLoading = false }: ReviewListPro
       </div>
 
       {/* Danh sách các bình luận */}
-      <div className="space-y-3.5">
+      <div className="space-y-3">
         {reviews.map(review => {
           const reviewerName = review.full_name || review.user?.name || 'Khán giả';
           const initialChar = reviewerName.charAt(0).toUpperCase();
@@ -102,17 +101,17 @@ export default function ReviewList({ reviews, isLoading = false }: ReviewListPro
           return (
             <div
               key={review.id}
-              className="bg-[#1A1C24] border border-[#252836] hover:border-[#383C4F] rounded-2xl p-5 transition-all shadow-md"
+              className="bg-[#2D2D2D] border border-[#404040] rounded-xl p-4 transition-colors"
             >
-              <div className="flex items-start justify-between gap-3 mb-2.5">
+              <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="flex items-center gap-3">
                   {/* Avatar chữ cái */}
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-red-600 to-red-800 text-white font-black text-sm flex items-center justify-center flex-shrink-0 shadow-md">
+                  <div className="w-8 h-8 rounded-full bg-[#E63946] text-white font-bold text-xs flex items-center justify-center flex-shrink-0">
                     {initialChar}
                   </div>
                   <div>
-                    <h4 className="text-white font-bold text-sm">{reviewerName}</h4>
-                    <span className="text-[11px] text-gray-500 block">
+                    <h4 className="text-white font-medium text-sm">{reviewerName}</h4>
+                    <span className="text-[11px] text-gray-400 block">
                       {formatDate(review.createdAt || review.created_at)}
                     </span>
                   </div>
@@ -121,31 +120,15 @@ export default function ReviewList({ reviews, isLoading = false }: ReviewListPro
                 {/* Rating stars & badge */}
                 <div className="flex items-center gap-2">
                   <StarRating value={review.rating} readonly size="sm" />
-                  <Badge
-                    variant={
-                      review.rating >= 4
-                        ? 'green'
-                        : review.rating === 3
-                        ? 'gold'
-                        : 'red'
-                    }
-                    size="sm"
-                  >
-                    {review.rating}/5
-                  </Badge>
                 </div>
               </div>
 
               {/* Nội dung bình luận */}
               {review.comment ? (
-                <p className="text-gray-300 text-sm leading-relaxed pl-13 mt-1 whitespace-pre-line">
+                <p className="text-gray-300 text-sm leading-relaxed mt-1 whitespace-pre-line">
                   {review.comment}
                 </p>
-              ) : (
-                <p className="text-gray-500 text-xs italic pl-13 mt-1">
-                  (Khán giả không để lại bình luận văn bản)
-                </p>
-              )}
+              ) : null}
             </div>
           );
         })}

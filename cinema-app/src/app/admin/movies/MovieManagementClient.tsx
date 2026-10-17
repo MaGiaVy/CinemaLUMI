@@ -115,17 +115,19 @@ export default function MovieManagementClient({ initialMovies }: MovieManagement
                 placeholder="Tìm kiếm theo tên phim, thể loại, đạo diễn..."
                 value={search}
                 onChange={e => setSearch(e.target.value)}
+                className="w-full bg-[#2D2D2D] border border-[#404040] rounded-xl px-4 py-2.5 text-sm text-white placeholder-[#737373] focus:outline-none focus:border-[#E63946] transition-colors"
               />
             </div>
             <div>
               <select
                 value={statusFilter}
                 onChange={e => setStatusFilter(e.target.value)}
+                className="w-full bg-[#2D2D2D] border border-[#404040] rounded-xl px-3.5 py-2.5 text-sm text-white focus:outline-none focus:border-[#E63946] transition-colors"
               >
                 <option value="ALL">Tất cả trạng thái</option>
-                <option value="SHOWING">Đang chiếu (SHOWING)</option>
-                <option value="UPCOMING">Sắp chiếu (UPCOMING)</option>
-                <option value="ENDED">Đã kết thúc (ENDED)</option>
+                <option value="SHOWING">Đang chiếu</option>
+                <option value="UPCOMING">Sắp chiếu</option>
+                <option value="ENDED">Đã kết thúc</option>
               </select>
             </div>
           </div>

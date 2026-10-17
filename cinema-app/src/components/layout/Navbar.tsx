@@ -91,19 +91,19 @@ export default function Navbar({
           {userRole === 'admin' && (
             <Link
               href="/admin"
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#E63946]/20 text-[#E63946] hover:bg-[#E63946] hover:text-white transition-colors ml-2"
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#E63946]/15 text-[#E63946] hover:bg-[#E63946] hover:text-white transition-colors ml-2"
               style={{ textDecoration: 'none' }}
             >
-              🔧 Quản trị
+              Quản trị
             </Link>
           )}
           {userRole === 'staff' && (
             <Link
               href="/staff"
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#2ECC71]/20 text-[#2ECC71] hover:bg-[#2ECC71] hover:text-white transition-colors ml-2"
+              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#2ECC71]/15 text-[#2ECC71] hover:bg-[#2ECC71] hover:text-white transition-colors ml-2"
               style={{ textDecoration: 'none' }}
             >
-              💼 Nhân viên
+              Quầy vé
             </Link>
           )}
         </div>
@@ -209,7 +209,7 @@ export default function Navbar({
               className="px-3 py-2.5 rounded-lg text-sm font-semibold text-[#E63946] bg-[#E63946]/10 hover:bg-[#E63946]/20"
               style={{ textDecoration: 'none' }}
             >
-              🔧 Quản trị hệ thống (Admin)
+              Quản trị hệ thống
             </Link>
           )}
 
@@ -219,7 +219,7 @@ export default function Navbar({
               className="px-3 py-2.5 rounded-lg text-sm font-semibold text-[#2ECC71] bg-[#2ECC71]/10 hover:bg-[#2ECC71]/20"
               style={{ textDecoration: 'none' }}
             >
-              💼 Quầy vé nhân viên (Staff)
+              Quầy vé nhân viên
             </Link>
           )}
 

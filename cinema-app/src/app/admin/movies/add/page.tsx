@@ -371,9 +371,9 @@ export default function AddMoviePage() {
                     onChange={handleFieldChange}
                     disabled={loading}
                   >
-                    <option value="SHOWING">Đang chiếu (SHOWING)</option>
-                    <option value="UPCOMING">Sắp ra mắt (UPCOMING)</option>
-                    <option value="ENDED">Đã kết thúc (ENDED)</option>
+                    <option value="SHOWING">Đang chiếu</option>
+                    <option value="UPCOMING">Sắp ra mắt</option>
+                    <option value="ENDED">Đã kết thúc</option>
                   </select>
                 </div>
 

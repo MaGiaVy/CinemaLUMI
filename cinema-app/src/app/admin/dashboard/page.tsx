@@ -85,14 +85,11 @@ export default function AdminDashboardPage() {
           <div>
             <div className="flex items-center gap-3">
               <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tight">
-                Dashboard Quản Trị Hệ Thống
+                Tổng Quan Quản Trị
               </h1>
-              <span className="bg-[#E63946]/20 border border-[#E63946]/40 text-[#E63946] text-xs font-semibold px-2.5 py-0.5 rounded-full">
-                ADMIN CONSOLE
-              </span>
             </div>
             <p className="text-[#A3A3A3] text-sm mt-1">
-              Tổng quan chỉ số kinh doanh, vé xuất, bắp nước và tình trạng phòng vé
+              Chỉ số kinh doanh, số lượng vé, bắp nước và tình trạng suất chiếu
             </p>
           </div>
 
@@ -103,11 +100,11 @@ export default function AdminDashboardPage() {
               onClick={fetchDashboardData}
               disabled={loading}
             >
-              🔄 {loading ? 'Đang cập nhật...' : 'Làm mới'}
+              {loading ? 'Đang cập nhật...' : 'Làm mới'}
             </Button>
             <Link href="/admin/reports">
               <Button variant="primary" size="sm">
-                📈 Báo Cáo Doanh Thu (UC-19)
+                Báo Cáo Doanh Thu
               </Button>
             </Link>
           </div>
@@ -115,7 +112,7 @@ export default function AdminDashboardPage() {
 
         {error && (
           <div className="p-4 bg-[#E63946]/10 border border-[#E63946]/30 rounded-xl text-[#E63946] text-sm flex items-center justify-between">
-            <span>⚠️ {error}</span>
+            <span>{error}</span>
             <Button variant="ghost" size="sm" onClick={fetchDashboardData}>
               Thử lại
             </Button>
@@ -131,8 +128,7 @@ export default function AdminDashboardPage() {
                 ? '...'
                 : `${(data?.today.total_revenue || 0).toLocaleString('vi-VN')} đ`
             }
-            subtitle={data?.today.date ? `Ngày: ${data.today.date}` : 'Hóa đơn thanh toán SUCCESS'}
-            icon="💰"
+            subtitle={data?.today.date ? `Ngày: ${data.today.date}` : 'Giao dịch thành công'}
             color="gold"
           />
 
@@ -144,7 +140,6 @@ export default function AdminDashboardPage() {
                 : `${(data?.today.tickets_sold || 0).toLocaleString('vi-VN')} vé`
             }
             subtitle="Vé hợp lệ & đã sử dụng hôm nay"
-            icon="🎟️"
             color="red"
           />
 
@@ -156,7 +151,6 @@ export default function AdminDashboardPage() {
                 : `${(data?.today.combo_revenue || 0).toLocaleString('vi-VN')} đ`
             }
             subtitle="Combo bắp nước đã bán"
-            icon="🍿"
             color="blue"
           />
 
@@ -172,20 +166,19 @@ export default function AdminDashboardPage() {
                 ? `${data.today.occupied_seats_count}/${data.today.total_seats_capacity} ghế đang sử dụng`
                 : 'Công suất phòng chiếu'
             }
-            icon="📊"
             color="green"
           />
         </div>
 
         {/* Revenue Chart Section */}
-        <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl p-6 shadow-xl">
+        <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl p-6 shadow-md">
           <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6">
             <div>
-              <h2 className="text-white font-bold text-lg flex items-center gap-2">
-                <span>📈</span> Biểu Đồ Doanh Thu & Lượng Vé
+              <h2 className="text-white font-bold text-lg">
+                Biểu Đồ Doanh Thu & Lượng Vé
               </h2>
               <p className="text-[#A3A3A3] text-xs mt-0.5">
-                Biểu diễn trực quan doanh thu theo ngày trong tuần. Di chuột vào cột để xem số liệu chi tiết.
+                Doanh thu và lượng vé theo ngày trong tuần
               </p>
             </div>
             <div className="flex gap-2">
@@ -222,14 +215,14 @@ export default function AdminDashboardPage() {
         {/* Two Columns Grid: Top Movies & All-Time Highlights */}
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           {/* Top 5 Movies by Revenue */}
-          <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl p-5 lg:p-6 shadow-xl space-y-4">
+          <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl p-5 lg:p-6 shadow-md space-y-4">
             <div className="flex items-center justify-between border-b border-[#2D2D2D] pb-3">
               <div>
-                <h2 className="text-white font-bold text-base flex items-center gap-2">
-                  <span>🏆</span> Top 5 Phim Doanh Thu Cao Nhất
+                <h2 className="text-white font-bold text-base">
+                  Top 5 Phim Doanh Thu Cao Nhất
                 </h2>
                 <p className="text-[#A3A3A3] text-xs mt-0.5">
-                  Thống kê doanh số bán vé mọi thời đại
+                  Thống kê doanh số bán vé
                 </p>
               </div>
               <Link
@@ -242,12 +235,11 @@ export default function AdminDashboardPage() {
 
             {loading ? (
               <div className="py-12 text-center text-[#737373]">
-                <div className="inline-block animate-spin text-2xl mb-2">⏳</div>
+                <div className="w-6 h-6 border-2 border-[#E63946] border-t-transparent rounded-full animate-spin mx-auto mb-2" />
                 <p className="text-xs">Đang tải bảng xếp hạng phim...</p>
               </div>
             ) : !data?.top_movies || data.top_movies.length === 0 ? (
               <div className="py-12 text-center text-[#737373]">
-                <p className="text-2xl mb-1">🎬</p>
                 <p className="text-xs">Chưa có dữ liệu phim nào</p>
               </div>
             ) : (
@@ -291,7 +283,7 @@ export default function AdminDashboardPage() {
                           {movie.title}
                         </h4>
                         <p className="text-xs text-[#A3A3A3] mt-0.5 truncate">
-                          ⏱️ {movie.duration} phút • {movie.genre}
+                          {movie.duration} phút • {movie.genre}
                         </p>
                         <div className="flex items-center gap-2 mt-1">
                           <StarRating value={Math.round(movie.rating)} readonly size="sm" />
@@ -317,21 +309,21 @@ export default function AdminDashboardPage() {
           </div>
 
           {/* All-Time Overview & Quick Links */}
-          <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl p-5 lg:p-6 shadow-xl space-y-4 flex flex-col justify-between">
+          <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl p-5 lg:p-6 shadow-md space-y-4 flex flex-col justify-between">
             <div className="space-y-4">
               <div className="border-b border-[#2D2D2D] pb-3">
-                <h2 className="text-white font-bold text-base flex items-center gap-2">
-                  <span>🏛️</span> Thống Kê Toàn Thời Gian (All-Time)
+                <h2 className="text-white font-bold text-base">
+                  Thống Kê Toàn Thời Gian
                 </h2>
                 <p className="text-[#A3A3A3] text-xs mt-0.5">
-                  Lũy kế toàn bộ hoạt động từ khi triển khai hệ thống Lumi Cinema
+                  Lũy kế toàn bộ hoạt động hệ thống
                 </p>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div className="bg-[#171717] rounded-xl p-4 border border-[#2B2B2B]">
                   <span className="text-[#A3A3A3] text-xs font-medium block">
-                    TỔNG DOANH THU TOÀN HỆ THỐNG
+                    TỔNG DOANH THU HỆ THỐNG
                   </span>
                   <span className="text-[#FFB703] font-black text-xl lg:text-2xl mt-1 block">
                     {loading
@@ -353,7 +345,7 @@ export default function AdminDashboardPage() {
 
                 <div className="bg-[#171717] rounded-xl p-4 border border-[#2B2B2B]">
                   <span className="text-[#A3A3A3] text-xs font-medium block">
-                    TỔNG SỐ PHIM ĐÃ TẠO
+                    TỔNG SỐ PHIM
                   </span>
                   <span className="text-white font-black text-xl lg:text-2xl mt-1 block">
                     {loading ? '...' : data?.all_time.total_movies || 0} phim
@@ -362,7 +354,7 @@ export default function AdminDashboardPage() {
 
                 <div className="bg-[#171717] rounded-xl p-4 border border-[#2B2B2B]">
                   <span className="text-[#A3A3A3] text-xs font-medium block">
-                    TỔNG SUẤT CHIẾU VẬN HÀNH
+                    TỔNG SUẤT CHIẾU
                   </span>
                   <span className="text-[#0088FF] font-black text-xl lg:text-2xl mt-1 block">
                     {loading ? '...' : data?.all_time.total_screenings || 0} suất
@@ -374,27 +366,27 @@ export default function AdminDashboardPage() {
             {/* Quick Action Navigation */}
             <div className="pt-4 border-t border-[#2D2D2D] space-y-2">
               <span className="text-xs font-semibold uppercase text-[#737373] tracking-wider block">
-                Truy cập nhanh chức năng quản trị:
+                Truy cập nhanh:
               </span>
               <div className="grid grid-cols-2 gap-2">
                 <Link href="/admin/reports">
                   <Button variant="secondary" size="sm" fullWidth>
-                    📊 Báo cáo doanh thu chi tiết
+                    Báo cáo doanh thu
                   </Button>
                 </Link>
                 <Link href="/admin/reviews">
                   <Button variant="secondary" size="sm" fullWidth>
-                    ⭐ Kiểm duyệt đánh giá
+                    Đánh giá khách hàng
                   </Button>
                 </Link>
                 <Link href="/admin/movies">
                   <Button variant="secondary" size="sm" fullWidth>
-                    🎬 Quản lý danh mục phim
+                    Quản lý phim
                   </Button>
                 </Link>
                 <Link href="/staff">
                   <Button variant="secondary" size="sm" fullWidth>
-                    🎟️ Quầy nhân viên bán vé
+                    Giao diện quầy vé
                   </Button>
                 </Link>
               </div>

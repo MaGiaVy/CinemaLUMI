@@ -47,10 +47,10 @@ export default function Footer() {
           <div>
             <h4 className="text-white font-semibold mb-3">Liên hệ</h4>
             <ul className="space-y-2 text-sm text-[#B3B3B3]">
-              <li>📍 123 Nguyễn Huệ, Q.1, TP.HCM</li>
-              <li>📞 1900 6789</li>
-              <li>✉️ support@lumicinema.vn</li>
-              <li>🕐 08:00 – 24:00 hàng ngày</li>
+              <li>Địa chỉ: 123 Nguyễn Huệ, Q.1, TP.HCM</li>
+              <li>Hotline: 1900 6789</li>
+              <li>Email: support@lumicinema.vn</li>
+              <li>Giờ hoạt động: 08:00 – 24:00 hàng ngày</li>
             </ul>
           </div>
         </div>

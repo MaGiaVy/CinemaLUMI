@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useMemo, Suspense } from 'react';
 import { useParams } from 'next/navigation';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import Badge from '@/components/ui/Badge';
 import StarRating from '@/components/ui/StarRating';
 import Toast, { ToastMessage } from '@/components/ui/Toast';
@@ -62,6 +63,7 @@ function formatDate(dateStr?: string | null): string {
 }
 
 function MovieDetailContent() {
+  const { data: session } = useSession();
   const params = useParams();
   const movieIdParam = params?.id as string;
   const movieId = parseInt(movieIdParam, 10);
@@ -316,12 +318,12 @@ function MovieDetailContent() {
                     {Number(movie.ticketPrice || 120000).toLocaleString('vi-VN')} đ
                   </span>
                 </div>
-                <Link
+                {(session?.user as { role?: string } | undefined)?.role === 'ADMIN' && <Link
                   href={`/admin/movies/${movie.id}/edit`}
                   className="px-3 py-1 bg-[#252836] hover:bg-[#34384c] text-white text-xs font-semibold rounded-lg border border-[#40455c] transition-colors inline-flex items-center gap-1.5"
                 >
                   <span>✏️</span> Chỉnh sửa phim (Admin)
-                </Link>
+                </Link>}
               </div>
             </div>
           </div>

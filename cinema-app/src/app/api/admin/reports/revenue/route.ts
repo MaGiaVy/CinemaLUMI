@@ -48,6 +48,16 @@ export interface ScreeningRevenueReportItem {
   grossRevenue: number;
   refunded_amount: number;
   refundedAmount: number;
+  pending_refund_amount: number;
+  pendingRefundAmount: number;
+  ticket_revenue: number;
+  ticketRevenue: number;
+  combo_revenue: number;
+  comboRevenue: number;
+  online_revenue: number;
+  onlineRevenue: number;
+  counter_revenue: number;
+  counterRevenue: number;
   tickets_sold: number;
   ticketsSold: number;
   cancelled_tickets: number;
@@ -191,12 +201,18 @@ export async function GET(request: NextRequest) {
             status: true,
             ticketType: true,
             seatId: true,
+            refund: { select: { amount: true, status: true } },
           },
         },
       },
       orderBy: {
         startTime: 'desc',
       },
+    });
+
+    const payments = await prisma.payment.findMany({
+      where: { screeningId: { in: screenings.map(screening => screening.id) }, status: 'Success' },
+      select: { screeningId: true, soldById: true, transactionCode: true, amount: true, orderCombos: { select: { quantity: true, price: true } } },
     });
 
     // 5. Tính toán doanh thu và tỷ lệ lấp đầy cho từng suất chiếu
@@ -209,21 +225,27 @@ export async function GET(request: NextRequest) {
         (t) => t.status === TicketStatus.Cancelled
       );
 
-      // Doanh thu thực thu (chỉ tính vé hợp lệ/đã dùng)
-      const netRevenue = validTickets.reduce((sum, t) => sum + Number(t.price), 0);
-      // Tiền hoàn lại cho khách
-      const refundedAmount = cancelledTickets.reduce((sum, t) => sum + Number(t.price), 0);
-      // Doanh thu gộp ban đầu
-      const grossRevenue = netRevenue + refundedAmount;
+      const ticketRevenue = sc.tickets.reduce((sum, ticket) => sum + Number(ticket.price), 0);
+      const screeningPayments = payments.filter(payment => payment.screeningId === sc.id);
+      const comboRevenue = screeningPayments.reduce((sum, payment) =>
+        sum + payment.orderCombos.reduce((part, combo) => part + Number(combo.price) * combo.quantity, 0), 0);
+      const refundedAmount = sc.tickets.reduce((sum, ticket) =>
+        sum + (ticket.refund?.status === 'REFUNDED' ? Number(ticket.refund.amount) : 0), 0);
+      const pendingRefundAmount = sc.tickets.reduce((sum, ticket) =>
+        sum + (ticket.refund?.status === 'PENDING_REFUND' ? Number(ticket.refund.amount) : 0), 0);
+      const grossRevenue = ticketRevenue + comboRevenue;
+      const netRevenue = grossRevenue - refundedAmount;
+      const counterRevenue = screeningPayments.filter(payment => payment.soldById !== null || payment.transactionCode?.startsWith('POS_')).reduce((sum, payment) => sum + Number(payment.amount), 0);
+      const onlineRevenue = screeningPayments.filter(payment => payment.soldById === null && !payment.transactionCode?.startsWith('POS_')).reduce((sum, payment) => sum + Number(payment.amount), 0);
 
-      const ticketsSold = validTickets.length;
+      const ticketsSold = sc.tickets.length;
       const cancelledCount = cancelledTickets.length;
       const totalSeats = sc.seats.length > 0 ? sc.seats.length : 50; // Fallback nếu chưa seed seats
-      const emptySeats = Math.max(0, totalSeats - ticketsSold);
+      const emptySeats = sc.seats.filter(seat => seat.status === 'EMPTY').length;
 
       // Tỷ lệ lấp đầy (%)
       const fillRate =
-        totalSeats > 0 ? Number(((ticketsSold / totalSeats) * 100).toFixed(1)) : 0;
+        totalSeats > 0 ? Number(((validTickets.length / totalSeats) * 100).toFixed(1)) : 0;
 
       return {
         screening_id: sc.id,
@@ -260,12 +282,22 @@ export async function GET(request: NextRequest) {
         grossRevenue: grossRevenue,
         refunded_amount: refundedAmount,
         refundedAmount: refundedAmount,
+        pending_refund_amount: pendingRefundAmount,
+        pendingRefundAmount,
+        ticket_revenue: ticketRevenue,
+        ticketRevenue,
+        combo_revenue: comboRevenue,
+        comboRevenue,
+        online_revenue: onlineRevenue,
+        onlineRevenue,
+        counter_revenue: counterRevenue,
+        counterRevenue,
         tickets_sold: ticketsSold,
         ticketsSold: ticketsSold,
         cancelled_tickets: cancelledCount,
         cancelledTickets: cancelledCount,
-        seats_sold: ticketsSold,
-        seatsSold: ticketsSold,
+        seats_sold: validTickets.length,
+        seatsSold: validTickets.length,
         total_seats: totalSeats,
         totalSeats: totalSeats,
         empty_seats: emptySeats,

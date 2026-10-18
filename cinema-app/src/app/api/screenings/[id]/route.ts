@@ -121,7 +121,7 @@ export async function PUT(
   { params }: RouteContext
 ) {
   try {
-    const admin = await requireAuth(['ADMIN']);
+    await requireAuth(['ADMIN']);
 
     const { id } = await params;
     const screeningId = parseInt(id, 10);
@@ -220,7 +220,7 @@ export async function PUT(
     }
 
     const durationMinutes = targetMovie.duration || 120;
-    const newEndTime = new Date(newStartTime.getTime() + (durationMinutes + 15) * 60 * 1000);
+    const newEndTime = new Date(newStartTime.getTime() + durationMinutes * 60 * 1000);
 
     // 4. KIỂM TRA TRÙNG LỊCH (loại trừ chính suất chiếu đang sửa)
     const conflictingScreening = await prisma.screening.findFirst({
@@ -270,6 +270,13 @@ export async function PUT(
     updateData.startTime = newStartTime;
     updateData.endTime = newEndTime;
     updateData.date = new Date(dateStr);
+
+    // Vé đã bán gắn với thời gian và phòng cũ; xử lý đổi lịch qua luồng sự cố.
+    const soldTicketCount = await prisma.ticket.count({ where: { screeningId, status: { in: ['Valid', 'Used'] } } });
+    if (soldTicketCount > 0 && (newStartTime.getTime() !== existingScreening.startTime.getTime() ||
+      targetRoomNumber !== existingScreening.roomNumber || targetMovie.id !== existingScreening.movieId)) {
+      return apiResponse(false, undefined, 'Suất chiếu đã bán vé; cần xử lý sự cố trước khi đổi lịch, phòng hoặc phim', 409);
+    }
 
     // 5. Cập nhật dữ liệu
     const updatedScreening = await prisma.screening.update({
@@ -370,7 +377,6 @@ export async function DELETE(
     }
 
     // Chỉ lọc các vé hợp lệ chưa sử dụng để hoàn tiền (KHÔNG chạm vào vé đã USED)
-    const validTickets = screening.tickets.filter(t => t.status === 'Valid');
     const hasTicketsEverSold = screening.tickets.length > 0;
 
     // 2. THỰC THI QUA TRANSACTION

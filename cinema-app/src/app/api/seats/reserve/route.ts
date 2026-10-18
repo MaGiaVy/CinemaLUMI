@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { AppError, handleError } from '@/lib/error';
 import { apiResponse } from '@/lib/api-response';
 import { requireAuth } from '@/lib/auth-helpers';
+import { expireBookingHolds } from '@/lib/expire-booking-holds';
 
 export const dynamic = 'force-dynamic';
 
@@ -102,12 +103,14 @@ export async function POST(request: NextRequest) {
     const reservedUntil = new Date(now.getTime() + HOLD_MINUTES * 60 * 1000);
 
     const reservationResult = await prisma.$transaction(async (tx) => {
+      await expireBookingHolds(tx, now, screening_id);
       // 2.1 Giải phóng trước các ghế hết hạn giữ chỗ trong suất chiếu này
       await tx.seat.updateMany({
         where: {
           screeningId: screening_id,
           id: { in: seat_ids },
           status: 'RESERVED',
+          holdPaymentId: null,
           reservedUntil: {
             lt: now,
           },

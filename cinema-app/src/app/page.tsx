@@ -301,7 +301,7 @@ export default async function HomePage() {
                 </div>
                 <h3 className="font-bold text-white text-base mb-2">Đặt Vé Trong 30 Giây</h3>
                 <p className="text-slate-400 text-xs leading-relaxed">
-                  Giữ ghế thời gian thực, thanh toán VNPay tiện lợi và nhận mã QR qua email tức thì.
+                  Giữ ghế 10 phút, thanh toán online và xem vé trong tài khoản sau khi giao dịch được xác nhận.
                 </p>
               </div>
 
@@ -309,9 +309,9 @@ export default async function HomePage() {
                 <div className="w-12 h-12 mx-auto mb-4 bg-blue-500/10 text-blue-500 rounded-xl flex items-center justify-center text-2xl">
                   🎁
                 </div>
-                <h3 className="font-bold text-white text-base mb-2">Bồi Hoàn 100% Tự Động</h3>
+                <h3 className="font-bold text-white text-base mb-2">Hỗ trợ hoàn tiền khi rạp gặp sự cố</h3>
                 <p className="text-slate-400 text-xs leading-relaxed">
-                  Chính sách bảo vệ khách hàng (UC-15): Cấp voucher đền bù tức thì khi xảy ra sự cố rạp.
+                  Vé chưa sử dụng được ghi nhận chờ hoàn 100% tiền vé thực trả; nhân viên xác nhận sau khi trả tiền mặt.
                 </p>
               </div>
             </div>

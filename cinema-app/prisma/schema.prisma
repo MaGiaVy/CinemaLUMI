@@ -99,8 +99,11 @@ model User {
   reviews  Review[]
   coupons  Coupon[]
   seatHolds Seat[] @relation("SeatHoldUser")
+  legacySeatHolds Seat[] @relation("LegacySeatHoldUser")
   cancellationActions CancellationAction[]
   refundsConfirmed TicketRefund[] @relation("RefundConfirmer")
+  comboReservations ComboReservation[]
+  posSales Payment[] @relation("PosSeller")
 
   @@map("users")
 }
@@ -170,14 +173,16 @@ model Seat {
   reservedUntil DateTime?  @map("reserved_until")
   holdUserId    Int?       @map("hold_user_id")
   holdPaymentId Int?       @map("hold_payment_id")
+  legacyReservedUserId Int? @map("reserved_user_id")
   createdAt     DateTime   @default(now()) @map("created_at")
   updatedAt     DateTime   @updatedAt @map("updated_at")
 
   // Quan hệ (Relations)
   screening Screening? @relation(fields: [screeningId], references: [id], onDelete: Cascade)
   tickets   Ticket[]
-  holdUser User? @relation("SeatHoldUser", fields: [holdUserId], references: [id], onDelete: SetNull)
-  holdPayment Payment? @relation("SeatHoldPayment", fields: [holdPaymentId], references: [id], onDelete: SetNull)
+  holdUser User? @relation("SeatHoldUser", fields: [holdUserId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  legacyReservedUser User? @relation("LegacySeatHoldUser", fields: [legacyReservedUserId], references: [id], onDelete: SetNull, onUpdate: NoAction, map: "seats_reserved_user_id_fkey")
+  holdPayment Payment? @relation("SeatHoldPayment", fields: [holdPaymentId], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@unique([screeningId, code])
   @@index([holdPaymentId])
@@ -220,7 +225,7 @@ model Coupon {
   // - user bị xóa -> CASCADE
   movie Movie? @relation(fields: [applicableMovieId], references: [id], onDelete: SetNull)
   user  User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
-  sourceTicket Ticket? @relation("CompensationCoupon", fields: [sourceTicketId], references: [id], onDelete: Restrict)
+  sourceTicket Ticket? @relation("CompensationCoupon", fields: [sourceTicketId], references: [id], onDelete: Restrict, onUpdate: NoAction)
 
   @@map("coupons")
 }
@@ -253,9 +258,16 @@ model ComboReservation {
   reservedUntil DateTime @map("reserved_until")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
+  userId        Int?     @map("user_id")
+  paymentId     Int?     @map("payment_id")
 
   combo         Combo    @relation(fields: [comboId], references: [id], onDelete: Cascade)
+  user          User?    @relation(fields: [userId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  payment       Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull, onUpdate: NoAction)
+  orderCombo    OrderCombo?
 
+  @@index([userId, status])
+  @@index([paymentId])
   @@map("combo_reservations")
 }
 
@@ -267,6 +279,7 @@ model Payment {
   seatIds         Json?          @map("seat_ids")
   couponCode      String?        @map("coupon_code") @db.VarChar(50)
   couponReserved  Boolean        @default(false) @map("coupon_reserved")
+  soldById        Int?           @map("sold_by_id")
   ticketItems     Json?          @map("ticket_items")
   amount          Decimal        @db.Decimal(10, 2)
   paymentMethod   PaymentMethod? @map("payment_method")
@@ -280,6 +293,8 @@ model Payment {
   tickets     Ticket[]
   orderCombos OrderCombo[]
   heldSeats Seat[] @relation("SeatHoldPayment")
+  comboReservations ComboReservation[]
+  soldBy User? @relation("PosSeller", fields: [soldById], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@map("payments")
 }
@@ -325,8 +340,8 @@ model TicketRefund {
   confirmedById Int? @map("confirmed_by_id")
   confirmedAt DateTime? @map("confirmed_at")
   createdAt DateTime @default(now()) @map("created_at")
-  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Restrict)
-  confirmedBy User? @relation("RefundConfirmer", fields: [confirmedById], references: [id], onDelete: SetNull)
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  confirmedBy User? @relation("RefundConfirmer", fields: [confirmedById], references: [id], onDelete: SetNull, onUpdate: NoAction)
   @@map("ticket_refunds")
 }
 
@@ -338,8 +353,8 @@ model CancellationAction {
   reason String @db.Text
   resolution String @db.VarChar(50)
   createdAt DateTime @default(now()) @map("created_at")
-  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Restrict)
-  actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Restrict, onUpdate: NoAction)
+  actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull, onUpdate: NoAction)
   @@index([ticketId])
   @@map("cancellation_actions")
 }
@@ -353,12 +368,14 @@ model OrderCombo {
   price       Decimal   @db.Decimal(10, 2) // Giá combo tại thời điểm mua
   isDelivered Boolean   @default(false) @map("is_delivered")
   deliveredAt DateTime? @map("delivered_at")
+  reservationId Int? @unique @map("reservation_id")
   createdAt   DateTime  @default(now()) @map("created_at")
   updatedAt   DateTime  @updatedAt @map("updated_at")
 
   // Quan hệ (Relations): Xóa payment thì xóa kèm order combo (CASCADE)
   payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
   combo   Combo   @relation(fields: [comboId], references: [id], onDelete: Restrict)
+  reservation ComboReservation? @relation(fields: [reservationId], references: [id], onDelete: SetNull, onUpdate: NoAction)
 
   @@map("order_combos")
 }
@@ -377,5 +394,6 @@ model Review {
   user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
   movie Movie @relation(fields: [movieId], references: [id], onDelete: Cascade)
 
+  @@unique([userId, movieId])
   @@map("reviews")
 }

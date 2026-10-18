@@ -359,6 +359,7 @@ function PaymentContent() {
         combo_items: reservedCombos.map(item => ({
           combo_id: item.combo_id || item.id,
           quantity: item.quantity || item.qty || 1,
+          reservation_id: item.reservation_id,
         })),
         coupon_code: appliedCoupon ? appliedCoupon.code : undefined,
         voucher_seat_id: appliedCoupon?.is_compensation ? (voucherSeatId ?? selectedSeatIds[0]) : undefined,

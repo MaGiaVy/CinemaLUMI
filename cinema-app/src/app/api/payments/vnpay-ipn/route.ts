@@ -190,30 +190,23 @@ export async function processVnpayIpnTransaction(
         }
       }
 
-      // 3.3. Trừ dứt điểm tồn kho Combo và hoàn tất giữ chỗ combo
+      // Kho đã bị trừ khi giữ combo; hoàn tất đúng reservation của đơn này.
       if (payment.orderCombos && payment.orderCombos.length > 0) {
         for (const orderCombo of payment.orderCombos) {
-          // Trừ trực tiếp số lượng tồn kho của combo nếu chưa trừ
-          await tx.combo.updateMany({
+          if (!orderCombo.reservationId) throw new AppError(409, 'Đơn combo cũ cần đối soát thủ công', 'LEGACY_COMBO_RECONCILIATION');
+          const completed = await tx.comboReservation.updateMany({
             where: {
-              id: orderCombo.comboId,
-              stock: { gte: orderCombo.quantity },
-            },
-            data: {
-              stock: { decrement: orderCombo.quantity },
-            },
-          });
-
-          // Cập nhật trạng thái các bản ghi combo_reservations thành COMPLETED
-          await tx.comboReservation.updateMany({
-            where: {
+              id: orderCombo.reservationId,
               comboId: orderCombo.comboId,
+              quantity: orderCombo.quantity,
+              paymentId: payment.id,
               status: 'RESERVED',
             },
             data: {
               status: 'COMPLETED',
             },
           });
+          if (completed.count !== 1) throw new AppError(409, 'Lượt giữ combo không còn hợp lệ', 'COMBO_HOLD_EXPIRED');
         }
       }
 
@@ -276,15 +269,15 @@ export async function processVnpayIpnTransaction(
     if (payment.orderCombos && payment.orderCombos.length > 0) {
       for (const orderCombo of payment.orderCombos) {
         // Cập nhật trạng thái reservation thành RELEASED
-        await tx.comboReservation.updateMany({
-          where: {
-            comboId: orderCombo.comboId,
-            status: 'RESERVED',
-          },
-          data: {
-            status: 'RELEASED',
-          },
-        });
+        if (orderCombo.reservationId) {
+          const released = await tx.comboReservation.updateMany({
+            where: { id: orderCombo.reservationId, paymentId: payment.id, status: 'RESERVED' },
+            data: { status: 'RELEASED' },
+          });
+          if (released.count === 1) {
+            await tx.combo.update({ where: { id: orderCombo.comboId }, data: { stock: { increment: orderCombo.quantity } } });
+          }
+        }
       }
     }
 

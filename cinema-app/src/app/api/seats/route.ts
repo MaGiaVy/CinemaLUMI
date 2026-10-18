@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { AppError, handleError } from '@/lib/error';
 import { apiResponse } from '@/lib/api-response';
+import { expireBookingHolds } from '@/lib/expire-booking-holds';
 
 export const dynamic = 'force-dynamic';
 
@@ -90,20 +91,12 @@ export async function GET(request: NextRequest) {
 
     // 3. LAZY EVALUATION (Đánh giá lười): Tự động giải phóng các ghế giữ chỗ đã hết hạn
     const now = new Date();
-    const cleanResult = await prisma.seat.updateMany({
-      where: {
-        screeningId,
-        status: 'RESERVED',
-        reservedUntil: {
-          lt: now,
-        },
-      },
-      data: {
-        status: 'EMPTY',
-        reservedUntil: null,
-        holdUserId: null,
-        holdPaymentId: null,
-      },
+    const cleanResult = await prisma.$transaction(async tx => {
+      await expireBookingHolds(tx, now, screeningId);
+      return tx.seat.updateMany({
+        where: { screeningId, status: 'RESERVED', holdPaymentId: null, reservedUntil: { lt: now } },
+        data: { status: 'EMPTY', reservedUntil: null, holdUserId: null, holdPaymentId: null },
+      });
     });
 
     // 4. Lấy danh sách ghế đã được cập nhật sạch sẽ (sắp xếp theo thứ tự hàng A-E, cột 1-10)
@@ -144,7 +137,7 @@ export async function GET(request: NextRequest) {
               row,
               number: num,
               code,
-              type: (row === 'D' ? 'VIP' : row === 'E' ? 'COUPLE' : 'STANDARD') as 'STANDARD' | 'VIP' | 'COUPLE',
+              type: 'STANDARD' as const,
               status: 'EMPTY' as const,
             });
           }

@@ -118,7 +118,10 @@ export async function PATCH(
     }
 
     // Kiểm tra khung thời gian cho phép soát vé theo SRS: từ 30 phút trước giờ chiếu đến hết suất
-    if (ticket.screening) {
+    if (!ticket.screening || ticket.screening.status === 'CANCELLED') {
+      throw new AppError(409, 'Suất chiếu không hợp lệ để soát vé', 'SCREENING_UNAVAILABLE');
+    }
+    {
       const now = new Date();
       const allowedStart = new Date(ticket.screening.startTime.getTime() - 30 * 60 * 1000);
       const allowedEnd = new Date(ticket.screening.endTime.getTime());
@@ -140,12 +143,13 @@ export async function PATCH(
     }
 
     // 4. Cập nhật trạng thái vé thành USED
-    const updatedTicket = await prisma.ticket.update({
-      where: { id: ticket.id },
+    const updated = await prisma.ticket.updateMany({
+      where: { id: ticket.id, status: TicketStatus.Valid },
       data: {
         status: TicketStatus.Used,
       },
     });
+    if (updated.count !== 1) throw new AppError(409, 'Vé đã được soát hoặc hủy', 'TICKET_ALREADY_PROCESSED');
 
     const checkInTime = new Date().toISOString();
 
@@ -153,9 +157,9 @@ export async function PATCH(
     return apiResponse(
       true,
       {
-        ticket_id: updatedTicket.id,
-        ticketId: updatedTicket.id,
-        status: updatedTicket.status,
+        ticket_id: ticket.id,
+        ticketId: ticket.id,
+        status: TicketStatus.Used,
         movie_title: ticket.screening?.movie.title || null,
         movieTitle: ticket.screening?.movie.title || null,
         room: ticket.screening?.room || null,

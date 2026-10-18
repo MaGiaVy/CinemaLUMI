@@ -28,7 +28,7 @@ interface PosSellTicketPayload {
   customer_name?: string;
   customer_phone?: string;
   customer_email?: string;
-  payment_method?: 'Cash' | 'VNPay' | 'BankCard';
+  payment_method?: 'Cash' | 'BankCard';
   coupon_code?: string;
   couponCode?: string;
   voucher_seat_id?: number;
@@ -114,12 +114,20 @@ export async function POST(request: NextRequest) {
       voucherSeatId,
     } = body;
 
-    if (!screening_id || typeof screening_id !== 'number') {
+    if (!Number.isSafeInteger(screening_id) || screening_id <= 0) {
       throw new AppError(400, 'Trường screening_id là bắt buộc', 'INVALID_SCREENING_ID');
     }
 
-    if (!seat_ids || !Array.isArray(seat_ids) || seat_ids.length === 0) {
+    if (!Array.isArray(seat_ids) || seat_ids.length === 0 || !seat_ids.every(id => Number.isSafeInteger(id) && id > 0) || new Set(seat_ids).size !== seat_ids.length) {
       throw new AppError(400, 'Danh sách ghế (seat_ids) không được để trống', 'EMPTY_SEATS');
+    }
+    if (payment_method !== 'Cash' && payment_method !== 'BankCard') {
+      throw new AppError(400, 'Chỉ hỗ trợ tiền mặt hoặc xác nhận chuyển khoản tại quầy', 'INVALID_PAYMENT_METHOD');
+    }
+    if (!Array.isArray(ticket_items) || !Array.isArray(combo_items) ||
+      !ticket_items.every(item => typeof item.type === 'string' && Number.isSafeInteger(item.quantity) && item.quantity > 0) ||
+      !combo_items.every(item => Number.isSafeInteger(item.combo_id) && item.combo_id > 0 && Number.isSafeInteger(item.quantity) && item.quantity > 0)) {
+      throw new AppError(400, 'Số lượng vé hoặc combo không hợp lệ', 'INVALID_QUANTITY');
     }
 
     // 1. Kiểm tra Suất chiếu
@@ -132,6 +140,9 @@ export async function POST(request: NextRequest) {
 
     if (!screening) {
       throw new AppError(404, `Không tìm thấy suất chiếu #${screening_id}`, 'SCREENING_NOT_FOUND');
+    }
+    if (['CANCELLED', 'ENDED'].includes(screening.status) || screening.endTime <= new Date()) {
+      throw new AppError(400, 'Suất chiếu không còn mở bán', 'SCREENING_UNAVAILABLE');
     }
 
     const basePrice = Number(screening.price);
@@ -150,10 +161,10 @@ export async function POST(request: NextRequest) {
       throw new AppError(400, 'Một hoặc nhiều ghế đã chọn không thuộc về suất chiếu này', 'INVALID_SEATS');
     }
 
-    const occupiedSeats = seats.filter(s => s.status === SeatStatus.OCCUPIED);
-    if (occupiedSeats.length > 0) {
-      const occupiedCodes = occupiedSeats.map(s => s.code).join(', ');
-      throw new AppError(400, `Ghế [${occupiedCodes}] đã được bán trước đó. Vui lòng chọn ghế khác!`, 'SEATS_OCCUPIED');
+    const unavailableSeats = seats.filter(s => s.status === SeatStatus.OCCUPIED || (s.status === SeatStatus.RESERVED && (!s.reservedUntil || s.reservedUntil > new Date())));
+    if (unavailableSeats.length > 0) {
+      const unavailableCodes = unavailableSeats.map(s => s.code).join(', ');
+      throw new AppError(409, `Ghế [${unavailableCodes}] đang được giữ hoặc đã bán`, 'SEATS_UNAVAILABLE');
     }
 
     // 3. Tính tiền vé
@@ -319,6 +330,14 @@ export async function POST(request: NextRequest) {
     const transactionCode = `POS_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
 
     const posResult = await prisma.$transaction(async (tx) => {
+      const occupied = await tx.seat.updateMany({
+        where: {
+          id: { in: seat_ids }, screeningId: screening.id,
+          OR: [{ status: SeatStatus.EMPTY }, { status: SeatStatus.RESERVED, reservedUntil: { lt: new Date() }, holdPaymentId: null }],
+        },
+        data: { status: SeatStatus.OCCUPIED, reservedUntil: null, holdUserId: null, holdPaymentId: null },
+      });
+      if (occupied.count !== seat_ids.length) throw new AppError(409, 'Ghế vừa được khách khác giữ hoặc mua', 'SEAT_CONFLICT');
       // 7.0. Cập nhật lượt dùng voucher nếu có áp dụng
       if (appliedCoupon) {
         const reserved = await tx.coupon.updateMany({
@@ -341,29 +360,20 @@ export async function POST(request: NextRequest) {
           ticketItems: ticketSnapshots as unknown as Prisma.InputJsonValue,
           amount: finalAmount,
           paymentMethod: payment_method as PaymentMethod,
+          soldById: staff.id,
           transactionCode,
           status: PaymentStatus.Success,
-        },
-      });
-
-      // 7.2. Cập nhật ghế sang OCCUPIED
-      await tx.seat.updateMany({
-        where: { id: { in: seat_ids } },
-        data: {
-          status: SeatStatus.OCCUPIED,
-          reservedUntil: null,
         },
       });
 
       // 7.3. Trừ kho combo và lưu OrderCombo
       if (comboBreakdown.length > 0) {
         for (const c of comboBreakdown) {
-          await tx.combo.update({
-            where: { id: c.combo_id },
-            data: {
-              stock: { decrement: c.quantity },
-            },
+          const decremented = await tx.combo.updateMany({
+            where: { id: c.combo_id, status: 'ACTIVE', stock: { gte: c.quantity } },
+            data: { stock: { decrement: c.quantity } },
           });
+          if (decremented.count !== 1) throw new AppError(409, 'Combo vừa hết hàng', 'COMBO_OUT_OF_STOCK');
         }
 
         await tx.orderCombo.createMany({
@@ -372,6 +382,8 @@ export async function POST(request: NextRequest) {
             comboId: c.combo_id,
             quantity: c.quantity,
             price: c.unit_price,
+            isDelivered: true,
+            deliveredAt: new Date(),
           })),
         });
       }

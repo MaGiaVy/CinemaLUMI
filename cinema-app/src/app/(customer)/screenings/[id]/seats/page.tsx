@@ -4,7 +4,6 @@ import { use, useState, useEffect, useCallback, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import SeatMap, { SeatData } from '@/components/ui/SeatMap';
-import CountdownTimer from '@/components/ui/CountdownTimer';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import Toast, { ToastMessage } from '@/components/ui/Toast';
@@ -101,7 +100,6 @@ interface ReserveApiResponse {
 
 const STEPS = ['Chọn ghế', 'Loại vé', 'Combo & Thanh toán', 'Xác nhận'];
 const MAX_SEATS = 8;
-const HOLD_TIME_SECONDS = 600; // 10 minutes
 
 export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
   const router = useRouter();
@@ -115,7 +113,6 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
   const [seatTicketTypes, setSeatTicketTypes] = useState<Record<number, 'Thường' | 'Trẻ em'>>({});
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isReserving, setIsReserving] = useState<boolean>(false);
-  const [isHoldActive, setIsHoldActive] = useState<boolean>(false);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   // Toast Helpers
@@ -127,19 +124,6 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
   const removeToast = useCallback((id: string) => {
     setToasts(prev => prev.filter(t => t.id !== id));
   }, []);
-
-  // Xử lý hết thời gian 10 phút chọn / giữ chỗ ghế
-  const handleHoldExpire = useCallback(() => {
-    showToast('Thời gian chọn ghế (10 phút) đã hết hạn! Đang chuyển về trang chủ...', 'warning');
-    setIsHoldActive(false);
-    setSelectedSeatIds([]);
-    if (typeof window !== 'undefined') {
-      window.sessionStorage.removeItem('lumi_booking_reservation');
-    }
-    setTimeout(() => {
-      router.push('/');
-    }, 2000);
-  }, [router, showToast]);
 
   // Fetch seats data from API with Lazy Evaluation
   const fetchSeats = useCallback(async () => {
@@ -360,7 +344,6 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
 
       // Giữ chỗ thành công
       showToast('Giữ chỗ thành công! Bạn có 10 phút để chọn combo và thanh toán.', 'success');
-      setIsHoldActive(true);
 
       // Lưu thông tin giữ chỗ và loại vé vào sessionStorage để phục vụ các bước tiếp theo
       if (typeof window !== 'undefined') {
@@ -502,12 +485,7 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
 
               {/* Countdown Timer */}
               <div className="w-full sm:w-auto flex sm:flex-col items-center sm:items-end justify-between border-t sm:border-t-0 pt-3 sm:pt-0 border-[#404040]">
-                <CountdownTimer
-                  initialSeconds={HOLD_TIME_SECONDS}
-                  isActive={true}
-                  label="Thời gian giữ chỗ"
-                  onExpire={handleHoldExpire}
-                />
+                <span className="text-sm text-slate-300">Ghế được giữ 10 phút sau khi bạn tiếp tục</span>
               </div>
             </div>
           </div>

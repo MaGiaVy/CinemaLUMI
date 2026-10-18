@@ -163,10 +163,9 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Thời gian kết thúc = startTime + thời lượng phim + 15 phút dọn dẹp vệ sinh phòng chiếu
+    // Theo SRS, thời gian kết thúc đúng bằng giờ bắt đầu cộng thời lượng phim.
     const movieDurationMinutes = movie.duration || 120;
-    const totalOccupiedMinutes = movieDurationMinutes + 15;
-    const endTime = new Date(startTime.getTime() + totalOccupiedMinutes * 60 * 1000);
+    const endTime = new Date(startTime.getTime() + movieDurationMinutes * 60 * 1000);
     const screeningDateOnly = new Date(dateStr);
 
     // 4. VALIDATION CỐT LÕI: Kiểm tra phòng chiếu không bị trùng lịch

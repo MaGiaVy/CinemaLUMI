@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     const cronSecret = process.env.CRON_SECRET;
     const authHeader = request.headers.get('authorization');
 
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
       return apiResponse(
         false,
         undefined,
@@ -43,6 +43,7 @@ export async function GET(request: NextRequest) {
       const expiredReservations = await tx.comboReservation.findMany({
         where: {
           status: 'RESERVED',
+          paymentId: null,
           reservedUntil: {
             lt: now,
           },
@@ -53,21 +54,14 @@ export async function GET(request: NextRequest) {
 
       // 2. Hoàn trả tồn kho cho từng combo
       for (const res of expiredReservations) {
-        await tx.combo.update({
-          where: { id: res.comboId },
-          data: {
-            stock: { increment: res.quantity },
-          },
+        const released = await tx.comboReservation.updateMany({
+          where: { id: res.id, paymentId: null, status: 'RESERVED' },
+          data: { status: 'RELEASED' },
         });
-
-        await tx.comboReservation.update({
-          where: { id: res.id },
-          data: {
-            status: 'RELEASED',
-          },
-        });
-
-        restoredStockTotal += res.quantity;
+        if (released.count === 1) {
+          await tx.combo.update({ where: { id: res.comboId }, data: { stock: { increment: res.quantity } } });
+          restoredStockTotal += res.quantity;
+        }
       }
 
       return {

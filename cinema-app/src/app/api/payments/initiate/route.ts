@@ -97,6 +97,7 @@ const ticketItemSchema = z
 // Zod Schema cho từng mục combo bắp nước
 const comboItemSchema = z
   .object({
+    reservation_id: z.coerce.number().int().positive().optional(),
     combo_id: z.coerce.number().int().positive('combo_id phải là số nguyên dương').optional(),
     comboId: z.coerce.number().int().positive('combo_id phải là số nguyên dương').optional(),
     id: z.coerce.number().int().positive('combo_id phải là số nguyên dương').optional(),
@@ -384,6 +385,10 @@ export async function POST(request: NextRequest) {
     let comboTotal = 0;
     const comboBreakdown: ComboBreakdownItem[] = [];
 
+    const comboReservationIds = rawComboItems.map(item => item.reservation_id);
+    if (rawComboItems.length > 0 && (comboReservationIds.some(id => id === undefined) || new Set(comboReservationIds).size !== comboReservationIds.length)) {
+      throw new AppError(400, 'Thiếu hoặc trùng mã giữ combo', 'INVALID_COMBO_RESERVATIONS');
+    }
     if (rawComboItems.length > 0) {
       // Gom nhóm số lượng theo combo_id
       const comboQtyMap = new Map<number, number>();
@@ -562,14 +567,31 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // 7.2. Lưu chi tiết các combo khách mua vào order_combos
+      // Chỉ gắn lượt giữ combo còn hạn của chính người mua vào đơn.
       if (comboBreakdown.length > 0) {
+        const reservations = await tx.comboReservation.findMany({
+          where: { id: { in: comboReservationIds as number[] }, userId: sessionUserId, paymentId: null, status: 'RESERVED', reservedUntil: { gt: nowTime } },
+        });
+        if (reservations.length !== rawComboItems.length) throw new AppError(409, 'Lượt giữ combo không hợp lệ hoặc đã hết hạn', 'COMBO_HOLD_CONFLICT');
+        const reservationById = new Map(reservations.map(reservation => [reservation.id, reservation]));
+        for (const item of rawComboItems) {
+          const reservation = reservationById.get(item.reservation_id!);
+          if (!reservation || reservation.comboId !== (item.combo_id ?? item.comboId ?? item.id) || reservation.quantity !== item.quantity) {
+            throw new AppError(409, 'Số lượng combo không khớp lượt giữ', 'COMBO_HOLD_MISMATCH');
+          }
+        }
+        const attached = await tx.comboReservation.updateMany({
+          where: { id: { in: comboReservationIds as number[] }, userId: sessionUserId, paymentId: null, status: 'RESERVED', reservedUntil: { gt: nowTime } },
+          data: { paymentId: createdPayment.id },
+        });
+        if (attached.count !== rawComboItems.length) throw new AppError(409, 'Lượt giữ combo vừa thay đổi', 'COMBO_HOLD_CONFLICT');
         await tx.orderCombo.createMany({
-          data: comboBreakdown.map(combo => ({
+          data: rawComboItems.map(item => ({
             paymentId: createdPayment.id,
-            comboId: combo.combo_id,
-            quantity: combo.quantity,
-            price: combo.unit_price,
+            comboId: (item.combo_id ?? item.comboId ?? item.id)!,
+            quantity: item.quantity,
+            reservationId: item.reservation_id!,
+            price: comboBreakdown.find(combo => combo.combo_id === (item.combo_id ?? item.comboId ?? item.id))!.unit_price,
           })),
         });
       }

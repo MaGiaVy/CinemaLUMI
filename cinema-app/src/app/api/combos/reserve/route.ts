@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { AppError, handleError } from '@/lib/error';
 import { apiResponse } from '@/lib/api-response';
+import { requireAuth } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -63,6 +64,7 @@ const reserveCombosSchema = z.object({
  */
 export async function POST(request: NextRequest) {
   try {
+    const user = await requireAuth(['CUSTOMER']);
     let body: unknown;
     try {
       body = await request.json();
@@ -102,18 +104,12 @@ export async function POST(request: NextRequest) {
       });
 
       for (const exp of expiredReservations) {
-        await tx.combo.update({
-          where: { id: exp.comboId },
-          data: {
-            stock: { increment: exp.quantity },
-          },
+        const released = await tx.comboReservation.updateMany({
+          where: { id: exp.id, paymentId: null, status: 'RESERVED' },
+          data: { status: 'RELEASED' },
         });
-
-        await tx.comboReservation.update({
-          where: { id: exp.id },
-          data: {
-            status: 'RELEASED',
-          },
+        if (released.count === 1) await tx.combo.update({
+          where: { id: exp.comboId }, data: { stock: { increment: exp.quantity } },
         });
       }
 
@@ -166,13 +162,12 @@ export async function POST(request: NextRequest) {
         const itemTotalPrice = unitPrice * qty;
 
         // Trừ tồn kho trong bảng Combo
-        const updatedCombo = await tx.combo.update({
-          where: { id: combo.id },
-          data: {
-            stock: { decrement: qty },
-            reservedUntil: reservedUntil,
-          },
+        const stockUpdate = await tx.combo.updateMany({
+          where: { id: combo.id, status: 'ACTIVE', stock: { gte: qty } },
+          data: { stock: { decrement: qty }, reservedUntil },
         });
+        if (stockUpdate.count !== 1) throw new AppError(409, 'Combo vừa hết hàng', 'COMBO_OUT_OF_STOCK');
+        const updatedCombo = await tx.combo.findUniqueOrThrow({ where: { id: combo.id } });
 
         // Tạo bản ghi trạng thái RESERVED kèm reserved_until = NOW + 10 phút
         const newReservation = await tx.comboReservation.create({
@@ -181,6 +176,7 @@ export async function POST(request: NextRequest) {
             quantity: qty,
             status: 'RESERVED',
             reservedUntil: reservedUntil,
+            userId: user.id,
           },
         });
 

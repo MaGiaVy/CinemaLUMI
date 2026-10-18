@@ -24,7 +24,7 @@ export async function POST(request: NextRequest) {
     let targetIds: number[] = [];
 
     if (Array.isArray(orderComboIds) && orderComboIds.length > 0) {
-      targetIds = orderComboIds.map((id: any) => Number(id)).filter((id: number) => !isNaN(id) && id > 0);
+      targetIds = orderComboIds.map((id: unknown) => Number(id)).filter((id: number) => Number.isInteger(id) && id > 0);
     } else if (orderComboId) {
       const id = Number(orderComboId);
       if (!isNaN(id) && id > 0) targetIds = [id];
@@ -69,6 +69,9 @@ export async function POST(request: NextRequest) {
     if (currentCombos.length === 0) {
       throw new AppError(404, 'Không tìm thấy thông tin bắp nước yêu cầu', 'COMBO_NOT_FOUND');
     }
+    if (new Set(targetIds).size !== targetIds.length || currentCombos.length !== targetIds.length) {
+      throw new AppError(400, 'Danh sách combo có mã trùng hoặc không tồn tại', 'INVALID_COMBO_IDS');
+    }
 
     // 2. NGHIỆP VỤ BẢO VỆ CHẶN NHẬN LẦN HAI (Anti-Double Claim Rule)
     const alreadyDelivered = currentCombos.filter((c) => c.isDelivered);
@@ -97,12 +100,12 @@ export async function POST(request: NextRequest) {
 
     // 4. Cập nhật trạng thái giao nhận
     const deliverTime = new Date();
-    await prisma.orderCombo.updateMany({
-      where: { id: { in: targetIds } },
-      data: {
-        isDelivered: true,
-        deliveredAt: deliverTime,
-      },
+    await prisma.$transaction(async tx => {
+      const updated = await tx.orderCombo.updateMany({
+        where: { id: { in: targetIds }, isDelivered: false, payment: { status: 'Success' } },
+        data: { isDelivered: true, deliveredAt: deliverTime },
+      });
+      if (updated.count !== targetIds.length) throw new AppError(409, 'Combo đã được giao hoặc đơn không hợp lệ', 'COMBO_ALREADY_DELIVERED');
     });
 
     return apiResponse(

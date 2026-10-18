@@ -16,7 +16,7 @@ interface PosComboSalePayload {
   items: PosComboSaleItem[];
   customer_name?: string;
   customer_phone?: string;
-  payment_method?: 'Cash' | 'VNPay' | 'BankCard';
+  payment_method?: 'Cash' | 'BankCard';
 }
 
 async function resolveCustomer(name?: string, phone?: string) {
@@ -69,6 +69,12 @@ export async function POST(request: NextRequest) {
     if (!items || !Array.isArray(items) || items.length === 0) {
       throw new AppError(400, 'Danh sách món bắp nước (items) không được để trống', 'EMPTY_ITEMS');
     }
+    if (payment_method !== 'Cash' && payment_method !== 'BankCard') {
+      throw new AppError(400, 'Chỉ hỗ trợ tiền mặt hoặc xác nhận chuyển khoản tại quầy', 'INVALID_PAYMENT_METHOD');
+    }
+    if (!items.every(item => Number.isSafeInteger(item.combo_id) && item.combo_id > 0 && Number.isSafeInteger(item.quantity) && item.quantity > 0)) {
+      throw new AppError(400, 'Danh sách combo không hợp lệ', 'INVALID_ITEMS');
+    }
 
     // 1. Kiểm tra tồn kho của từng combo
     const comboIds = items.map(i => i.combo_id);
@@ -88,6 +94,7 @@ export async function POST(request: NextRequest) {
       if (!combo) {
         throw new AppError(404, `Không tìm thấy combo #${item.combo_id}`, 'COMBO_NOT_FOUND');
       }
+      if (combo.status !== 'ACTIVE') throw new AppError(400, 'Combo đã ngừng bán', 'COMBO_INACTIVE');
 
       if (combo.stock < item.quantity) {
         throw new AppError(400, `Combo "${combo.name}" trong kho chỉ còn ${combo.stock} phần, không đủ để bán`, 'OUT_OF_STOCK');
@@ -119,6 +126,7 @@ export async function POST(request: NextRequest) {
           userId: customer.id,
           amount: totalAmount,
           paymentMethod: payment_method as PaymentMethod,
+          soldById: staff.id,
           transactionCode,
           status: PaymentStatus.Success,
         },
@@ -126,12 +134,11 @@ export async function POST(request: NextRequest) {
 
       // 3.2. Trừ tồn kho và tạo OrderCombo
       for (const item of itemDetails) {
-        await tx.combo.update({
-          where: { id: item.combo_id },
-          data: {
-            stock: { decrement: item.quantity },
-          },
+        const decreased = await tx.combo.updateMany({
+          where: { id: item.combo_id, status: 'ACTIVE', stock: { gte: item.quantity } },
+          data: { stock: { decrement: item.quantity } },
         });
+        if (decreased.count !== 1) throw new AppError(409, 'Combo vừa hết hàng', 'OUT_OF_STOCK');
       }
 
       await tx.orderCombo.createMany({
@@ -140,6 +147,8 @@ export async function POST(request: NextRequest) {
           comboId: item.combo_id,
           quantity: item.quantity,
           price: item.unit_price,
+          isDelivered: true,
+          deliveredAt: new Date(),
         })),
       });
 

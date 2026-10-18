@@ -240,69 +240,18 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. Kiểm tra xem người dùng đã từng gửi đánh giá phim này chưa
-    const existingReview = await prisma.review.findFirst({
-      where: {
-        userId: currentUserId,
-        movieId: movie_id,
-      },
+    const existingReview = await prisma.review.findUnique({ where: { userId_movieId: { userId: currentUserId, movieId: movie_id } }, select: { id: true } });
+    const savedReview = await prisma.$transaction(async tx => {
+      const saved = await tx.review.upsert({
+        where: { userId_movieId: { userId: currentUserId, movieId: movie_id } },
+        update: { rating, comment: comment ?? null },
+        create: { userId: currentUserId, movieId: movie_id, rating, comment: comment ?? null },
+        include: { user: { select: { id: true, name: true, email: true } } },
+      });
+      const aggregate = await tx.review.aggregate({ where: { movieId: movie_id }, _avg: { rating: true } });
+      await tx.movie.update({ where: { id: movie_id }, data: { rating: Number((aggregate._avg.rating ?? 0).toFixed(1)) } });
+      return saved;
     });
-
-    let savedReview;
-    if (existingReview) {
-      // Cập nhật lại đánh giá đã có
-      savedReview = await prisma.review.update({
-        where: { id: existingReview.id },
-        data: {
-          rating: rating,
-          comment: comment ?? null,
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-        },
-      });
-    } else {
-      // Tạo bản ghi đánh giá mới
-      savedReview = await prisma.review.create({
-        data: {
-          userId: currentUserId,
-          movieId: movie_id,
-          rating: rating,
-          comment: comment ?? null,
-        },
-        include: {
-          user: {
-            select: {
-              id: true,
-              name: true,
-              email: true,
-            },
-          },
-        },
-      });
-    }
-
-    // 7. Tự động tính toán lại điểm rating trung bình của phim trong bảng Movie
-    const allReviews = await prisma.review.findMany({
-      where: { movieId: movie_id },
-      select: { rating: true },
-    });
-
-    if (allReviews.length > 0) {
-      const avgRating = allReviews.reduce((sum, r) => sum + r.rating, 0) / allReviews.length;
-      await prisma.movie.update({
-        where: { id: movie_id },
-        data: {
-          rating: Number(avgRating.toFixed(1)),
-        },
-      });
-    }
 
     // 8. Định dạng kết quả trả về
     const formattedResult: ReviewResponseItem = {

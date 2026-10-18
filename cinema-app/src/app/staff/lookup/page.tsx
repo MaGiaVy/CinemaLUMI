@@ -16,7 +16,7 @@ const INCIDENT_REASONS = [
   'Mất điện đột xuất tại cụm rạp',
   'Lỗi hệ thống âm thanh / Ánh sáng phòng chiếu',
   'Hủy suất chiếu khẩn cấp từ ban quản lý',
-  'Khách hàng gặp sự cố / Đền bù đặc quyền tại quầy',
+  'Khách yêu cầu hủy vé',
   'Khác (nhập chi tiết)',
 ];
 
@@ -36,7 +36,6 @@ function TicketLookupContent() {
   const [selectedReason, setSelectedReason] = useState(INCIDENT_REASONS[0]);
   const [customReason, setCustomReason] = useState('');
   const [refundMethod, setRefundMethod] = useState<'CASH' | 'VOUCHER'>('CASH');
-  const [issueVoucher, setIssueVoucher] = useState(false);
   const [staffNotes, setStaffNotes] = useState('');
   const [cancelling, setCancelling] = useState(false);
 
@@ -105,7 +104,6 @@ function TicketLookupContent() {
     setSelectedReason(INCIDENT_REASONS[0]);
     setCustomReason('');
     setRefundMethod('CASH');
-    setIssueVoucher(false);
     setStaffNotes('');
     setCancelModalOpen(true);
   };
@@ -127,8 +125,7 @@ function TicketLookupContent() {
         },
         body: JSON.stringify({
           reason: finalReason,
-          refund_method: refundMethod,
-          issue_voucher: refundMethod === 'VOUCHER',
+          fault: refundMethod === 'CASH' ? 'CINEMA' : 'CUSTOMER',
           notes: staffNotes,
         }),
       });
@@ -222,7 +219,7 @@ function TicketLookupContent() {
               </h1>
             </div>
             <p className="text-[#A3A3A3] text-sm mt-1">
-              Tìm kiếm vé qua SĐT, Email, Mã vé. Hỗ trợ soát vé và hủy/hoàn vé đền bù 100% cho khách hàng tại quầy.
+              Tra cứu, soát vé và xử lý hủy theo lý do.
             </p>
           </div>
 
@@ -600,6 +597,47 @@ function TicketLookupContent() {
                             >
                               ⚠️ Hủy & Hoàn tiền (UC-15)
                             </Button>
+                          ) : ticket.refund?.status === 'PENDING_REFUND' ? (
+                            <div className="flex flex-col gap-1.5 w-full">
+                              <div className="text-xs text-[#FFB703] bg-[#FFB703]/10 border border-[#FFB703]/30 rounded-lg p-2">
+                                <span className="font-bold block">💵 Chờ hoàn tiền mặt: {ticket.refund.amount.toLocaleString('vi-VN')} đ</span>
+                                <span className="text-[11px] text-[#A3A3A3]">
+                                  {ticket.refund.claim_deadline
+                                    ? `Hạn nhận đến: ${new Date(ticket.refund.claim_deadline).toLocaleDateString('vi-VN')}`
+                                    : 'Hoàn tiền tại quầy'}
+                                </span>
+                              </div>
+                              <Button
+                                variant="primary"
+                                size="sm"
+                                onClick={async () => {
+                                  if (!window.confirm(`Xác nhận đã chi tiền mặt ${ticket.refund?.amount.toLocaleString('vi-VN')} đ cho khách?`)) return;
+                                  try {
+                                    const res = await fetch(`/api/staff/tickets/${ticket.id}/confirm-refund`, { method: 'POST' });
+                                    const json = await res.json();
+                                    if (res.ok && json.success) {
+                                      addToast('success', 'Đã xác nhận trả tiền mặt cho khách');
+                                      handleSearchTickets(query, activeStatusFilter);
+                                    } else {
+                                      addToast('error', json.message || 'Không thể xác nhận hoàn tiền');
+                                    }
+                                  } catch {
+                                    addToast('error', 'Lỗi kết nối khi xác nhận hoàn tiền');
+                                  }
+                                }}
+                              >
+                                💵 Xác nhận đã trả tiền mặt
+                              </Button>
+                            </div>
+                          ) : ticket.refund?.status === 'REFUNDED' ? (
+                            <div className="text-xs text-green-400 bg-green-500/10 border border-green-500/30 rounded-lg p-2">
+                              <span className="font-bold block">✓ Đã hoàn tiền mặt: {ticket.refund.amount.toLocaleString('vi-VN')} đ</span>
+                              <span className="text-[11px] text-[#A3A3A3]">
+                                {ticket.refund.confirmed_at
+                                  ? `Đã nhận lúc: ${new Date(ticket.refund.confirmed_at).toLocaleString('vi-VN')}`
+                                  : 'Đã hoàn tất'}
+                              </span>
+                            </div>
                           ) : (
                             <Button variant="ghost" size="sm" disabled>
                               ❌ Đã hủy vé
@@ -698,7 +736,7 @@ function TicketLookupContent() {
               </label>
               
               <div 
-                onClick={() => { setRefundMethod('CASH'); setIssueVoucher(false); }}
+                onClick={() => { setRefundMethod('CASH'); }}
                 className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
                   refundMethod === 'CASH'
                     ? 'bg-[#E63946]/10 border-[#E63946] text-white'
@@ -709,19 +747,19 @@ function TicketLookupContent() {
                   type="radio"
                   name="refund_method"
                   checked={refundMethod === 'CASH'}
-                  onChange={() => { setRefundMethod('CASH'); setIssueVoucher(false); }}
+                  onChange={() => { setRefundMethod('CASH'); }}
                   className="mt-0.5 accent-[#E63946] cursor-pointer"
                 />
                 <div className="text-xs">
                   <span className="font-bold text-white block">
-                    💵 Hoàn 100% Tiền Mặt Tại Quầy (Quy chuẩn SRS sự cố rạp)
+                    Lỗi rạp — hoàn tiền thực trả
                   </span>
-                  Lập chứng từ hoàn tiền mặt và đối soát công nợ tại quầy. Không cấp voucher.
+                  Ghi nhận chờ hoàn; xác nhận sau khi đã trả tiền mặt.
                 </div>
               </div>
 
               <div 
-                onClick={() => { setRefundMethod('VOUCHER'); setIssueVoucher(true); }}
+                onClick={() => { setRefundMethod('VOUCHER'); }}
                 className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
                   refundMethod === 'VOUCHER'
                     ? 'bg-[#E63946]/10 border-[#E63946] text-white'
@@ -732,14 +770,14 @@ function TicketLookupContent() {
                   type="radio"
                   name="refund_method"
                   checked={refundMethod === 'VOUCHER'}
-                  onChange={() => { setRefundMethod('VOUCHER'); setIssueVoucher(true); }}
+                  onChange={() => { setRefundMethod('VOUCHER'); }}
                   className="mt-0.5 accent-[#E63946] cursor-pointer"
                 />
                 <div className="text-xs">
                   <span className="font-bold text-white block">
-                    🎟️ Cấp Mã Voucher Đền Bù 100%
+                    Lỗi khách — cấp voucher 50%
                   </span>
-                  Mã voucher có hạn sử dụng 30 ngày, áp dụng cho lần xem phim tiếp theo của khách hàng này.
+                  Chỉ hủy trước giờ chiếu ít nhất 2 tiếng; không hoàn tiền.
                 </div>
               </div>
             </div>
@@ -774,7 +812,7 @@ function TicketLookupContent() {
                 onClick={handleConfirmCancel}
                 disabled={cancelling}
               >
-                {cancelling ? 'Đang thực hiện giao dịch...' : 'Xác nhận Hủy & Hoàn Tiền 100%'}
+                {cancelling ? 'Đang xử lý...' : 'Xác nhận hủy vé'}
               </Button>
             </div>
           </div>
@@ -785,7 +823,7 @@ function TicketLookupContent() {
       <Modal
         isOpen={resultModalOpen}
         onClose={() => setResultModalOpen(false)}
-        title="Hủy & Hoàn Vé Thành Công"
+        title="Kết quả hủy vé"
       >
         {cancelSuccessResult && (
           <div className="space-y-4 text-center">
@@ -795,41 +833,17 @@ function TicketLookupContent() {
 
             <div>
               <h3 className="text-lg font-bold text-white">
-                Giao dịch xử lý sự cố hoàn tất!
+                Đã hủy vé
               </h3>
               <p className="text-xs text-[#A3A3A3] mt-1">
-                Vé #{cancelSuccessResult.ticket_id} đã được chuyển sang trạng thái ĐÃ HỦY. Ghế {cancelSuccessResult.released_seat || ''} đã sẵn sàng để phục vụ khách khác.
+                Vé #{cancelSuccessResult.ticket_id} đã hủy. Ghế {cancelSuccessResult.released_seat || ''} đã được giải phóng.
               </p>
             </div>
-
-            {cancelSuccessResult.cash_receipt && (
-              <div className="bg-[#FFB703]/10 border border-[#FFB703]/30 rounded-2xl p-4 space-y-2 text-left">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#FFB703] block text-center">
-                  💵 BIÊN NHẬN CHI HOÀN TIỀN MẶT 100% (SRS UC-15)
-                </span>
-                <div className="flex justify-between text-xs">
-                  <span className="text-[#A3A3A3]">Số phiếu chi:</span>
-                  <span className="font-mono font-bold text-white">{cancelSuccessResult.cash_receipt.receipt_no}</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-[#A3A3A3]">Khách hàng:</span>
-                  <span className="font-medium text-white">{cancelSuccessResult.cash_receipt.customer_name}</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-[#A3A3A3]">Số tiền thực chi:</span>
-                  <span className="font-black text-[#FFB703] text-sm">{cancelSuccessResult.cash_receipt.refund_amount.toLocaleString('vi-VN')} đ</span>
-                </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-[#A3A3A3]">Đối soát công nợ:</span>
-                  <span className="text-green-400 font-bold">✓ Đã xuất quỹ tiền mặt tại quầy</span>
-                </div>
-              </div>
-            )}
 
             {cancelSuccessResult.compensation_voucher && (
               <div className="bg-[#2ECC71]/10 border border-[#2ECC71]/30 rounded-2xl p-4 space-y-2">
                 <span className="text-[11px] font-bold uppercase tracking-wider text-[#2ECC71] block">
-                  MÃ VOUCHER ĐỀN BÙ 100% ĐÃ KHỞI TẠO
+                  Mã voucher bồi hoàn 50%
                 </span>
                 <div className="font-mono font-black text-2xl text-white tracking-widest bg-[#171717] py-2 px-4 rounded-xl border border-[#2ECC71]/40 select-all">
                   {cancelSuccessResult.compensation_voucher.code}
@@ -843,11 +857,11 @@ function TicketLookupContent() {
 
             <div className="bg-[#1A1A1A] rounded-xl p-3 border border-[#333333] text-xs text-left space-y-1">
               <div className="flex justify-between">
-                <span className="text-[#737373]">Tỷ lệ hoàn:</span>
-                <span className="text-white font-bold">{cancelSuccessResult.refund_percentage}%</span>
+                <span className="text-[#737373]">Hình thức xử lý:</span>
+                <span className="text-white font-bold">{cancelSuccessResult.compensation_voucher ? 'Voucher 50%' : 'Hoàn tiền mặt 100%'}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#737373]">Số tiền hoàn:</span>
+                <span className="text-[#737373]">Số tiền chờ hoàn:</span>
                 <span className="text-[#FFB703] font-bold">
                   {cancelSuccessResult.refund_amount.toLocaleString('vi-VN')} đ
                 </span>
@@ -858,6 +872,19 @@ function TicketLookupContent() {
               </div>
             </div>
 
+            {cancelSuccessResult.refund_status === 'PENDING_REFUND' && (
+              <Button variant="primary" fullWidth onClick={async () => {
+                if (!window.confirm('Chỉ xác nhận sau khi đã trả tiền mặt cho khách.')) return;
+                const response = await fetch(`/api/staff/tickets/${cancelSuccessResult.ticket_id}/confirm-refund`, { method: 'POST' });
+                const data = await response.json();
+                if (response.ok && data.success) {
+                  setCancelSuccessResult({ ...cancelSuccessResult, refund_status: 'REFUNDED' });
+                  addToast('success', 'Đã xác nhận trả tiền mặt');
+                } else {
+                  addToast('error', data.message || 'Không thể xác nhận hoàn tiền');
+                }
+              }}>Xác nhận đã trả tiền mặt</Button>
+            )}
             <Button
               variant="primary"
               fullWidth

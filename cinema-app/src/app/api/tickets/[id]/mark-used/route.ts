@@ -117,6 +117,28 @@ export async function PATCH(
       );
     }
 
+    // Kiểm tra khung thời gian cho phép soát vé theo SRS: từ 30 phút trước giờ chiếu đến hết suất
+    if (ticket.screening) {
+      const now = new Date();
+      const allowedStart = new Date(ticket.screening.startTime.getTime() - 30 * 60 * 1000);
+      const allowedEnd = new Date(ticket.screening.endTime.getTime());
+
+      if (now < allowedStart) {
+        throw new AppError(
+          400,
+          `Chưa đến thời gian soát vé. Chỉ được soát vé từ 30 phút trước giờ chiếu (${allowedStart.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })})`,
+          'CHECKIN_TOO_EARLY'
+        );
+      }
+      if (now > allowedEnd) {
+        throw new AppError(
+          400,
+          `Suất chiếu đã kết thúc vào lúc ${allowedEnd.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}. Không thể soát vé.`,
+          'CHECKIN_EXPIRED'
+        );
+      }
+    }
+
     // 4. Cập nhật trạng thái vé thành USED
     const updatedTicket = await prisma.ticket.update({
       where: { id: ticket.id },

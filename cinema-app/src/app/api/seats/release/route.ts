@@ -54,33 +54,20 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Nếu là CUSTOMER, hủy kèm đơn thanh toán Pending liên quan (nếu có)
-    if (user.role === 'CUSTOMER') {
-      const pendingPayment = await prisma.payment.findFirst({
-        where: {
-          userId: user.id,
-          status: 'Pending',
-        },
-        orderBy: { createdAt: 'desc' },
-      });
-
-      if (pendingPayment) {
-        await prisma.payment.update({
-          where: { id: pendingPayment.id },
-          data: { status: 'Failed' },
-        });
-      }
-    }
-
-    // Cập nhật các ghế đang RESERVED về trạng thái EMPTY và xóa thời gian giữ chỗ
+    // Chỉ chủ lượt giữ được giải phóng ghế chưa gắn với đơn thanh toán.
+    // Đơn đã khởi tạo phải hết hạn hoặc được xử lý qua callback có xác thực.
     const updateResult = await prisma.seat.updateMany({
       where: {
         id: { in: seat_ids },
-        status: 'RESERVED', // Chỉ nhả những ghế đang giữ chỗ tạm thời
+        status: 'RESERVED',
+        holdUserId: user.id,
+        holdPaymentId: null,
       },
       data: {
         status: 'EMPTY',
         reservedUntil: null,
+        holdUserId: null,
+        holdPaymentId: null,
       },
     });
 

@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { apiResponse } from '@/lib/api-response';
-import { handleError } from '@/lib/error';
+import { AppError, handleError } from '@/lib/error';
 import { requireAuth } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
@@ -121,7 +121,7 @@ export async function PUT(
   { params }: RouteContext
 ) {
   try {
-    await requireAuth(['ADMIN']);
+    const admin = await requireAuth(['ADMIN']);
 
     const { id } = await params;
     const screeningId = parseInt(id, 10);
@@ -324,7 +324,7 @@ export async function DELETE(
   { params }: RouteContext
 ) {
   try {
-    await requireAuth(['ADMIN']);
+    const admin = await requireAuth(['ADMIN']);
 
     const { id } = await params;
     const screeningId = parseInt(id, 10);
@@ -376,68 +376,52 @@ export async function DELETE(
     // 2. THỰC THI QUA TRANSACTION
     const result = await prisma.$transaction(async (tx) => {
       if (hasTicketsEverSold) {
-        // Chỉ cập nhật các vé 'Valid' sang 'Cancelled'
-        if (validTickets.length > 0) {
-          await tx.ticket.updateMany({
-            where: {
-              screeningId,
-              status: 'Valid',
-            },
+        await tx.$queryRaw`SELECT screening_id FROM screenings WHERE screening_id = ${screeningId} FOR UPDATE`;
+        const fresh = await tx.screening.findUnique({ where: { id: screeningId }, include: { tickets: { include: { payment: true } } } });
+        if (!fresh || fresh.status === 'CANCELLED') {
+          throw new AppError(409, 'Suất chiếu đã hủy', 'SCREENING_ALREADY_CANCELLED');
+        }
+        const affected = fresh.tickets.filter(ticket => ticket.status === 'Valid');
+        await tx.screening.update({ where: { id: screeningId }, data: { status: 'CANCELLED' } });
+        let totalRefundAmount = 0;
+        for (const ticket of affected) {
+          const amount = ticket.paidPrice ?? ticket.price;
+          totalRefundAmount += Number(amount);
+          await tx.ticket.update({ where: { id: ticket.id }, data: { status: 'Cancelled', cancellationReason: 'Suất chiếu hủy do lỗi rạp' } });
+          await tx.ticketRefund.create({
             data: {
-              status: 'Cancelled',
+              ticketId: ticket.id,
+              amount,
+              reason: 'Suất chiếu hủy do lỗi rạp',
+              claimDeadline: ticket.payment.paymentMethod === 'VNPay' || ticket.payment.paymentMethod === 'Momo'
+                ? new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) : null,
+            },
+          });
+          await tx.cancellationAction.create({
+            data: {
+              ticketId: ticket.id,
+              actorUserId: admin.id,
+              action: 'CANCEL_SCREENING_TICKET',
+              reason: 'Suất chiếu hủy do lỗi rạp',
+              resolution: 'PENDING_REFUND',
             },
           });
         }
-
-        // Giải phóng toàn bộ ghế của suất chiếu về trạng thái EMPTY
+        const releasedSeatIds = affected.map(ticket => ticket.seatId).filter((id): id is number => id !== null);
         await tx.seat.updateMany({
-          where: { screeningId },
-          data: {
-            status: 'EMPTY',
-            reservedUntil: null,
-          },
+          where: { screeningId, OR: [{ status: 'RESERVED' }, { id: { in: releasedSeatIds }, status: 'OCCUPIED' }] },
+          data: { status: 'EMPTY', reservedUntil: null, holdUserId: null, holdPaymentId: null },
         });
-
-        // Đổi trạng thái suất chiếu sang ENDED (Soft Delete) để bảo toàn liên kết lịch sử vé
-        await tx.screening.update({
-          where: { id: screeningId },
-          data: {
-            status: 'ENDED',
-          },
-        });
-
-        // Tính toán số tiền hoàn trả cho các vé Valid
-        const totalRefundAmount = validTickets.reduce((sum, t) => sum + Number(t.price), 0);
-
-        // Danh sách khách hàng có vé Valid bị ảnh hưởng
-        const affectedUsers = Array.from(
-          new Map(
-            validTickets.map(t => [
-              t.user.id,
-              {
-                user_id: t.user.id,
-                name: t.user.name,
-                email: t.user.email,
-                phone: t.user.phone,
-                ticket_count: validTickets.filter(st => st.userId === t.userId).length,
-                refund_amount: validTickets
-                  .filter(st => st.userId === t.userId)
-                  .reduce((sum, st) => sum + Number(st.price), 0),
-              },
-            ])
-          ).values()
-        );
-
         return {
           screening_id: screeningId,
           movie_title: screening.movie.title,
           soft_deleted: true,
-          status: 'ENDED',
+          status: 'CANCELLED',
           refund_flow_recorded: true,
-          cancelled_valid_tickets_count: validTickets.length,
+          cancelled_valid_tickets_count: affected.length,
           total_refund_amount: totalRefundAmount,
-          affected_users: affectedUsers,
-          note: 'Suất chiếu đã được chuyển sang trạng thái ENDED và giải phóng ghế. Các vé Valid đã được hủy để hoàn tiền 100%. Lịch sử vé đã Used được bảo toàn nguyên vẹn.',
+          affected_users: [],
+          note: 'Các vé chưa sử dụng đã hủy và ghi nhận khoản chờ hoàn tiền mặt.',
         };
       } else {
         // Chưa từng có khách nào mua vé -> Xóa vật lý bình thường
@@ -455,7 +439,7 @@ export async function DELETE(
     });
 
     const responseMessage = hasTicketsEverSold
-      ? `Suất chiếu phim "${screening.movie.title}" đã được đóng (ENDED). Đã giải phóng ghế, hủy ${result.cancelled_valid_tickets_count} vé chưa dùng để hoàn tiền 100% và bảo toàn toàn bộ lịch sử vé đã xem.`
+      ? `Suất chiếu phim "${screening.movie.title}" đã được hủy (CANCELLED). Đã giải phóng ghế, hủy ${result.cancelled_valid_tickets_count} vé chưa dùng để hoàn tiền 100% và bảo toàn toàn bộ lịch sử vé đã xem.`
       : `Đã xóa suất chiếu phim "${screening.movie.title}" thành công (suất chiếu chưa có vé nào được bán).`;
 
     return apiResponse(

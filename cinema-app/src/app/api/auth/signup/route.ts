@@ -9,12 +9,12 @@ import { handleError } from '@/lib/error';
  *
  * Đăng ký tài khoản mới cho hệ thống Lumi Cinema.
  *
- * Payload: { email, password, full_name, phone? }
+ * Payload: { email, password, full_name, phone }
  * Ràng buộc:
  * - email: bắt buộc, định dạng hợp lệ, chưa tồn tại trong DB
  * - password: bắt buộc, tối thiểu 6 ký tự
  * - full_name: bắt buộc
- * - phone: tùy chọn
+ * - phone: bắt buộc
  *
  * Trả về: apiResponse chuẩn { success, data, message }
  */
@@ -26,11 +26,11 @@ export async function POST(request: NextRequest) {
     // -------------------------------------------------------
     // 1. Validate đầu vào
     // -------------------------------------------------------
-    if (!email || !password || !full_name) {
+    if (typeof email !== 'string' || typeof password !== 'string' || typeof full_name !== 'string' || typeof phone !== 'string' || !email.trim() || !password || !full_name.trim() || !phone.trim()) {
       return apiResponse(
         false,
         undefined,
-        'Vui lòng nhập đầy đủ email, mật khẩu và họ tên',
+        'Vui lòng nhập đầy đủ email, mật khẩu, họ tên và số điện thoại',
         400
       );
     }
@@ -87,7 +87,7 @@ export async function POST(request: NextRequest) {
         email: normalizedEmail,
         password: hashedPassword,
         name: full_name.trim(),
-        phone: phone?.trim() || null,
+        phone: phone.trim(),
         role: 'CUSTOMER', // Mặc định là CUSTOMER
       },
       select: {
@@ -112,6 +112,9 @@ export async function POST(request: NextRequest) {
       201
     );
   } catch (error) {
+    if (typeof error === 'object' && error !== null && 'code' in error && error.code === 'P2002') {
+      return apiResponse(false, undefined, 'Email này đã được đăng ký', 409);
+    }
     const errorResponse = handleError(error);
     return apiResponse(
       false,

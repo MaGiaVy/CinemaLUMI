@@ -4,7 +4,7 @@ import { AppError, handleError } from '@/lib/error';
 import { apiResponse } from '@/lib/api-response';
 import { PaymentStatus, SeatStatus, Ticket } from '@prisma/client';
 import { sendTicketConfirmation } from '@/lib/email';
-import { verifyVnpaySignature } from '@/lib/vnpay';
+import { verifyVnpaySignature, VNPAY_CONFIG } from '@/lib/vnpay';
 
 export const dynamic = 'force-dynamic';
 
@@ -27,17 +27,6 @@ export interface VnpayIpnResult {
  * Hàm kiểm tra mã kết quả từ VNPay hoặc tham số status
  * '00' hoặc 'success' là thành công
  */
-function isPaymentSuccessful(statusParam?: string | null, responseCodeParam?: string | null): boolean {
-  if (responseCodeParam && responseCodeParam.trim() === '00') {
-    return true;
-  }
-  if (statusParam) {
-    const normalized = statusParam.trim().toLowerCase();
-    return normalized === 'success' || normalized === '00' || normalized === 'completed';
-  }
-  return false;
-}
-
 /**
  * Hàm lõi thực thi transaction cho Webhook VNPay IPN
  * Có thể tái sử dụng cho cả GET và POST
@@ -46,9 +35,11 @@ export async function processVnpayIpnTransaction(
   paymentId: number,
   isSuccess: boolean,
   txnCode?: string | null,
-  paidAmount?: number
+  paidAmount?: number,
+  expectedMethod: 'VNPay' | 'Momo' = 'VNPay'
 ): Promise<VnpayIpnResult> {
   const result = await prisma.$transaction(async (tx) => {
+    await tx.$queryRaw`SELECT payment_id FROM payments WHERE payment_id = ${paymentId} FOR UPDATE`;
     // 1. Tìm bản ghi Payment và các thông tin liên quan
     const payment = await tx.payment.findUnique({
       where: { id: paymentId },
@@ -67,10 +58,13 @@ export async function processVnpayIpnTransaction(
     if (!payment) {
       throw new AppError(404, `Không tìm thấy đơn thanh toán #${paymentId}`, 'PAYMENT_NOT_FOUND');
     }
+    if (payment.paymentMethod !== expectedMethod) {
+      throw new AppError(409, 'Sai phương thức thanh toán', 'PAYMENT_METHOD_MISMATCH');
+    }
 
     // Xác thực số tiền thực trả so với số tiền đã lưu trên hóa đơn Payment
-    if (isSuccess && paidAmount !== undefined && !isNaN(paidAmount)) {
-      if (Math.abs(Number(payment.amount) - Number(paidAmount)) > 0.01) {
+    {
+      if (paidAmount === undefined || !Number.isFinite(paidAmount) || Math.abs(Number(payment.amount) - paidAmount) > 0.01) {
         throw new AppError(
           400,
           `Số tiền thanh toán (${paidAmount}) không khớp với hóa đơn (#${paymentId}: ${Number(payment.amount)})`,
@@ -110,9 +104,31 @@ export async function processVnpayIpnTransaction(
         alreadyProcessed: true,
       };
     }
+    if (payment.status !== PaymentStatus.Pending) {
+      throw new AppError(409, 'Đơn không còn chờ thanh toán', 'PAYMENT_NOT_PENDING');
+    }
 
     // 3. LUỒNG XỬ LÝ KHI THANH TOÁN THÀNH CÔNG (SUCCESS)
     if (isSuccess) {
+      const seatIds = Array.isArray(payment.seatIds) ? payment.seatIds.map(Number) : [];
+      const now = new Date();
+      if (!seatIds.length || new Set(seatIds).size !== seatIds.length) {
+        throw new AppError(409, 'Đơn không có ghế hợp lệ', 'INVALID_PAYMENT_SEATS');
+      }
+      const occupied = await tx.seat.updateMany({
+        where: {
+          id: { in: seatIds },
+          screeningId: payment.screeningId,
+          status: SeatStatus.RESERVED,
+          holdPaymentId: payment.id,
+          reservedUntil: { gt: now },
+          screening: { status: { notIn: ['CANCELLED', 'ENDED'] }, endTime: { gt: now } },
+        },
+        data: { status: SeatStatus.OCCUPIED, reservedUntil: null, holdUserId: null, holdPaymentId: null },
+      });
+      if (occupied.count !== seatIds.length) {
+        throw new AppError(409, 'Lượt giữ ghế đã hết hạn hoặc không thuộc đơn', 'SEAT_HOLD_EXPIRED');
+      }
       // 3.1. Cập nhật Payment thành SUCCESS
       const updatedPayment = await tx.payment.update({
         where: { id: paymentId },
@@ -123,24 +139,11 @@ export async function processVnpayIpnTransaction(
       });
 
       // 3.2. Lấy danh sách ID các ghế ngồi đã đặt CHÍNH XÁC từ bản ghi Payment (chống can thiệp từ client)
-      let seatIds: number[] = [];
-      if (Array.isArray(payment.seatIds)) {
-        seatIds = payment.seatIds as number[];
-      }
-
       const screeningId = payment.screeningId || null;
       const createdTickets: Ticket[] = [];
 
       if (seatIds.length > 0) {
         // Cập nhật trạng thái các ghế sang OCCUPIED (Đã chính thức có chủ)
-        await tx.seat.updateMany({
-          where: { id: { in: seatIds } },
-          data: {
-            status: SeatStatus.OCCUPIED,
-            reservedUntil: null,
-          },
-        });
-
         // Lấy giá gốc của suất chiếu
         let basePrice = 100000;
         if (screeningId) {
@@ -155,14 +158,19 @@ export async function processVnpayIpnTransaction(
 
         // Tạo bản ghi Ticket cho từng ghế
         const rawTicketItems = Array.isArray(payment.ticketItems)
-          ? (payment.ticketItems as Array<{ type: string; unit_price?: number }>)
+          ? (payment.ticketItems as Array<{ type: string; unit_price?: number; seatId?: number; originalPrice?: number; discountAmount?: number; paidPrice?: number }>)
           : [];
 
         for (let i = 0; i < seatIds.length; i++) {
           const sId = seatIds[i];
           const item = rawTicketItems[i];
           const ticketType = item?.type || 'Thường';
-          const ticketPrice = item?.unit_price || basePrice;
+          const originalPrice = item?.originalPrice ?? item?.unit_price ?? basePrice;
+          const discount = item?.discountAmount ?? 0;
+          const ticketPrice = item?.paidPrice ?? originalPrice;
+          if (item?.seatId !== undefined && item.seatId !== sId) {
+            throw new AppError(409, 'Thông tin giá vé và ghế không khớp', 'TICKET_SNAPSHOT_MISMATCH');
+          }
 
           const newTicket = await tx.ticket.create({
             data: {
@@ -172,6 +180,9 @@ export async function processVnpayIpnTransaction(
               paymentId: payment.id,
               ticketType,
               price: ticketPrice,
+              originalPrice,
+              discountAmount: discount,
+              paidPrice: ticketPrice,
               status: 'Valid',
             },
           });
@@ -208,7 +219,7 @@ export async function processVnpayIpnTransaction(
 
       // 3.4. Tăng số lần sử dụng của Coupon (nếu có áp dụng)
       const finalCouponCode = payment.couponCode;
-      if (finalCouponCode && finalCouponCode.trim()) {
+      if (finalCouponCode && finalCouponCode.trim() && !payment.couponReserved) {
         await tx.coupon.updateMany({
           where: { code: finalCouponCode.trim().toUpperCase() },
           data: {
@@ -250,10 +261,13 @@ export async function processVnpayIpnTransaction(
         where: {
           id: { in: seatIds },
           status: SeatStatus.RESERVED,
+          holdPaymentId: payment.id,
         },
         data: {
           status: SeatStatus.EMPTY,
           reservedUntil: null,
+          holdUserId: null,
+          holdPaymentId: null,
         },
       });
     }
@@ -272,6 +286,14 @@ export async function processVnpayIpnTransaction(
           },
         });
       }
+    }
+
+    if (payment.couponCode && payment.couponReserved) {
+      await tx.coupon.updateMany({
+        where: { code: payment.couponCode, usedCount: { gt: 0 } },
+        data: { usedCount: { decrement: 1 } },
+      });
+      await tx.payment.update({ where: { id: payment.id }, data: { couponReserved: false } });
     }
 
     return {
@@ -379,10 +401,7 @@ export async function GET(request: NextRequest) {
 
     // 0. XÁC THỰC CHỮ KÝ SỐ VNPAY (Secure Hash Checksum)
     const secureHash = searchParams.get('vnp_SecureHash');
-    const isProduction = process.env.NODE_ENV === 'production';
-    const isMock = !isProduction && searchParams.get('mock') === 'true';
-
-    if (secureHash) {
+    if (secureHash && VNPAY_CONFIG.tmnCode && VNPAY_CONFIG.hashSecret) {
       const vnpParams: Record<string, string> = {};
       searchParams.forEach((val, key) => {
         if (key.startsWith('vnp_')) {
@@ -390,7 +409,7 @@ export async function GET(request: NextRequest) {
         }
       });
       const isValid = verifyVnpaySignature(vnpParams, secureHash);
-      if (!isValid && (isProduction || secureHash !== 'mock_sandbox_verified')) {
+      if (!isValid || searchParams.get('vnp_TmnCode') !== VNPAY_CONFIG.tmnCode) {
         return apiResponse(
           false,
           { RspCode: '97', Message: 'Invalid Checksum' },
@@ -399,44 +418,31 @@ export async function GET(request: NextRequest) {
         );
       }
     } else {
-      if (isProduction || !isMock) {
-        return apiResponse(
-          false,
-          { RspCode: '97', Message: 'Missing Checksum' },
-          'Yêu cầu chữ ký số bảo mật từ cổng thanh toán VNPay',
-          400
-        );
-      }
+      return apiResponse(false, { RspCode: '97', Message: 'Missing Checksum' }, 'Thiếu cấu hình hoặc chữ ký VNPay', 400);
     }
 
     // Trích xuất mã đơn hàng
-    const rawPaymentId =
-      searchParams.get('payment_id') ||
-      searchParams.get('paymentId') ||
-      searchParams.get('vnp_TxnRef');
+    const rawPaymentId = searchParams.get('vnp_TxnRef');
 
     if (!rawPaymentId) {
       throw new AppError(400, 'Thiếu thông tin mã đơn thanh toán (payment_id hoặc vnp_TxnRef)', 'MISSING_PAYMENT_ID');
     }
 
-    const paymentId = parseInt(rawPaymentId, 10);
-    if (isNaN(paymentId) || paymentId <= 0) {
+    const paymentId = Number(rawPaymentId);
+    if (!/^\d+$/.test(rawPaymentId) || !Number.isSafeInteger(paymentId) || paymentId <= 0) {
       throw new AppError(400, 'Mã đơn thanh toán (payment_id) không hợp lệ', 'INVALID_PAYMENT_ID');
     }
 
-    const statusParam = searchParams.get('status');
-    const responseCodeParam = searchParams.get('vnp_ResponseCode') || searchParams.get('code');
-    const txnCode = searchParams.get('vnp_TransactionNo') || searchParams.get('txn_code');
+    const responseCodeParam = searchParams.get('vnp_ResponseCode');
+    const txnCode = searchParams.get('vnp_TransactionNo');
 
     // Xác thực số tiền thực trả từ VNPay
-    const rawVnpAmount = searchParams.get('vnp_Amount') || searchParams.get('amount');
-    const paidAmount = rawVnpAmount
-      ? Number(rawVnpAmount) > 1000000 && String(rawVnpAmount).endsWith('00')
-        ? Number(rawVnpAmount) / 100
-        : Number(rawVnpAmount)
-      : undefined;
-
-    const isSuccess = isPaymentSuccessful(statusParam, responseCodeParam);
+    const rawVnpAmount = searchParams.get('vnp_Amount');
+    if (!rawVnpAmount || !/^\d+$/.test(rawVnpAmount) || !responseCodeParam || !searchParams.get('vnp_TransactionStatus') || (responseCodeParam === '00' && !txnCode)) {
+      throw new AppError(400, 'Thiếu thông tin giao dịch VNPay', 'INVALID_VNPAY_CALLBACK');
+    }
+    const paidAmount = Number(rawVnpAmount) / 100;
+    const isSuccess = responseCodeParam === '00' && searchParams.get('vnp_TransactionStatus') === '00';
 
     const ipnResult = await processVnpayIpnTransaction(
       paymentId,
@@ -464,102 +470,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
-/**
- * POST /api/payments/vnpay-ipn
- * 
- * Hỗ trợ nhận webhook dạng POST từ các môi trường kiểm thử
- */
-export async function POST(request: NextRequest) {
-  try {
-    let body: Record<string, unknown> = {};
-    try {
-      body = (await request.json()) as Record<string, unknown>;
-    } catch {
-      // Body rỗng hoặc không phải JSON
-    }
-
-    const secureHash =
-      (body.vnp_SecureHash as string) || request.nextUrl.searchParams.get('vnp_SecureHash');
-    const isProduction = process.env.NODE_ENV === 'production';
-    const isMock =
-      !isProduction && (body.mock === true || request.nextUrl.searchParams.get('mock') === 'true');
-
-    if (secureHash) {
-      const vnpParams: Record<string, string> = {};
-      Object.keys(body).forEach(k => {
-        if (k.startsWith('vnp_')) vnpParams[k] = String(body[k]);
-      });
-      request.nextUrl.searchParams.forEach((val, key) => {
-        if (key.startsWith('vnp_')) vnpParams[key] = val;
-      });
-
-      const isValid = verifyVnpaySignature(vnpParams, secureHash);
-      if (!isValid && (isProduction || secureHash !== 'mock_sandbox_verified')) {
-        return apiResponse(
-          false,
-          { RspCode: '97', Message: 'Invalid Checksum' },
-          'Chữ ký số xác thực giao dịch VNPay không hợp lệ (RspCode 97)',
-          400
-        );
-      }
-    } else {
-      if (isProduction || !isMock) {
-        return apiResponse(
-          false,
-          { RspCode: '97', Message: 'Missing Checksum' },
-          'Yêu cầu chữ ký số bảo mật từ cổng thanh toán VNPay',
-          400
-        );
-      }
-    }
-
-    const rawPaymentId =
-      body.payment_id ?? body.paymentId ?? body.vnp_TxnRef ?? request.nextUrl.searchParams.get('payment_id');
-
-    if (!rawPaymentId) {
-      throw new AppError(400, 'Thiếu thông tin mã đơn thanh toán (payment_id)', 'MISSING_PAYMENT_ID');
-    }
-
-    const paymentId = Number(rawPaymentId);
-    if (isNaN(paymentId) || paymentId <= 0) {
-      throw new AppError(400, 'Mã đơn thanh toán không hợp lệ', 'INVALID_PAYMENT_ID');
-    }
-
-    const statusParam = (body.status as string) || request.nextUrl.searchParams.get('status');
-    const responseCode = (body.vnp_ResponseCode as string) || request.nextUrl.searchParams.get('vnp_ResponseCode');
-    const txnCode = (body.vnp_TransactionNo as string) || (body.txn_code as string);
-
-    const rawVnpAmount = (body.vnp_Amount as string) || (body.amount as string) || request.nextUrl.searchParams.get('vnp_Amount');
-    const paidAmount = rawVnpAmount
-      ? Number(rawVnpAmount) > 1000000 && String(rawVnpAmount).endsWith('00')
-        ? Number(rawVnpAmount) / 100
-        : Number(rawVnpAmount)
-      : undefined;
-
-    const isSuccess = isPaymentSuccessful(statusParam, responseCode);
-
-    const ipnResult = await processVnpayIpnTransaction(
-      paymentId,
-      isSuccess,
-      txnCode,
-      paidAmount
-    );
-
-    return apiResponse(
-      true,
-      ipnResult,
-      isSuccess ? 'Xử lý thanh toán thành công (IPN Success)' : 'Giao dịch bị hủy / thất bại (IPN Failed)',
-      200
-    );
-  } catch (error) {
-    const errorResponse = handleError(error);
-    return apiResponse(
-      false,
-      { RspCode: '99', Message: errorResponse.error },
-      errorResponse.error,
-      errorResponse.statusCode,
-      errorResponse.code,
-      errorResponse.error
-    );
-  }
+/** VNPay gửi IPN bằng GET; không nhận payload JSON tự khai báo. */
+export async function POST() {
+  return apiResponse(false, undefined, 'Phương thức không được hỗ trợ', 405);
 }

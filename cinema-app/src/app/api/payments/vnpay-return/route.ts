@@ -1,23 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { processVnpayIpnTransaction } from '../vnpay-ipn/route';
 import { handleError } from '@/lib/error';
-import { verifyVnpaySignature } from '@/lib/vnpay';
+import { verifyVnpaySignature, VNPAY_CONFIG } from '@/lib/vnpay';
 
 export const dynamic = 'force-dynamic';
-
-/**
- * Hàm kiểm tra tính thành công của giao dịch từ VNPay
- */
-function checkIsSuccess(statusParam?: string | null, responseCode?: string | null): boolean {
-  if (responseCode && responseCode.trim() === '00') {
-    return true;
-  }
-  if (statusParam) {
-    const s = statusParam.trim().toLowerCase();
-    return s === 'success' || s === '00' || s === 'completed';
-  }
-  return false;
-}
 
 /**
  * GET /api/payments/vnpay-return
@@ -38,10 +24,7 @@ export async function GET(request: NextRequest) {
 
   // 0. XÁC THỰC CHỮ KÝ SỐ VNPAY RETURN
   const secureHash = searchParams.get('vnp_SecureHash');
-  const isProduction = process.env.NODE_ENV === 'production';
-  const isMock = !isProduction && searchParams.get('mock') === 'true';
-
-  if (secureHash) {
+  if (secureHash && VNPAY_CONFIG.tmnCode && VNPAY_CONFIG.hashSecret) {
     const vnpParams: Record<string, string> = {};
     searchParams.forEach((val, key) => {
       if (key.startsWith('vnp_')) {
@@ -50,37 +33,26 @@ export async function GET(request: NextRequest) {
     });
 
     const isValid = verifyVnpaySignature(vnpParams, secureHash);
-    if (!isValid && (isProduction || secureHash !== 'mock_sandbox_verified')) {
-      console.warn('[VNPayReturn] Chữ ký số không khớp:', secureHash);
+    if (!isValid || searchParams.get('vnp_TmnCode') !== VNPAY_CONFIG.tmnCode) {
       const errorUrl = new URL('/payment-result', request.url);
       errorUrl.searchParams.set('status', 'failed');
       errorUrl.searchParams.set('error', 'Chữ ký số xác thực giao dịch không hợp lệ (Invalid Checksum)');
       return NextResponse.redirect(errorUrl);
     }
-  } else if (isProduction || !isMock) {
+  } else {
     const errorUrl = new URL('/payment-result', request.url);
     errorUrl.searchParams.set('status', 'failed');
     errorUrl.searchParams.set('error', 'Yêu cầu chữ ký số bảo mật từ cổng thanh toán');
     return NextResponse.redirect(errorUrl);
   }
 
-  const rawPaymentId =
-    searchParams.get('payment_id') ||
-    searchParams.get('paymentId') ||
-    searchParams.get('vnp_TxnRef');
+  const rawPaymentId = searchParams.get('vnp_TxnRef');
 
-  const statusParam = searchParams.get('status');
-  const responseCode = searchParams.get('vnp_ResponseCode') || searchParams.get('code') || '99';
-  const txnCode = searchParams.get('vnp_TransactionNo') || searchParams.get('txn_code');
-  const rawVnpAmount = searchParams.get('vnp_Amount') || searchParams.get('amount');
-  const paidAmount = rawVnpAmount
-    ? Number(rawVnpAmount) > 1000000 && String(rawVnpAmount).endsWith('00')
-      ? Number(rawVnpAmount) / 100
-      : Number(rawVnpAmount)
-    : undefined;
-  const orderInfo = searchParams.get('order_info') || searchParams.get('vnp_OrderInfo');
-
-  const isSuccess = checkIsSuccess(statusParam, responseCode);
+  const responseCode = searchParams.get('vnp_ResponseCode') || '99';
+  const txnCode = searchParams.get('vnp_TransactionNo');
+  const rawVnpAmount = searchParams.get('vnp_Amount');
+  const paidAmount = rawVnpAmount && /^\d+$/.test(rawVnpAmount) ? Number(rawVnpAmount) / 100 : undefined;
+  const isSuccess = responseCode === '00' && searchParams.get('vnp_TransactionStatus') === '00';
 
   // Nếu không có payment_id, chuyển hướng về trang báo lỗi chung
   if (!rawPaymentId) {
@@ -95,6 +67,12 @@ export async function GET(request: NextRequest) {
     const errorUrl = new URL('/payment-result', request.url);
     errorUrl.searchParams.set('status', 'failed');
     errorUrl.searchParams.set('error', 'Mã đơn thanh toán không hợp lệ');
+    return NextResponse.redirect(errorUrl);
+  }
+  if (paidAmount === undefined || !searchParams.get('vnp_TransactionStatus')) {
+    const errorUrl = new URL('/payment-result', request.url);
+    errorUrl.searchParams.set('status', 'failed');
+    errorUrl.searchParams.set('error', 'Thiếu thông tin giao dịch');
     return NextResponse.redirect(errorUrl);
   }
 
@@ -119,10 +97,6 @@ export async function GET(request: NextRequest) {
 
   if (paidAmount !== undefined) {
     resultUrl.searchParams.set('amount', String(paidAmount));
-  }
-
-  if (orderInfo) {
-    resultUrl.searchParams.set('order_info', orderInfo);
   }
 
   if (txnCode) {

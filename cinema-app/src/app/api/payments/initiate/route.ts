@@ -7,6 +7,9 @@ import { AppError, handleError } from '@/lib/error';
 import { apiResponse } from '@/lib/api-response';
 import { calculateTicketPrice } from '@/lib/pricing';
 import { PaymentMethod, PaymentStatus, SeatStatus, Prisma } from '@prisma/client';
+import { createVnpayPaymentUrl, VNPAY_CONFIG } from '@/lib/vnpay';
+import { createMomoPayment, isMomoConfigured } from '@/lib/momo';
+import { allocateTicketDiscount } from '@/lib/ticket-discount';
 
 export const dynamic = 'force-dynamic';
 
@@ -116,6 +119,8 @@ const initiatePaymentSchema = z
     comboItems: z.array(comboItemSchema).optional(),
     coupon_code: z.string().trim().optional().nullable(),
     couponCode: z.string().trim().optional().nullable(),
+    voucher_seat_id: z.coerce.number().int().positive().optional(),
+    voucherSeatId: z.coerce.number().int().positive().optional(),
     payment_method: z.string().trim().optional(),
     paymentMethod: z.string().trim().optional(),
     user_id: z.coerce.number().int().positive().optional(),
@@ -155,7 +160,7 @@ function resolvePaymentMethod(rawMethod?: string): PaymentMethod {
  *    - Tạo bản ghi Payment với trạng thái PENDING.
  *    - Tạo các bản ghi chi tiết OrderCombo.
  *    - Tạm thời chuyển trạng thái ghế sang RESERVED (hạn giữ chỗ 10 phút).
- * 4. Trả về payment_id kèm Mock URL redirect của cổng thanh toán VNPay có đầy đủ tham số để kiểm thử.
+ * 4. Trả về URL thanh toán từ cổng đã cấu hình.
  */
 export async function POST(request: NextRequest) {
   try {
@@ -179,7 +184,14 @@ export async function POST(request: NextRequest) {
     const rawTicketItems = data.ticket_items ?? data.ticketItems ?? [];
     const rawComboItems = data.combo_items ?? data.comboItems ?? [];
     const rawCouponCode = data.coupon_code ?? data.couponCode;
+    const voucherSeatId = data.voucher_seat_id ?? data.voucherSeatId;
     const paymentMethodEnum = resolvePaymentMethod(data.payment_method ?? data.paymentMethod);
+    if (paymentMethodEnum !== PaymentMethod.VNPay && paymentMethodEnum !== PaymentMethod.Momo) {
+      throw new AppError(400, 'Phương thức này chưa hỗ trợ thanh toán online', 'PAYMENT_METHOD_UNAVAILABLE');
+    }
+    if (!process.env.NEXTAUTH_URL || (paymentMethodEnum === PaymentMethod.VNPay && (!VNPAY_CONFIG.tmnCode || !VNPAY_CONFIG.hashSecret)) || (paymentMethodEnum === PaymentMethod.Momo && !isMomoConfigured())) {
+      throw new AppError(503, 'Cổng thanh toán chưa được cấu hình', 'PAYMENT_GATEWAY_UNAVAILABLE');
+    }
 
     // 1. Xác định User thực hiện thanh toán (Server-side Session Validation)
     const session = await getServerSession(authOptions);
@@ -221,6 +233,12 @@ export async function POST(request: NextRequest) {
 
     if (!screening) {
       throw new AppError(404, `Không tìm thấy suất chiếu #${finalScreeningId}`, 'SCREENING_NOT_FOUND');
+    }
+    if (['CANCELLED', 'ENDED'].includes(screening.status) || screening.endTime <= new Date()) {
+      throw new AppError(400, 'Suất chiếu không còn mở bán', 'SCREENING_UNAVAILABLE');
+    }
+    if (new Set(finalSeatIds).size !== finalSeatIds.length) {
+      throw new AppError(400, 'Danh sách ghế bị trùng', 'DUPLICATE_SEATS');
     }
 
     const basePrice = Number(screening.price);
@@ -326,10 +344,9 @@ export async function POST(request: NextRequest) {
         const qty = item.quantity;
         totalTicketCount += qty;
 
-        const percentage = item.price_percentage ?? item.percentage;
         const itemTotal = calculateTicketPrice(
           basePrice,
-          percentage !== undefined ? percentage : normalizedTypeName,
+          normalizedTypeName,
           qty
         );
         const unitPrice = qty > 0 ? Math.round(itemTotal / qty) : basePrice;
@@ -410,6 +427,8 @@ export async function POST(request: NextRequest) {
     // 6. SERVER-SIDE CALCULATION: Kiểm tra và tính chiết khấu Coupon (nếu có)
     let appliedCouponInfo: AppliedCouponInfo | null = null;
     let discountAmount = 0;
+    let compensationSeatId: number | undefined;
+    let couponMaxUsage = 0;
 
     if (rawCouponCode && rawCouponCode.trim()) {
       const normalizedCode = rawCouponCode.trim().toUpperCase();
@@ -420,6 +439,7 @@ export async function POST(request: NextRequest) {
       if (!coupon) {
         throw new AppError(404, `Mã khuyến mãi "${normalizedCode}" không tồn tại`, 'COUPON_NOT_FOUND');
       }
+      couponMaxUsage = coupon.maxUsage;
 
       // Kiểm tra ngày hết hạn
       const now = new Date();
@@ -444,7 +464,7 @@ export async function POST(request: NextRequest) {
 
       // Kiểm tra hạn mức đơn hàng tối thiểu
       const minAmount = Number(coupon.minAmount);
-      if (subtotal < minAmount) {
+      if (ticketTotal < minAmount) {
         throw new AppError(
           400,
           `Đơn hàng cần đạt tối thiểu ${minAmount.toLocaleString('vi-VN')} đ để áp dụng mã "${normalizedCode}"`,
@@ -472,11 +492,21 @@ export async function POST(request: NextRequest) {
 
       // Tính số tiền giảm giá theo SRS: Voucher chỉ áp dụng trên TIỀN VÉ (ticketTotal), không giảm trên combo
       const discountVal = Number(coupon.discountValue);
-      if (coupon.discountType === 'Percentage') {
+      if (coupon.sourceTicketId !== null) {
+        if (voucherSeatId === undefined && finalSeatIds.length > 1) {
+          throw new AppError(400, 'Vui lòng chọn vé áp dụng voucher', 'VOUCHER_TICKET_REQUIRED');
+        }
+        compensationSeatId = voucherSeatId ?? finalSeatIds[0];
+        const ticketIndex = finalSeatIds.indexOf(compensationSeatId);
+        if (ticketIndex < 0) throw new AppError(400, 'Vé áp dụng voucher không hợp lệ', 'INVALID_VOUCHER_TICKET');
+        const flatPrices = ticketBreakdown.flatMap(item => Array.from({ length: item.quantity }, () => item.unit_price));
+        discountAmount = Math.round(flatPrices[ticketIndex] * 0.5);
+      } else if (coupon.discountType === 'Percentage') {
         discountAmount = Math.round((ticketTotal * discountVal) / 100);
       } else {
         discountAmount = discountVal;
       }
+      if (coupon.maxDiscount !== null) discountAmount = Math.min(discountAmount, Number(coupon.maxDiscount));
 
       // Số tiền giảm không được vượt quá tổng tiền vé
       discountAmount = Math.min(discountAmount, ticketTotal);
@@ -492,14 +522,30 @@ export async function POST(request: NextRequest) {
 
     // Số tiền cuối cùng khách phải thanh toán: (tiền vé sau giảm giá) + tiền combo
     const finalAmount = Math.max(0, (ticketTotal - discountAmount) + comboTotal);
+    const flatTickets = ticketBreakdown.flatMap(item =>
+      Array.from({ length: item.quantity }, () => ({ type: item.type, originalPrice: item.unit_price })));
+    const ticketSnapshots = allocateTicketDiscount(
+      finalSeatIds.map((seatId, index) => ({ seatId, ...flatTickets[index] })),
+      discountAmount,
+      compensationSeatId
+    );
 
     // 7. THỰC THI TRANSACTION: Tạo Payment PENDING và cập nhật trạng thái giữ chỗ
-    const HOLD_MINUTES = 10;
     const nowTime = new Date();
-    const reservedUntil = new Date(nowTime.getTime() + HOLD_MINUTES * 60 * 1000);
     const transactionCode = `LMC_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
 
     const { payment } = await prisma.$transaction(async (tx) => {
+      if (appliedCouponInfo) {
+        const reserved = await tx.coupon.updateMany({
+          where: {
+            id: appliedCouponInfo.coupon_id,
+            usedCount: { lt: couponMaxUsage },
+            expiryDate: { gte: new Date(nowTime.getFullYear(), nowTime.getMonth(), nowTime.getDate()) },
+          },
+          data: { usedCount: { increment: 1 } },
+        });
+        if (reserved.count !== 1) throw new AppError(409, 'Voucher đã hết lượt hoặc hết hạn', 'COUPON_UNAVAILABLE');
+      }
       // 7.1. Tạo Payment record với status = Pending kèm order context
       const createdPayment = await tx.payment.create({
         data: {
@@ -507,7 +553,8 @@ export async function POST(request: NextRequest) {
           screeningId: finalScreeningId,
           seatIds: finalSeatIds as unknown as Prisma.InputJsonValue,
           couponCode: appliedCouponInfo ? appliedCouponInfo.code : null,
-          ticketItems: ticketBreakdown as unknown as Prisma.InputJsonValue,
+          couponReserved: Boolean(appliedCouponInfo),
+          ticketItems: ticketSnapshots as unknown as Prisma.InputJsonValue,
           amount: finalAmount,
           paymentMethod: paymentMethodEnum,
           transactionCode,
@@ -527,39 +574,45 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // 7.3. Cập nhật ghế sang trạng thái RESERVED với hạn giữ chỗ 10 phút
-      await tx.seat.updateMany({
+      // Gắn đúng các ghế đã giữ với đơn; không gia hạn thời gian giữ.
+      const attached = await tx.seat.updateMany({
         where: {
           id: { in: finalSeatIds },
           screeningId: finalScreeningId,
-          status: { not: SeatStatus.OCCUPIED },
+          status: SeatStatus.RESERVED,
+          holdUserId: sessionUserId,
+          holdPaymentId: null,
+          reservedUntil: { gt: nowTime },
         },
         data: {
-          status: SeatStatus.RESERVED,
-          reservedUntil,
+          holdPaymentId: createdPayment.id,
         },
       });
+      if (attached.count !== finalSeatIds.length) {
+        throw new AppError(409, 'Không thể gắn ghế với đơn thanh toán', 'SEAT_HOLD_CONFLICT');
+      }
 
       return { payment: createdPayment };
     });
 
-    // 8. TẠO MOCK VNPAY URL VỚI ĐẦY ĐỦ THAM SỐ ĐỂ KIỂM THỬ
-    const orderInfo = `Thanh toan don hang Lumi Cinema #${payment.id} - ${screening.movie.title}`;
-    const vnpayQuery = new URLSearchParams({
-      payment_id: String(payment.id),
-      txn_code: transactionCode,
-      amount: String(finalAmount),
-      original_amount: String(subtotal),
-      discount_amount: String(discountAmount),
-      order_info: orderInfo,
-      status: 'PENDING',
-      method: paymentMethodEnum,
-      screening_id: String(screening.id),
-      seat_ids: finalSeatIds.join(','),
-      coupon_code: appliedCouponInfo ? appliedCouponInfo.code : '',
-    });
-
-    const mockVnpayUrl = `/payments/vnpay-mock?${vnpayQuery.toString()}`;
+    const holdExpiry = seats.reduce<Date>((earliest, seat) =>
+      seat.reservedUntil && seat.reservedUntil < earliest ? seat.reservedUntil : earliest,
+      new Date(nowTime.getTime() + 10 * 60 * 1000));
+    let paymentUrl: string;
+    try {
+      paymentUrl = paymentMethodEnum === PaymentMethod.Momo
+        ? await createMomoPayment({ paymentId: payment.id, amount: finalAmount, baseUrl: process.env.NEXTAUTH_URL })
+        : createVnpayPaymentUrl({
+            paymentId: payment.id,
+            amount: finalAmount,
+            returnUrl: new URL('/api/payments/vnpay-return', process.env.NEXTAUTH_URL).toString(),
+            ipAddress: request.headers.get('x-forwarded-for')?.split(',')[0].trim() || '127.0.0.1',
+            expiresAt: holdExpiry,
+          });
+    } catch {
+      // Timeout có thể xảy ra sau khi cổng đã nhận đơn: giữ Pending để IPN đối soát.
+      throw new AppError(502, `Chưa xác nhận được giao dịch #${payment.id}. Vui lòng kiểm tra lại trước khi đặt đơn mới.`, 'PAYMENT_GATEWAY_UNCERTAIN');
+    }
 
     // 9. TRẢ VỀ DỮ LIỆU KẾT QUẢ CHUẨN
     const resultData: InitiatePaymentResult = {
@@ -575,8 +628,8 @@ export async function POST(request: NextRequest) {
       status: payment.status,
       payment_method: payment.paymentMethod ?? PaymentMethod.VNPay,
       paymentMethod: payment.paymentMethod ?? PaymentMethod.VNPay,
-      vnpay_url: mockVnpayUrl,
-      vnpayUrl: mockVnpayUrl,
+      vnpay_url: paymentUrl,
+      vnpayUrl: paymentUrl,
       breakdown: {
         screening_id: screening.id,
         screeningId: screening.id,

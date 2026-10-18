@@ -77,6 +77,16 @@ SMTP_PORT=587
 SMTP_USER="your_email@gmail.com"
 SMTP_PASSWORD="your_app_password"
 EMAIL_FROM="LUMI CINEMA <no-reply@lumicinema.vn>"
+
+# 5. Cổng thanh toán (cần credentials sandbox hoặc production riêng)
+VNPAY_TMN_CODE=""
+VNPAY_HASH_SECRET=""
+VNP_URL="https://sandbox.vnpayment.vn/paymentv2/vpcpay.html"
+MOMO_PARTNER_CODE=""
+MOMO_ACCESS_KEY=""
+MOMO_SECRET_KEY=""
+MOMO_CREATE_URL="https://test-payment.momo.vn/v2/gateway/api/create"
+CRON_SECRET=""
 ```
 
 > **Mẹo:** Nếu bạn chưa có sẵn PostgreSQL cục bộ, bạn có thể tạo một Database miễn phí trên [Supabase](https://supabase.com/) hoặc [Neon.tech](https://neon.tech/) rồi dán chuỗi kết nối vào `DATABASE_URL`.
@@ -92,12 +102,13 @@ Sau khi đã cấu hình `DATABASE_URL`:
 npx prisma generate
 ```
 
-### Bước 2: Đồng bộ cấu trúc bảng vào Database
+### Bước 2: Áp dụng migration lên database đã được kiểm tra trạng thái
 ```bash
-npx prisma db push
-# hoặc chạy migration nếu muốn:
-# npx prisma migrate deploy
+npx prisma migrate status
+npx prisma migrate deploy
 ```
+
+Nếu database đã được tạo bằng `prisma db push`, cần đối chiếu schema và baseline migration trước khi chạy `migrate deploy`; không áp dụng migration khởi tạo lên database đang có dữ liệu. Không dùng `db push` để triển khai thay đổi nghiệp vụ Priority 1.
 
 ### Bước 3: Đồng bộ và bù đủ 50 ghế (A1 - E10) cho các suất chiếu
 Hệ thống có sẵn script kiểm tra tự động và tạo đủ 50 ghế chuẩn cho toàn bộ các phòng chiếu:

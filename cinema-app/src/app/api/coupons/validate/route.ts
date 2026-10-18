@@ -21,6 +21,8 @@ export interface CouponValidateResult {
   discountValue: number;
   discount_amount: number;
   discountAmount: number;
+  is_compensation: boolean;
+  max_discount: number | null;
   original_amount: number;
   originalAmount: number;
   final_amount: number;
@@ -50,6 +52,8 @@ const validateCouponSchema = z
       .number()
       .min(0, 'Tổng tiền phải lớn hơn hoặc bằng 0')
       .optional(),
+    ticket_amount: z.coerce.number().min(0).optional(),
+    selected_ticket_price: z.coerce.number().min(0).optional(),
     movie_id: z.coerce.number().int().positive().nullable().optional(),
     movieId: z.coerce.number().int().positive().nullable().optional(),
   })
@@ -100,6 +104,8 @@ export async function POST(request: NextRequest) {
       couponCode,
       total_amount,
       totalAmount,
+      ticket_amount,
+      selected_ticket_price,
       movie_id,
       movieId,
     } = parsed.data;
@@ -108,6 +114,7 @@ export async function POST(request: NextRequest) {
     const rawCode = coupon_code || code || couponCode!;
     const normalizedCode = rawCode.trim().toUpperCase();
     const finalTotalAmount = (total_amount ?? totalAmount)!;
+    const eligibleTicketAmount = ticket_amount ?? finalTotalAmount;
     const finalMovieId = movie_id ?? movieId ?? null;
 
     // 1. Kiểm tra mã giảm giá có tồn tại không
@@ -160,7 +167,7 @@ export async function POST(request: NextRequest) {
 
     // 4. Kiểm tra tổng tiền có đạt hạn mức tối thiểu min_amount không
     const minAmount = Number(coupon.minAmount);
-    if (finalTotalAmount < minAmount) {
+    if (eligibleTicketAmount < minAmount) {
       throw new AppError(
         400,
         `Đơn hàng chưa đạt giá trị tối thiểu (${minAmount.toLocaleString('vi-VN')} đ) để áp dụng mã này`,
@@ -215,16 +222,18 @@ export async function POST(request: NextRequest) {
     const discountValue = Number(coupon.discountValue);
     let discountAmount = 0;
 
-    if (coupon.discountType === 'Percentage') {
+    if (coupon.sourceTicketId !== null) {
+      discountAmount = Math.round(((selected_ticket_price ?? eligibleTicketAmount) * 50) / 100);
+    } else if (coupon.discountType === 'Percentage') {
       // Giảm theo %: (total_amount * discount_value) / 100
-      discountAmount = Math.round((finalTotalAmount * discountValue) / 100);
+      discountAmount = Math.round((eligibleTicketAmount * discountValue) / 100);
     } else {
       // Giảm theo số tiền cố định (FixedAmount)
       discountAmount = discountValue;
     }
 
     // Không được giảm vượt quá tổng giá trị ban đầu của đơn hàng
-    discountAmount = Math.min(discountAmount, finalTotalAmount);
+    discountAmount = Math.min(discountAmount, eligibleTicketAmount, coupon.maxDiscount ? Number(coupon.maxDiscount) : Infinity);
     const finalAmount = Math.max(0, finalTotalAmount - discountAmount);
 
     const resultData: CouponValidateResult = {
@@ -236,6 +245,8 @@ export async function POST(request: NextRequest) {
       discount_value: discountValue,
       discountValue: discountValue,
       discount_amount: discountAmount,
+      is_compensation: coupon.sourceTicketId !== null,
+      max_discount: coupon.maxDiscount ? Number(coupon.maxDiscount) : null,
       discountAmount: discountAmount,
       original_amount: finalTotalAmount,
       originalAmount: finalTotalAmount,

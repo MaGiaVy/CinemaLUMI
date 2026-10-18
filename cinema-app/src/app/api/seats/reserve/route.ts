@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { prisma } from '@/lib/prisma';
 import { AppError, handleError } from '@/lib/error';
 import { apiResponse } from '@/lib/api-response';
+import { requireAuth } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -40,6 +41,7 @@ interface ReserveSeatsResponseData {
  */
 export async function POST(request: NextRequest) {
   try {
+    const user = await requireAuth();
     let body: ReserveSeatsPayload;
     try {
       body = await request.json();
@@ -75,6 +77,14 @@ export async function POST(request: NextRequest) {
         'INVALID_SEAT_ID_ELEMENT'
       );
     }
+    if (new Set(seat_ids).size !== seat_ids.length) {
+      throw new AppError(400, 'Danh sách ghế bị trùng', 'DUPLICATE_SEATS');
+    }
+
+    const screening = await prisma.screening.findUnique({ where: { id: screening_id } });
+    if (!screening || ['CANCELLED', 'ENDED'].includes(screening.status) || screening.endTime <= new Date()) {
+      throw new AppError(400, 'Suất chiếu không còn mở bán', 'SCREENING_UNAVAILABLE');
+    }
 
     // Giới hạn số ghế tối đa mỗi lần giữ chỗ (ví dụ: tối đa 8 ghế)
     const MAX_SEATS_PER_HOLD = 8;
@@ -105,6 +115,8 @@ export async function POST(request: NextRequest) {
         data: {
           status: 'EMPTY',
           reservedUntil: null,
+          holdUserId: null,
+          holdPaymentId: null,
         },
       });
 
@@ -157,6 +169,8 @@ export async function POST(request: NextRequest) {
         data: {
           status: 'RESERVED',
           reservedUntil,
+          holdUserId: user.id,
+          holdPaymentId: null,
         },
       });
 

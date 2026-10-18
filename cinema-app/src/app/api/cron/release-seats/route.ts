@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     const cronSecret = process.env.CRON_SECRET;
     const authHeader = request.headers.get('authorization');
 
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
       return apiResponse(
         false,
         undefined,
@@ -36,30 +36,108 @@ export async function GET(request: NextRequest) {
     }
 
     const now = new Date();
+    const tenMinutesAgo = new Date(now.getTime() - 10 * 60 * 1000);
 
-    // Quét toàn bộ bảng seats giải phóng các ghế giữ chỗ hết hạn
-    const updateResult = await prisma.seat.updateMany({
-      where: {
-        status: 'RESERVED',
-        reservedUntil: {
-          lt: now,
+    let releasedSeatsCount = 0;
+    let expiredPaymentsCount = 0;
+    let refundedVouchersCount = 0;
+
+    await prisma.$transaction(async (tx) => {
+      // 1. Quét các đơn thanh toán Pending đã quá hạn 10 phút giữ chỗ
+      const expiredPayments = await tx.payment.findMany({
+        where: {
+          status: 'Pending',
+          createdAt: { lt: tenMinutesAgo },
         },
-      },
-      data: {
-        status: 'EMPTY',
-        reservedUntil: null,
-      },
+        include: {
+          orderCombos: true,
+        },
+      });
+
+      expiredPaymentsCount = expiredPayments.length;
+
+      for (const payment of expiredPayments) {
+        // Tự động hoàn lại lượt dùng của voucher nếu thanh toán thất bại/hết hạn giữ ghế (SRS BR)
+        if (payment.couponCode && payment.couponReserved) {
+          await tx.coupon.updateMany({
+            where: {
+              code: payment.couponCode,
+              usedCount: { gt: 0 },
+            },
+            data: {
+              usedCount: { decrement: 1 },
+            },
+          });
+          refundedVouchersCount++;
+        }
+
+        // Đánh dấu đơn Pending hết hạn thành Failed
+        await tx.payment.update({
+          where: { id: payment.id },
+          data: {
+            status: 'Failed',
+            couponReserved: false,
+          },
+        });
+
+        // Giải phóng tồn kho combo đã giữ nếu có
+        if (payment.orderCombos && payment.orderCombos.length > 0) {
+          for (const oc of payment.orderCombos) {
+            await tx.comboReservation.updateMany({
+              where: {
+                comboId: oc.comboId,
+                status: 'RESERVED',
+              },
+              data: {
+                status: 'RELEASED',
+              },
+            });
+          }
+        }
+
+        // Giải phóng ghế đã gắn với đơn thanh toán hết hạn
+        await tx.seat.updateMany({
+          where: {
+            holdPaymentId: payment.id,
+            status: 'RESERVED',
+          },
+          data: {
+            status: 'EMPTY',
+            reservedUntil: null,
+            holdUserId: null,
+            holdPaymentId: null,
+          },
+        });
+      }
+
+      // 2. Quét toàn bộ các ghế đang RESERVED nhưng thời gian reserved_until < NOW
+      const seatUpdate = await tx.seat.updateMany({
+        where: {
+          status: 'RESERVED',
+          reservedUntil: {
+            lt: now,
+          },
+        },
+        data: {
+          status: 'EMPTY',
+          reservedUntil: null,
+          holdUserId: null,
+          holdPaymentId: null,
+        },
+      });
+
+      releasedSeatsCount = seatUpdate.count;
     });
 
     const responseData: ReleaseSeatsCronResponseData = {
-      released_count: updateResult.count,
+      released_count: releasedSeatsCount,
       scanned_at: now.toISOString(),
     };
 
     return apiResponse<ReleaseSeatsCronResponseData>(
       true,
       responseData,
-      `Cron job hoàn tất: Đã quét và giải phóng ${updateResult.count} ghế hết hạn giữ chỗ về trạng thái EMPTY.`,
+      `Cron job hoàn tất: Giải phóng ${releasedSeatsCount} ghế, hủy ${expiredPaymentsCount} đơn hết hạn, hoàn lại ${refundedVouchersCount} lượt voucher.`,
       200
     );
   } catch (error: unknown) {

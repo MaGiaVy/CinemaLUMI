@@ -111,6 +111,17 @@ export interface StaffTicketSearchResult {
       image: string | null;
     }>;
   } | null;
+
+  refund?: {
+    id: number;
+    amount: number;
+    status: 'PENDING_REFUND' | 'REFUNDED';
+    reason: string;
+    claim_deadline: string | null;
+    claimDeadline: string | null;
+    confirmed_at: string | null;
+    confirmedAt: string | null;
+  } | null;
 }
 
 /**
@@ -326,6 +337,16 @@ export async function GET(request: NextRequest) {
             },
           },
         },
+        refund: {
+          select: {
+            id: true,
+            amount: true,
+            status: true,
+            reason: true,
+            claimDeadline: true,
+            confirmedAt: true,
+          },
+        },
       },
       orderBy: {
         purchaseDate: 'desc',
@@ -445,6 +466,19 @@ export async function GET(request: NextRequest) {
                 price: Number(oc.price),
                 image: oc.combo.image,
               })),
+            }
+          : null,
+
+        refund: t.refund
+          ? {
+              id: t.refund.id,
+              amount: Number(t.refund.amount),
+              status: t.refund.status,
+              reason: t.refund.reason,
+              claim_deadline: t.refund.claimDeadline ? t.refund.claimDeadline.toISOString() : null,
+              claimDeadline: t.refund.claimDeadline ? t.refund.claimDeadline.toISOString() : null,
+              confirmed_at: t.refund.confirmedAt ? t.refund.confirmedAt.toISOString() : null,
+              confirmedAt: t.refund.confirmedAt ? t.refund.confirmedAt.toISOString() : null,
             }
           : null,
       };

@@ -46,6 +46,8 @@ interface AppliedCouponData {
   discount_type: 'Percentage' | 'FixedAmount';
   discount_value: number;
   discount_amount: number;
+  is_compensation?: boolean;
+  max_discount?: number | null;
 }
 
 const STEPS = ['1. Chọn ghế', '2. Bắp nước', '3. Thanh toán'];
@@ -63,12 +65,6 @@ const PAYMENT_METHODS = [
     label: 'Ví điện tử MoMo',
     icon: '📱',
     description: 'Thanh toán bảo mật qua ứng dụng ví điện tử MoMo',
-  },
-  {
-    id: 'banking',
-    label: 'Chuyển khoản Ngân hàng',
-    icon: '🏦',
-    description: 'Chuyển khoản liên ngân hàng 24/7 với mã QR tự động nhận diện',
   },
 ];
 
@@ -89,6 +85,7 @@ function PaymentContent() {
   const [ticketItems, setTicketItems] = useState<Array<{ type: string; quantity: number; unit_price: number }>>([]);
   const [reservedCombos, setReservedCombos] = useState<ReservedComboItem[]>([]);
   const [appliedCoupon, setAppliedCoupon] = useState<AppliedCouponData | null>(null);
+  const [voucherSeatId, setVoucherSeatId] = useState<number | null>(null);
 
   // UI States
   const [paymentMethod, setPaymentMethod] = useState<string>('vnpay');
@@ -257,7 +254,13 @@ function PaymentContent() {
     return ticketSubtotal + combosSubtotal;
   }, [ticketSubtotal, combosSubtotal]);
 
-  const discountAmount = appliedCoupon ? appliedCoupon.discount_amount : 0;
+  const flatTicketPrices = ticketItems.flatMap(item => Array.from({ length: item.quantity }, () => item.unit_price));
+  const selectedVoucherPrice = flatTicketPrices[selectedSeatIds.indexOf(voucherSeatId ?? selectedSeatIds[0])] ?? ticketBasePrice;
+  const discountAmount = appliedCoupon
+    ? appliedCoupon.is_compensation
+      ? Math.min(Math.round(selectedVoucherPrice * 0.5), appliedCoupon.max_discount ?? Infinity)
+      : appliedCoupon.discount_amount
+    : 0;
   const finalTotal = Math.max(0, originalTotal - discountAmount);
 
   // Xử lý hết thời gian 10 phút giữ chỗ
@@ -286,6 +289,8 @@ function PaymentContent() {
       const payload = {
         coupon_code: code,
         total_amount: originalTotal,
+        ticket_amount: ticketSubtotal,
+        selected_ticket_price: selectedVoucherPrice,
         movie_id: screening?.movie?.id || undefined,
       };
 
@@ -308,6 +313,7 @@ function PaymentContent() {
 
       // Áp dụng thành công
       setAppliedCoupon(result.data);
+      setVoucherSeatId(selectedSeatIds[0] ?? null);
       if (typeof window !== 'undefined') {
         window.sessionStorage.setItem('lumi_coupon_applied', JSON.stringify(result.data));
       }
@@ -355,6 +361,7 @@ function PaymentContent() {
           quantity: item.quantity || item.qty || 1,
         })),
         coupon_code: appliedCoupon ? appliedCoupon.code : undefined,
+        voucher_seat_id: appliedCoupon?.is_compensation ? (voucherSeatId ?? selectedSeatIds[0]) : undefined,
         payment_method: paymentMethod,
       };
 
@@ -645,8 +652,13 @@ function PaymentContent() {
                           {appliedCoupon.code}
                         </div>
                         <div className="text-xs text-green-300">
-                          Đã giảm {appliedCoupon.discount_amount.toLocaleString('vi-VN')} đ
+                          Đã giảm {discountAmount.toLocaleString('vi-VN')} đ
                         </div>
+                        {appliedCoupon.is_compensation && selectedSeatIds.length > 1 && (
+                          <select aria-label="Vé áp dụng voucher" value={voucherSeatId ?? selectedSeatIds[0]} onChange={e => setVoucherSeatId(Number(e.target.value))} className="mt-2 bg-[#1E1E1E] text-white text-xs border border-[#555] rounded p-1">
+                            {selectedSeatIds.map((seatId, index) => <option key={seatId} value={seatId}>Ghế {selectedSeatCodes[index]}</option>)}
+                          </select>
+                        )}
                       </div>
                     </div>
                     <button

@@ -4,8 +4,9 @@ import { prisma } from '@/lib/prisma';
 import { AppError, handleError } from '@/lib/error';
 import { apiResponse } from '@/lib/api-response';
 import { requireAuth } from '@/lib/auth-helpers';
-import { SeatStatus, PaymentStatus, PaymentMethod } from '@prisma/client';
+import { SeatStatus, PaymentStatus, PaymentMethod, Prisma } from '@prisma/client';
 import { calculateTicketPrice } from '@/lib/pricing';
+import { allocateTicketDiscount } from '@/lib/ticket-discount';
 
 export const dynamic = 'force-dynamic';
 
@@ -28,6 +29,10 @@ interface PosSellTicketPayload {
   customer_phone?: string;
   customer_email?: string;
   payment_method?: 'Cash' | 'VNPay' | 'BankCard';
+  coupon_code?: string;
+  couponCode?: string;
+  voucher_seat_id?: number;
+  voucherSeatId?: number;
 }
 
 function generateTicketSignature(
@@ -103,6 +108,10 @@ export async function POST(request: NextRequest) {
       customer_phone,
       customer_email,
       payment_method = 'Cash',
+      coupon_code,
+      couponCode,
+      voucher_seat_id,
+      voucherSeatId,
     } = body;
 
     if (!screening_id || typeof screening_id !== 'number') {
@@ -220,22 +229,116 @@ export async function POST(request: NextRequest) {
       }
     }
 
-    const finalAmount = ticketTotal + comboTotal;
-
     // 5. Giải quyết thông tin khách hàng tại quầy
     const customer = await resolveCustomer(customer_name, customer_phone, customer_email);
 
-    // 6. Thực thi giao dịch nguyên tử (Atomic Transaction)
+    // 6. Kiểm tra và áp dụng mã giảm giá (SRS: Khi mua vé online hoặc tại quầy, khách/nhân viên nhập mã)
+    const rawCode = coupon_code || couponCode;
+    let appliedCoupon: any = null;
+    let discountAmount = 0;
+    let compensationSeatId: number | undefined;
+
+    if (rawCode && rawCode.trim()) {
+      const normalizedCode = rawCode.trim().toUpperCase();
+      const coupon = await prisma.coupon.findUnique({
+        where: { code: normalizedCode },
+      });
+
+      if (!coupon) {
+        throw new AppError(404, `Mã khuyến mãi "${normalizedCode}" không tồn tại`, 'COUPON_NOT_FOUND');
+      }
+
+      const now = new Date();
+      const expiryDate = new Date(coupon.expiryDate);
+      expiryDate.setHours(23, 59, 59, 999);
+      if (expiryDate < now) {
+        throw new AppError(400, `Mã khuyến mãi "${normalizedCode}" đã hết hạn sử dụng`, 'COUPON_EXPIRED');
+      }
+
+      if (coupon.usedCount >= coupon.maxUsage) {
+        throw new AppError(400, `Mã khuyến mãi "${normalizedCode}" đã hết lượt sử dụng`, 'COUPON_USAGE_LIMIT_EXCEEDED');
+      }
+
+      const minAmount = Number(coupon.minAmount);
+      if (ticketTotal < minAmount) {
+        throw new AppError(
+          400,
+          `Đơn hàng cần đạt tối thiểu ${minAmount.toLocaleString('vi-VN')} đ để áp dụng mã "${normalizedCode}"`,
+          'MIN_AMOUNT_NOT_REACHED'
+        );
+      }
+
+      if (coupon.applicableMovieId !== null && coupon.applicableMovieId !== screening.movieId) {
+        throw new AppError(
+          400,
+          `Mã khuyến mãi "${normalizedCode}" không áp dụng cho phim "${screening.movie.title}"`,
+          'COUPON_NOT_APPLICABLE_TO_MOVIE'
+        );
+      }
+
+      if (coupon.userId !== null && coupon.userId !== customer.id) {
+        throw new AppError(
+          403,
+          `Mã khuyến mãi "${normalizedCode}" chỉ dành riêng cho tài khoản được chỉ định`,
+          'COUPON_USER_RESTRICTED'
+        );
+      }
+
+      const discountVal = Number(coupon.discountValue);
+      if (coupon.sourceTicketId !== null) {
+        const targetVoucherSeat = voucher_seat_id ?? voucherSeatId;
+        if (targetVoucherSeat === undefined && seat_ids.length > 1) {
+          throw new AppError(400, 'Vui lòng chọn vé áp dụng voucher', 'VOUCHER_TICKET_REQUIRED');
+        }
+        compensationSeatId = targetVoucherSeat ?? seat_ids[0];
+        const ticketIndex = seat_ids.indexOf(compensationSeatId);
+        if (ticketIndex < 0) throw new AppError(400, 'Vé áp dụng voucher không hợp lệ', 'INVALID_VOUCHER_TICKET');
+        const flatPrices = ticketBreakdown.flatMap(item => Array.from({ length: item.quantity }, () => item.unit_price));
+        discountAmount = Math.round(flatPrices[ticketIndex] * 0.5);
+      } else if (coupon.discountType === 'Percentage') {
+        discountAmount = Math.round((ticketTotal * discountVal) / 100);
+      } else {
+        discountAmount = discountVal;
+      }
+      if (coupon.maxDiscount !== null) discountAmount = Math.min(discountAmount, Number(coupon.maxDiscount));
+      discountAmount = Math.min(discountAmount, ticketTotal);
+      appliedCoupon = coupon;
+    }
+
+    const finalAmount = Math.max(0, (ticketTotal - discountAmount) + comboTotal);
+    const flatTickets = ticketBreakdown.flatMap(item =>
+      Array.from({ length: item.quantity }, () => ({ type: item.type, originalPrice: item.unit_price }))
+    );
+    const ticketSnapshots = allocateTicketDiscount(
+      seat_ids.map((seatId, index) => ({ seatId, ...flatTickets[index] })),
+      discountAmount,
+      compensationSeatId
+    );
+
+    // 7. Thực thi giao dịch nguyên tử (Atomic Transaction)
     const transactionCode = `POS_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
 
     const posResult = await prisma.$transaction(async (tx) => {
-      // 6.1. Tạo Payment đã thanh toán thành công
+      // 7.0. Cập nhật lượt dùng voucher nếu có áp dụng
+      if (appliedCoupon) {
+        const reserved = await tx.coupon.updateMany({
+          where: {
+            id: appliedCoupon.id,
+            usedCount: { lt: appliedCoupon.maxUsage },
+          },
+          data: { usedCount: { increment: 1 } },
+        });
+        if (reserved.count !== 1) throw new AppError(409, 'Voucher đã hết lượt sử dụng', 'COUPON_UNAVAILABLE');
+      }
+
+      // 7.1. Tạo Payment đã thanh toán thành công
       const payment = await tx.payment.create({
         data: {
           userId: customer.id,
           screeningId: screening.id,
           seatIds: seat_ids,
-          ticketItems: ticketBreakdown,
+          couponCode: appliedCoupon ? appliedCoupon.code : null,
+          ticketItems: ticketSnapshots as unknown as Prisma.InputJsonValue,
           amount: finalAmount,
           paymentMethod: payment_method as PaymentMethod,
           transactionCode,
@@ -243,7 +346,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // 6.2. Cập nhật ghế sang OCCUPIED
+      // 7.2. Cập nhật ghế sang OCCUPIED
       await tx.seat.updateMany({
         where: { id: { in: seat_ids } },
         data: {
@@ -252,7 +355,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // 6.3. Trừ kho combo và lưu OrderCombo
+      // 7.3. Trừ kho combo và lưu OrderCombo
       if (comboBreakdown.length > 0) {
         for (const c of comboBreakdown) {
           await tx.combo.update({
@@ -273,19 +376,13 @@ export async function POST(request: NextRequest) {
         });
       }
 
-      // 6.4. Tạo bản ghi Tickets
+      // 7.4. Tạo bản ghi Tickets với đầy đủ snapshot giá gốc, tiền giảm, tiền thực trả
       const createdTickets = [];
-      const flatTicketTypes: Array<{ type: string; price: number }> = [];
-      for (const item of ticketBreakdown) {
-        for (let i = 0; i < item.quantity; i++) {
-          flatTicketTypes.push({ type: item.type, price: item.unit_price });
-        }
-      }
 
       for (let i = 0; i < seat_ids.length; i++) {
         const sId = seat_ids[i];
         const sObj = seats.find(s => s.id === sId);
-        const tInfo = flatTicketTypes[i] || { type: 'Thường', price: basePrice };
+        const snapshot = ticketSnapshots[i] || { type: 'Thường', originalPrice: basePrice, discountAmount: 0, paidPrice: basePrice };
 
         const ticket = await tx.ticket.create({
           data: {
@@ -293,8 +390,11 @@ export async function POST(request: NextRequest) {
             screeningId: screening.id,
             seatId: sId,
             paymentId: payment.id,
-            ticketType: tInfo.type,
-            price: tInfo.price,
+            ticketType: snapshot.type,
+            price: snapshot.paidPrice,
+            originalPrice: snapshot.originalPrice,
+            discountAmount: snapshot.discountAmount,
+            paidPrice: snapshot.paidPrice,
             status: 'Valid',
           },
         });
@@ -306,6 +406,9 @@ export async function POST(request: NextRequest) {
           seat_code: sObj?.code || '',
           ticket_type: ticket.ticketType,
           price: Number(ticket.price),
+          original_price: Number(snapshot.originalPrice),
+          discount_amount: Number(snapshot.discountAmount),
+          paid_price: Number(snapshot.paidPrice),
           status: ticket.status,
           qr_payload: JSON.stringify({
             ticket_id: ticket.id,
@@ -336,6 +439,8 @@ export async function POST(request: NextRequest) {
       tickets: posResult.tickets,
       combos: comboBreakdown,
       ticket_total: ticketTotal,
+      discount_amount: discountAmount,
+      coupon_code: appliedCoupon ? appliedCoupon.code : null,
       combo_total: comboTotal,
       final_amount: finalAmount,
       payment_method: payment_method,

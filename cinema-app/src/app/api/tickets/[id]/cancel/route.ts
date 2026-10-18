@@ -1,243 +1,49 @@
 import { NextRequest } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { prisma } from '@/lib/prisma';
-import { authOptions } from '@/lib/auth';
-import { AppError, handleError } from '@/lib/error';
-import { apiResponse } from '@/lib/api-response';
-import { TicketStatus, SeatStatus, DiscountType } from '@prisma/client';
+import { requireAuth } from '@/lib/auth-helpers';
+import { cancelTicket } from '@/lib/ticket-cancellation';
 import { sendVoucherIssued } from '@/lib/email';
+import { apiResponse } from '@/lib/api-response';
+import { handleError } from '@/lib/error';
 
 export const dynamic = 'force-dynamic';
+type Context = { params: Promise<{ id: string }> };
 
-interface RouteContext {
-  params: Promise<{ id: string }>;
-}
-
-/**
- * Xử lý hủy vé từ phía khách hàng (Phase 10 - BR-03)
- * Điều kiện:
- * - Vé phải thuộc về người dùng đang đăng nhập (hoặc ADMIN)
- * - Vé chưa qua sử dụng (Status: Valid)
- * - Hủy trước giờ chiếu ít nhất 2 tiếng (timeDiff >= 2 hours)
- * - Giải phóng ghế về EMPTY
- * - Cấp mã Coupon hoàn 50% có hạn 30 ngày
- * - Gửi email cấp voucher bất đồng bộ không chặn luồng (Phase 14)
- */
-async function processTicketCancellation(
-  request: NextRequest,
-  params: Promise<{ id: string }>
-) {
+export async function processCustomerCancellation(_request: NextRequest, { params }: Context) {
   try {
+    const user = await requireAuth(['CUSTOMER']);
     const { id } = await params;
-    const ticketId = parseInt(id, 10);
-
-    if (isNaN(ticketId) || ticketId <= 0) {
-      throw new AppError(400, 'Mã định danh vé (id) không hợp lệ', 'INVALID_TICKET_ID');
-    }
-
-    const session = await getServerSession(authOptions);
-
-    // 1. Xác định User đang yêu cầu từ Server Session
-    if (!session || !session.user?.id) {
-      throw new AppError(
-        401,
-        'Vui lòng đăng nhập để thực hiện hủy vé',
-        'UNAUTHENTICATED'
-      );
-    }
-
-    const currentUserId = Number(session.user.id);
-    const currentUserRole = (session.user as { role?: string }).role;
-
-    // 2. Tìm vé trong Database
-    const ticket = await prisma.ticket.findUnique({
-      where: { id: ticketId },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-        screening: {
-          include: {
-            movie: {
-              select: {
-                id: true,
-                title: true,
-              },
-            },
-          },
-        },
-        seat: true,
-      },
+    const ticketId = Number(id);
+    if (!Number.isSafeInteger(ticketId) || ticketId <= 0) return apiResponse(false, undefined, 'Mã vé không hợp lệ', 400);
+    const result = await cancelTicket({
+      ticketId, actorId: user.id, actorRole: user.role,
+      fault: 'CUSTOMER', reason: 'Khách chủ động hủy vé',
     });
-
-    if (!ticket) {
-      throw new AppError(404, `Không tìm thấy vé #${ticketId}`, 'TICKET_NOT_FOUND');
-    }
-
-    // Kiểm tra quyền sở hữu
-    if (ticket.userId !== currentUserId && currentUserRole !== 'ADMIN') {
-      throw new AppError(
-        403,
-        'Bạn không có quyền hủy vé của người dùng khác',
-        'FORBIDDEN'
-      );
-    }
-
-    // 3. Ràng buộc nghiệp vụ BR-03:
-    // 3.1. Kiểm tra vé chưa qua sử dụng
-    if (ticket.status === TicketStatus.Used) {
-      throw new AppError(
-        400,
-        'Vé này đã được sử dụng (check-in vào rạp), không thể hủy theo quy định',
-        'TICKET_ALREADY_USED'
-      );
-    }
-
-    if (ticket.status === TicketStatus.Cancelled) {
-      throw new AppError(
-        400,
-        'Vé này đã được hủy từ trước đó',
-        'TICKET_ALREADY_CANCELLED'
-      );
-    }
-
-    if (ticket.status !== TicketStatus.Valid) {
-      throw new AppError(
-        400,
-        `Vé có trạng thái "${ticket.status}", không thể thực hiện hủy`,
-        'INVALID_TICKET_STATUS'
-      );
-    }
-
-    // 3.2. Kiểm tra thời gian hủy phải trước suất chiếu ít nhất 2 giờ
-    if (!ticket.screening || !ticket.screening.startTime) {
-      throw new AppError(400, 'Không tìm thấy thông tin thời gian suất chiếu của vé', 'INVALID_SCREENING');
-    }
-
-    const now = new Date();
-    const screeningStartTime = new Date(ticket.screening.startTime);
-    const timeDiffMs = screeningStartTime.getTime() - now.getTime();
-    const TWO_HOURS_MS = 2 * 60 * 60 * 1000;
-
-    if (timeDiffMs < TWO_HOURS_MS) {
-      const hoursLeft = Math.max(0, timeDiffMs / (1000 * 60 * 60)).toFixed(1);
-      throw new AppError(
-        400,
-        `Theo quy định BR-03, vé chỉ có thể hủy trước giờ chiếu ít nhất 2 tiếng. Hiện chỉ còn ${hoursLeft} giờ trước khi suất chiếu bắt đầu.`,
-        'CANCELLATION_TIME_LIMIT_EXCEEDED'
-      );
-    }
-
-    // 4. THỰC THI TRANSACTION NGUYÊN TỬ (Atomic Transaction)
-    const expiryDate = new Date();
-    expiryDate.setDate(expiryDate.getDate() + 30); // Voucher bồi hoàn có hạn 30 ngày
-    const couponCode = `COMP50_${ticket.id}_${Math.floor(1000 + Math.random() * 9000)}`;
-
-    const { updatedTicket, refundCoupon } = await prisma.$transaction(async (tx) => {
-      // 4.1. Cập nhật trạng thái vé thành CANCELLED và lưu lý do hủy
-      const cancelledTicket = await tx.ticket.update({
-        where: { id: ticket.id },
-        data: {
-          status: TicketStatus.Cancelled,
-          cancellationReason: 'Khách hàng chủ động hủy vé trước giờ chiếu ít nhất 2 tiếng theo quy chế BR-03',
-        },
-      });
-
-      // 4.2. Giải phóng trạng thái ghế trong bảng Seats (thành EMPTY)
-      if (ticket.seatId) {
-        await tx.seat.update({
-          where: { id: ticket.seatId },
-          data: {
-            status: SeatStatus.EMPTY,
-            reservedUntil: null,
-          },
-        });
-      }
-
-      // 4.3. Tạo Coupon giảm giá 50% bồi thường cho chính user đó
-      const createdCoupon = await tx.coupon.create({
-        data: {
-          code: couponCode,
-          discountType: DiscountType.Percentage,
-          discountValue: 50,
-          minAmount: 0,
-          maxUsage: 1,
-          usedCount: 0,
-          expiryDate,
-          userId: ticket.userId,
-          applicableMovieId: null,
-        },
-      });
-
-      return { updatedTicket: cancelledTicket, refundCoupon: createdCoupon };
-    });
-
-    // 4.4. Gửi email thông báo cấp voucher hoàn tiền 50% cho khách hàng (Phase 14)
-    // Chạy bất đồng bộ không await để không làm chậm hoặc sập luồng chính
-    if (refundCoupon && ticket.user?.email) {
-      sendVoucherIssued(ticket.user.email, refundCoupon.code, {
-        customerName: ticket.user.name || undefined,
+    if (result.voucher && result.customerEmail) {
+      sendVoucherIssued(result.customerEmail, result.voucher.code, {
+        customerName: result.customerName,
         discountPercent: 50,
-        discountAmount: Math.round(Number(ticket.price) * 0.5),
-        expiryDate: refundCoupon.expiryDate,
-        reason: 'Khách hàng chủ động hủy vé trước giờ chiếu ít nhất 2 tiếng theo quy chế BR-03',
-        ticketId: ticket.id,
-      }).catch((emailErr) => {
-        console.warn(`[EmailService] Failed to send voucher to ${ticket.user?.email}:`, emailErr);
-      });
+        expiryDate: result.voucher.expiryDate,
+        reason: result.reason,
+        ticketId,
+      }).catch(error => console.warn('[EmailService] Không gửi được voucher:', error));
     }
-
-    return apiResponse(
-      true,
-      {
-        ticket_id: updatedTicket.id,
-        status: updatedTicket.status,
-        released_seat: ticket.seat?.code || null,
-        compensation_coupon: {
-          id: refundCoupon.id,
-          code: refundCoupon.code,
-          discount_type: refundCoupon.discountType,
-          discount_value: Number(refundCoupon.discountValue),
-          expiry_date: refundCoupon.expiryDate.toISOString(),
-          message: 'Voucher giảm giá 50% bồi hoàn cho lần đặt vé tiếp theo (Hạn dùng 30 ngày)',
-        },
+    return apiResponse(true, {
+      ticket_id: result.ticketId,
+      status: result.status,
+      released_seat: result.seatCode,
+      compensation_coupon: result.voucher && {
+        code: result.voucher.code,
+        discount_type: 'Percentage',
+        discount_value: 50,
+        expiry_date: result.voucher.expiryDate.toISOString(),
+        message: 'Giảm 50% trên một vé, dùng một lần trong 30 ngày',
       },
-      'Hủy vé thành công! Ghế đã được giải phóng và bạn nhận được voucher giảm 50% bồi hoàn.',
-      200
-    );
+    }, 'Đã hủy vé và cấp voucher 50%');
   } catch (error) {
-    const errorResponse = handleError(error);
-    return apiResponse(
-      false,
-      null,
-      errorResponse.error,
-      errorResponse.statusCode,
-      errorResponse.code,
-      errorResponse.error
-    );
+    const result = handleError(error);
+    return apiResponse(false, undefined, result.error, result.statusCode, result.code);
   }
 }
 
-/**
- * POST /api/tickets/[id]/cancel
- */
-export async function POST(
-  request: NextRequest,
-  { params }: RouteContext
-) {
-  return processTicketCancellation(request, params);
-}
-
-/**
- * DELETE /api/tickets/[id]/cancel
- */
-export async function DELETE(
-  request: NextRequest,
-  { params }: RouteContext
-) {
-  return processTicketCancellation(request, params);
-}
+export const POST = processCustomerCancellation;
+export const DELETE = processCustomerCancellation;

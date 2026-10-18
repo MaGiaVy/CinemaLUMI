@@ -191,19 +191,14 @@ export async function GET(request: NextRequest) {
  * Thêm đánh giá & bình luận cho phim:
  * 1. Yêu cầu người dùng phải đăng nhập (Session NextAuth).
  * 2. Validate dữ liệu payload bằng Zod (movie_id, rating: 1-5, comment).
- * 3. Validation Nghiệp vụ Cốt lõi:
- *    - Dùng Prisma kiểm tra xem user_id này đã từng có Ticket nào của movie_id này với trạng thái 'Used' chưa.
- *    - Nếu chưa có (chưa xem phim hoặc vé chưa check-in), ném ra AppError 403:
- *      'Bạn chỉ được đánh giá phim sau khi đã xem'
- * 4. Nếu hợp lệ, lưu bản ghi vào bảng Review (nếu đã từng đánh giá thì cập nhật).
+ * 3. Khách đã đăng nhập được đánh giá phim, không cần vé đã xem.
+ * 4. Lưu bản ghi vào bảng Review (nếu đã từng đánh giá thì cập nhật).
  * 5. Tự động tính toán lại điểm rating trung bình của phim trong bảng Movie.
  * 6. Trả về kết quả qua helper apiResponse.
  */
 export async function POST(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
-    const searchParams = request.nextUrl.searchParams;
-
     // 1. Phân tích request body
     const body = await request.json().catch(() => null);
     if (!body || typeof body !== 'object') {
@@ -211,19 +206,7 @@ export async function POST(request: NextRequest) {
     }
 
     // 2. Xác định User đang yêu cầu
-    let currentUserId: number | null = session?.user?.id ? Number(session.user.id) : null;
-
-    // Fallback cho môi trường kiểm thử tự động
-    if (!currentUserId) {
-      if (body.user_id && typeof body.user_id === 'number') {
-        currentUserId = body.user_id;
-      } else if (searchParams.get('user_id')) {
-        const parsedUserId = parseInt(searchParams.get('user_id')!, 10);
-        if (!isNaN(parsedUserId) && parsedUserId > 0) {
-          currentUserId = parsedUserId;
-        }
-      }
-    }
+    const currentUserId = session?.user?.id ? Number(session.user.id) : null;
 
     if (!currentUserId) {
       throw new AppError(

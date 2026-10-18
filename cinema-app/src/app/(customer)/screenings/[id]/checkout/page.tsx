@@ -35,6 +35,8 @@ interface ValidatedCouponData {
   discount_type: 'Percentage' | 'FixedAmount';
   discount_value: number;
   discount_amount: number;
+  is_compensation?: boolean;
+  max_discount?: number | null;
   original_amount: number;
   final_amount: number;
   min_amount: number;
@@ -58,12 +60,6 @@ const PAYMENT_METHODS = [
     label: 'Ví điện tử MoMo',
     icon: '📱',
     description: 'Thanh toán trực tiếp qua ứng dụng ví MoMo',
-  },
-  {
-    id: 'banking',
-    label: 'Chuyển khoản Ngân hàng',
-    icon: '🏦',
-    description: 'Chuyển khoản 24/7 với mã QR tự động nhận diện',
   },
 ];
 
@@ -98,6 +94,7 @@ export default function CheckoutPage() {
   const [couponCodeInput, setCouponCodeInput] = useState<string>('');
   const [isValidatingCoupon, setIsValidatingCoupon] = useState<boolean>(false);
   const [appliedCoupon, setAppliedCoupon] = useState<ValidatedCouponData | null>(null);
+  const [voucherSeatId, setVoucherSeatId] = useState<number | null>(null);
 
   // Payment status
   const [isProcessingPayment, setIsProcessingPayment] = useState<boolean>(false);
@@ -228,7 +225,12 @@ export default function CheckoutPage() {
     return ticketSubtotal + combosSubtotal;
   }, [ticketSubtotal, combosSubtotal]);
 
-  const discountAmount = appliedCoupon ? appliedCoupon.discount_amount : 0;
+  const selectedVoucherPrice = ticketBasePrice;
+  const discountAmount = appliedCoupon
+    ? appliedCoupon.is_compensation
+      ? Math.min(Math.round(selectedVoucherPrice * 0.5), appliedCoupon.max_discount ?? Infinity)
+      : appliedCoupon.discount_amount
+    : 0;
   const finalTotal = Math.max(0, originalTotal - discountAmount);
 
   // Áp dụng mã giảm giá qua POST /api/coupons/validate
@@ -246,6 +248,8 @@ export default function CheckoutPage() {
       const payload = {
         coupon_code: code,
         total_amount: originalTotal,
+        ticket_amount: ticketSubtotal,
+        selected_ticket_price: selectedVoucherPrice,
         movie_id: screening?.movie?.id || undefined,
       };
 
@@ -269,6 +273,7 @@ export default function CheckoutPage() {
 
       // Áp dụng thành công
       setAppliedCoupon(result.data);
+      setVoucherSeatId(selectedSeatIds[0] ?? null);
       showToast(result.message || `Đã áp dụng mã giảm giá '${code}' thành công!`, 'success');
     } catch (err) {
       console.error('Lỗi khi gọi API validate coupon:', err);
@@ -310,6 +315,7 @@ export default function CheckoutPage() {
           quantity: item.quantity,
         })),
         coupon_code: appliedCoupon ? appliedCoupon.code : undefined,
+        voucher_seat_id: appliedCoupon?.is_compensation ? (voucherSeatId ?? selectedSeatIds[0]) : undefined,
         payment_method: paymentMethod,
       };
 
@@ -407,7 +413,7 @@ export default function CheckoutPage() {
             {appliedCoupon && (
               <div className="flex justify-between text-xs text-[#2ECC71]">
                 <span>Khuyến mãi ({appliedCoupon.code}):</span>
-                <span>-{appliedCoupon.discount_amount.toLocaleString('vi-VN')} đ</span>
+                <span>-{discountAmount.toLocaleString('vi-VN')} đ</span>
               </div>
             )}
             <div className="flex justify-between border-t border-[#404040] pt-2 font-bold text-base">
@@ -519,6 +525,11 @@ export default function CheckoutPage() {
                       </button>
                     </div>
 
+                    {appliedCoupon.is_compensation && selectedSeatIds.length > 1 && (
+                      <select aria-label="Vé áp dụng voucher" value={voucherSeatId ?? selectedSeatIds[0]} onChange={e => setVoucherSeatId(Number(e.target.value))} className="bg-[#1E1E1E] text-white text-sm border border-[#555] rounded p-2">
+                        {selectedSeatIds.map((seatId, index) => <option key={seatId} value={seatId}>Ghế {selectedSeatCodes[index]}</option>)}
+                      </select>
+                    )}
                     <div className="text-xs text-[#B3B3B3] flex items-center justify-between pt-1 border-t border-[#2ECC71]/20">
                       <span>
                         Hình thức giảm:{' '}
@@ -527,7 +538,7 @@ export default function CheckoutPage() {
                           : 'Giảm tiền mặt'}
                       </span>
                       <span className="text-[#2ECC71] font-bold text-sm">
-                        -{appliedCoupon.discount_amount.toLocaleString('vi-VN')} đ
+                        -{discountAmount.toLocaleString('vi-VN')} đ
                       </span>
                     </div>
                   </div>
@@ -712,7 +723,7 @@ export default function CheckoutPage() {
                         <span className="text-xs font-semibold">Khuyến mãi ({appliedCoupon.code}):</span>
                       </div>
                       <span className="font-bold">
-                        -{appliedCoupon.discount_amount.toLocaleString('vi-VN')} đ
+                        -{discountAmount.toLocaleString('vi-VN')} đ
                       </span>
                     </div>
                   )}

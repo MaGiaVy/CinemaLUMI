@@ -1,6 +1,6 @@
 'use client';
 
-import { Suspense, useEffect } from 'react';
+import { Suspense, useEffect, useState } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 
@@ -9,21 +9,41 @@ function PaymentResultInner() {
   const router = useRouter();
 
   const paymentId = searchParams.get('payment_id') || searchParams.get('paymentId');
-  const statusParam = searchParams.get('status') || '';
-  const responseCode = searchParams.get('code') || searchParams.get('vnp_ResponseCode') || '00';
-  const isSuccess = statusParam.toLowerCase() === 'success' || responseCode === '00';
-  const rawAmount = searchParams.get('amount') || searchParams.get('vnp_Amount');
-  const amount = rawAmount ? Number(rawAmount) : 0;
-  const _orderInfo = searchParams.get('order_info') || searchParams.get('vnp_OrderInfo') || 'Thanh toán vé xem phim Lumi Cinema';
-  const errorMessage = searchParams.get('error');
+  const [payment, setPayment] = useState<{ status: string; amount: number; paymentMethod: string | null } | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState('');
+  const isSuccess = payment?.status === 'Success';
+  const amount = payment?.amount || 0;
+  const responseCode = payment?.status === 'Failed' ? 'Thất bại' : '';
+  const errorMessage = loadError;
+
+  useEffect(() => {
+    if (!paymentId || !/^\d+$/.test(paymentId)) {
+      setLoadError('Không tìm thấy mã đơn hợp lệ');
+      setLoading(false);
+      return;
+    }
+    fetch(`/api/payments/${paymentId}`, { cache: 'no-store' })
+      .then(async response => {
+        const result = await response.json();
+        if (!response.ok || !result.success) throw new Error(result.message || 'Không thể kiểm tra đơn');
+        setPayment(result.data);
+      })
+      .catch(error => setLoadError(error instanceof Error ? error.message : 'Không thể kiểm tra đơn'))
+      .finally(() => setLoading(false));
+  }, [paymentId]);
 
   // Xóa session tạm giữ chỗ trên máy khách khi đã hoàn tất phiên đặt vé
   useEffect(() => {
-    if (typeof window !== 'undefined') {
+    if (payment?.status === 'Success' || payment?.status === 'Failed') {
       window.sessionStorage.removeItem('lumi_booking_reservation');
       window.sessionStorage.removeItem('lumi_combo_reservation');
     }
-  }, [paymentId]);
+  }, [payment?.status]);
+
+  if (loading || payment?.status === 'Pending') {
+    return <div className="min-h-screen bg-[#111217] text-white flex items-center justify-center">Đang xác nhận thanh toán. Vui lòng kiểm tra lại sau.</div>;
+  }
 
   return (
     <div className="min-h-screen bg-[#111217] text-white flex flex-col justify-center items-center p-4 sm:p-6 font-sans">
@@ -59,7 +79,7 @@ function PaymentResultInner() {
               <div className="flex justify-between items-center pb-3 border-b border-[#20222D]">
                 <span className="text-gray-400">Phương thức:</span>
                 <span className="font-semibold text-white flex items-center gap-1.5">
-                  <span>💳</span> VNPay Gateway
+                  <span>💳</span> {payment?.paymentMethod || 'VNPay'}
                 </span>
               </div>
               <div className="flex justify-between items-center">
@@ -68,26 +88,6 @@ function PaymentResultInner() {
                   HỢP LỆ (VALID)
                 </span>
               </div>
-            </div>
-
-            {/* Simulated QR Code vé vào rạp */}
-            <div className="bg-[#12131A] border border-[#252733] rounded-xl p-4 mb-6 flex flex-col items-center">
-              <div className="w-32 h-32 bg-white rounded-lg p-2 flex items-center justify-center shadow-inner mb-2">
-                <div className="grid grid-cols-5 gap-1 w-full h-full">
-                  {Array.from({ length: 25 }, (_, i) => (
-                    <div
-                      key={i}
-                      className="rounded-[1px]"
-                      style={{
-                        background: (i % 2 === 0 || i % 7 === 0 || i === 0 || i === 24) ? '#111' : '#f0f0f0',
-                      }}
-                    />
-                  ))}
-                </div>
-              </div>
-              <p className="text-xs text-gray-400 text-center font-medium">
-                Quét mã QR tại cổng kiểm soát vé vào phòng chiếu
-              </p>
             </div>
 
             {/* Các nút điều hướng */}
@@ -118,9 +118,7 @@ function PaymentResultInner() {
             </h1>
             <p className="text-gray-400 text-sm mb-6">
               {errorMessage ||
-                (responseCode === '24'
-                  ? 'Giao dịch đã bị hủy theo yêu cầu của bạn.'
-                  : 'Giao dịch qua cổng thanh toán không thành công hoặc đã hết hạn giữ chỗ.')}
+                'Giao dịch không thành công hoặc đã hết hạn giữ chỗ.'}
             </p>
 
             <div className="bg-[#12131A] border border-[#252733] rounded-xl p-5 mb-6 text-left space-y-2.5 text-sm">
@@ -139,7 +137,7 @@ function PaymentResultInner() {
                 </span>
               </div>
               <div className="p-2.5 bg-yellow-500/10 border border-yellow-500/20 rounded-lg text-xs text-yellow-300 mt-2">
-                Ghế ngồi và bắp nước của bạn đã được giải phóng để người khác có thể chọn lại.
+                Vui lòng chọn lại ghế nếu muốn đặt vé mới.
               </div>
             </div>
 

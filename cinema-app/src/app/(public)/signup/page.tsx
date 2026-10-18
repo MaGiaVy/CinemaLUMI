@@ -37,7 +37,7 @@ export default function SignUpPage() {
     e.preventDefault();
 
     // 1. Kiểm tra đầu vào phía Client
-    if (!form.fullName.trim() || !form.email.trim() || !form.password) {
+    if (!form.fullName.trim() || !form.email.trim() || !form.phone.trim() || !form.password) {
       showToast('Vui lòng điền đầy đủ các thông tin bắt buộc', 'warning');
       return;
     }
@@ -70,7 +70,7 @@ export default function SignUpPage() {
           email: form.email.trim(),
           password: form.password,
           full_name: form.fullName.trim(),
-          phone: form.phone.trim() || undefined,
+          phone: form.phone.trim(),
         }),
       });
 
@@ -163,6 +163,7 @@ export default function SignUpPage() {
                   placeholder="0901234567"
                   value={form.phone}
                   onChange={setField('phone')}
+                  required
                   disabled={loading}
                 />
               </div>

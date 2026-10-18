@@ -68,6 +68,11 @@ enum TicketStatus {
   Cancelled // Đã hủy / đã bồi hoàn
 }
 
+enum RefundStatus {
+  PENDING_REFUND
+  REFUNDED
+}
+
 enum ComboStatus {
   ACTIVE
   INACTIVE
@@ -93,6 +98,9 @@ model User {
   tickets  Ticket[]
   reviews  Review[]
   coupons  Coupon[]
+  seatHolds Seat[] @relation("SeatHoldUser")
+  cancellationActions CancellationAction[]
+  refundsConfirmed TicketRefund[] @relation("RefundConfirmer")
 
   @@map("users")
 }
@@ -160,14 +168,19 @@ model Seat {
   type          SeatType   @default(STANDARD)
   status        SeatStatus @default(EMPTY)
   reservedUntil DateTime?  @map("reserved_until")
+  holdUserId    Int?       @map("hold_user_id")
+  holdPaymentId Int?       @map("hold_payment_id")
   createdAt     DateTime   @default(now()) @map("created_at")
   updatedAt     DateTime   @updatedAt @map("updated_at")
 
   // Quan hệ (Relations)
   screening Screening? @relation(fields: [screeningId], references: [id], onDelete: Cascade)
   tickets   Ticket[]
+  holdUser User? @relation("SeatHoldUser", fields: [holdUserId], references: [id], onDelete: SetNull)
+  holdPayment Payment? @relation("SeatHoldPayment", fields: [holdPaymentId], references: [id], onDelete: SetNull)
 
   @@unique([screeningId, code])
+  @@index([holdPaymentId])
   @@map("seats")
 }
 
@@ -194,6 +207,8 @@ model Coupon {
   minAmount         Decimal      @default(0) @map("min_amount") @db.Decimal(10, 2)
   maxUsage          Int          @default(1) @map("max_usage")
   usedCount         Int          @default(0) @map("used_count")
+  maxDiscount       Decimal?     @map("max_discount") @db.Decimal(10, 2)
+  sourceTicketId    Int?         @unique @map("source_ticket_id")
   expiryDate        DateTime     @map("expiry_date") @db.Date
   applicableMovieId Int?         @map("applicable_movie_id")
   userId            Int?         @map("user_id") // Chỉ định user cụ thể cho Voucher bồi hoàn
@@ -205,6 +220,7 @@ model Coupon {
   // - user bị xóa -> CASCADE
   movie Movie? @relation(fields: [applicableMovieId], references: [id], onDelete: SetNull)
   user  User?  @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sourceTicket Ticket? @relation("CompensationCoupon", fields: [sourceTicketId], references: [id], onDelete: Restrict)
 
   @@map("coupons")
 }
@@ -250,6 +266,7 @@ model Payment {
   screeningId     Int?           @map("screening_id")
   seatIds         Json?          @map("seat_ids")
   couponCode      String?        @map("coupon_code") @db.VarChar(50)
+  couponReserved  Boolean        @default(false) @map("coupon_reserved")
   ticketItems     Json?          @map("ticket_items")
   amount          Decimal        @db.Decimal(10, 2)
   paymentMethod   PaymentMethod? @map("payment_method")
@@ -262,6 +279,7 @@ model Payment {
   user        User         @relation(fields: [userId], references: [id], onDelete: Restrict)
   tickets     Ticket[]
   orderCombos OrderCombo[]
+  heldSeats Seat[] @relation("SeatHoldPayment")
 
   @@map("payments")
 }
@@ -275,6 +293,9 @@ model Ticket {
   paymentId    Int          @map("payment_id")
   ticketType          String       @map("ticket_type") @db.VarChar(50)
   price               Decimal      @db.Decimal(10, 2)
+  originalPrice       Decimal?     @map("original_price") @db.Decimal(10, 2)
+  discountAmount      Decimal?     @map("discount_amount") @db.Decimal(10, 2)
+  paidPrice           Decimal?     @map("paid_price") @db.Decimal(10, 2)
   purchaseDate        DateTime     @default(now()) @map("purchase_date")
   status              TicketStatus @default(Valid)
   cancellationReason  String?      @map("cancellation_reason") @db.Text
@@ -286,9 +307,41 @@ model Ticket {
   screening Screening? @relation(fields: [screeningId], references: [id], onDelete: SetNull)
   seat      Seat?      @relation(fields: [seatId], references: [id], onDelete: SetNull)
   payment   Payment    @relation(fields: [paymentId], references: [id], onDelete: Restrict)
+  compensationCoupon Coupon? @relation("CompensationCoupon")
+  refund TicketRefund?
+  cancellationActions CancellationAction[]
 
   @@index([screeningId, seatId])
   @@map("tickets")
+}
+
+model TicketRefund {
+  id Int @id @default(autoincrement()) @map("refund_id")
+  ticketId Int @unique @map("ticket_id")
+  amount Decimal @db.Decimal(10, 2)
+  status RefundStatus @default(PENDING_REFUND)
+  reason String @db.Text
+  claimDeadline DateTime? @map("claim_deadline")
+  confirmedById Int? @map("confirmed_by_id")
+  confirmedAt DateTime? @map("confirmed_at")
+  createdAt DateTime @default(now()) @map("created_at")
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  confirmedBy User? @relation("RefundConfirmer", fields: [confirmedById], references: [id], onDelete: SetNull)
+  @@map("ticket_refunds")
+}
+
+model CancellationAction {
+  id Int @id @default(autoincrement()) @map("action_id")
+  ticketId Int @map("ticket_id")
+  actorUserId Int? @map("actor_user_id")
+  action String @db.VarChar(50)
+  reason String @db.Text
+  resolution String @db.VarChar(50)
+  createdAt DateTime @default(now()) @map("created_at")
+  ticket Ticket @relation(fields: [ticketId], references: [id], onDelete: Restrict)
+  actor User? @relation(fields: [actorUserId], references: [id], onDelete: SetNull)
+  @@index([ticketId])
+  @@map("cancellation_actions")
 }
 
 // 10. Bảng Order_Combos (Chi tiết mua bắp nước theo hóa đơn)

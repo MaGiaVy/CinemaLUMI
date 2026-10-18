@@ -64,6 +64,13 @@ export default function StaffPosPage() {
   const [customerName, setCustomerName] = useState('');
   const [customerPhone, setCustomerPhone] = useState('');
 
+  // Voucher / Khuyến mãi
+  const [couponCodeInput, setCouponCodeInput] = useState('');
+  const [appliedCoupon, setAppliedCoupon] = useState<any>(null);
+  const [voucherSeatId, setVoucherSeatId] = useState<number | null>(null);
+  const [validatingCoupon, setValidatingCoupon] = useState(false);
+  const [couponError, setCouponError] = useState<string | null>(null);
+
   // Trạng thái xử lý
   const [submitting, setSubmitting] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
@@ -195,7 +202,52 @@ export default function StaffPosPage() {
     return sum + (combo ? Number(combo.price) * qty : 0);
   }, 0);
 
-  const totalTicketPosAmount = ticketSubtotal + comboSubtotal;
+  const flatTicketPrices = selectedSeatIds.map(seatId => {
+    const type = seatTicketTypes[seatId] || 'Thường';
+    return type === 'Trẻ em' ? basePrice * 0.5 : basePrice;
+  });
+  const selectedVoucherIndex = selectedSeatIds.indexOf(voucherSeatId ?? selectedSeatIds[0]);
+  const selectedVoucherPrice = flatTicketPrices[selectedVoucherIndex >= 0 ? selectedVoucherIndex : 0] ?? basePrice;
+
+  const discountAmount = appliedCoupon
+    ? appliedCoupon.is_compensation
+      ? Math.min(Math.round(selectedVoucherPrice * 0.5), appliedCoupon.max_discount ?? Infinity)
+      : appliedCoupon.discount_amount
+    : 0;
+
+  const totalTicketPosAmount = Math.max(0, ticketSubtotal - discountAmount + comboSubtotal);
+
+  const handleApplyCoupon = async () => {
+    if (!couponCodeInput.trim()) return;
+    setValidatingCoupon(true);
+    setCouponError(null);
+    try {
+      const res = await fetch('/api/coupons/validate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          coupon_code: couponCodeInput.trim().toUpperCase(),
+          total_amount: ticketSubtotal + comboSubtotal,
+          ticket_amount: ticketSubtotal,
+          selected_ticket_price: selectedVoucherPrice,
+          movie_id: selectedMovie?.id,
+        }),
+      });
+      const json = await res.json();
+      if (res.ok && json.success) {
+        setAppliedCoupon(json.data);
+        setVoucherSeatId(selectedSeatIds[0] ?? null);
+        setCouponError(null);
+      } else {
+        setAppliedCoupon(null);
+        setCouponError(json.message || 'Mã giảm giá không hợp lệ');
+      }
+    } catch {
+      setCouponError('Lỗi kết nối khi kiểm tra mã giảm giá');
+    } finally {
+      setValidatingCoupon(false);
+    }
+  };
 
   // Thanh toán vé tại quầy
   const handleCheckoutTicketPos = async () => {
@@ -239,6 +291,8 @@ export default function StaffPosPage() {
           customer_name: customerName,
           customer_phone: customerPhone,
           payment_method: 'Cash',
+          coupon_code: appliedCoupon ? appliedCoupon.code : undefined,
+          voucher_seat_id: appliedCoupon?.is_compensation ? (voucherSeatId ?? selectedSeatIds[0]) : undefined,
         }),
       });
 
@@ -251,6 +305,10 @@ export default function StaffPosPage() {
         setSelectedCombos({});
         setCustomerName('');
         setCustomerPhone('');
+        setAppliedCoupon(null);
+        setCouponCodeInput('');
+        setVoucherSeatId(null);
+        setCouponError(null);
         // Tải lại sơ đồ ghế
         if (selectedScreening) {
           const seatRes = await fetch(`/api/screenings/${selectedScreening.id}`);
@@ -605,6 +663,72 @@ export default function StaffPosPage() {
                   />
                 </div>
 
+                {/* Áp dụng Voucher / Mã giảm giá */}
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <input
+                      type="text"
+                      placeholder="Mã voucher (Tùy chọn)"
+                      value={couponCodeInput}
+                      onChange={e => setCouponCodeInput(e.target.value)}
+                      disabled={Boolean(appliedCoupon) || validatingCoupon}
+                      className="flex-1 bg-[#141414] border border-[#333] rounded-xl px-3 py-2 text-xs text-white uppercase outline-none focus:border-[#E63946]"
+                    />
+                    {appliedCoupon ? (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setAppliedCoupon(null);
+                          setCouponCodeInput('');
+                          setVoucherSeatId(null);
+                        }}
+                        className="px-3 py-2 bg-red-600/20 text-red-400 hover:bg-red-600/30 border border-red-500/30 rounded-xl text-xs font-semibold"
+                      >
+                        Gỡ bỏ
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={handleApplyCoupon}
+                        disabled={validatingCoupon || !couponCodeInput.trim() || selectedSeatIds.length === 0}
+                        className="px-3 py-2 bg-[#FFB703] text-black hover:bg-[#e0a202] rounded-xl text-xs font-bold disabled:opacity-40"
+                      >
+                        {validatingCoupon ? 'Kiểm tra...' : 'Áp dụng'}
+                      </button>
+                    )}
+                  </div>
+                  {couponError && (
+                    <p className="text-[11px] text-red-400">{couponError}</p>
+                  )}
+                  {appliedCoupon && (
+                    <div className="p-2 bg-[#2ECC71]/10 border border-[#2ECC71]/30 rounded-xl text-xs space-y-1">
+                      <div className="flex justify-between text-[#2ECC71] font-semibold">
+                        <span>Mã: {appliedCoupon.code}</span>
+                        <span>-{discountAmount.toLocaleString('vi-VN')} đ</span>
+                      </div>
+                      {appliedCoupon.is_compensation && selectedSeatIds.length > 1 && (
+                        <div className="pt-1">
+                          <label className="text-[11px] text-[#A3A3A3] block mb-1">Ghế áp dụng giảm 50%:</label>
+                          <select
+                            value={voucherSeatId ?? selectedSeatIds[0]}
+                            onChange={e => setVoucherSeatId(Number(e.target.value))}
+                            className="w-full bg-[#1A1A1A] text-white text-xs border border-[#444] rounded p-1"
+                          >
+                            {selectedSeatIds.map(sId => {
+                              const s = seats.find(item => item.id === sId);
+                              return (
+                                <option key={sId} value={sId}>
+                                  Ghế {s?.code || sId}
+                                </option>
+                              );
+                            })}
+                          </select>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
+
                 <div className="bg-[#141414] rounded-xl p-3.5 border border-[#2D2D2D] space-y-2 text-xs">
                   <div className="flex justify-between text-[#A3A3A3]">
                     <span>Số lượng ghế:</span>
@@ -614,6 +738,12 @@ export default function StaffPosPage() {
                     <span>Tiền vé:</span>
                     <span className="text-white font-bold">{ticketSubtotal.toLocaleString('vi-VN')} đ</span>
                   </div>
+                  {appliedCoupon && (
+                    <div className="flex justify-between text-[#2ECC71]">
+                      <span>Giảm giá voucher:</span>
+                      <span className="font-bold">-{discountAmount.toLocaleString('vi-VN')} đ</span>
+                    </div>
+                  )}
                   <div className="flex justify-between text-[#A3A3A3]">
                     <span>Tiền bắp nước:</span>
                     <span className="text-white font-bold">{comboSubtotal.toLocaleString('vi-VN')} đ</span>
@@ -764,6 +894,12 @@ export default function StaffPosPage() {
                   <div className="flex justify-between">
                     <span className="text-[#737373]">Phim:</span>
                     <span className="text-white font-bold">{completedReceipt.movie_title} ({completedReceipt.room})</span>
+                  </div>
+                )}
+                {completedReceipt.discount_amount > 0 && (
+                  <div className="flex justify-between text-[#2ECC71]">
+                    <span>Khuyến mãi ({completedReceipt.coupon_code}):</span>
+                    <span className="font-bold">-{Number(completedReceipt.discount_amount).toLocaleString('vi-VN')} đ</span>
                   </div>
                 )}
                 <div className="flex justify-between pt-1 border-t border-[#2D2D2D]">

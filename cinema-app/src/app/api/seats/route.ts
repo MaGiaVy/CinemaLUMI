@@ -101,6 +101,8 @@ export async function GET(request: NextRequest) {
       data: {
         status: 'EMPTY',
         reservedUntil: null,
+        holdUserId: null,
+        holdPaymentId: null,
       },
     });
 

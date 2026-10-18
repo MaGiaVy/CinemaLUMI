@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "test": "node --experimental-strip-types __tests__/lib/runner.mjs"
+    "test": "node --experimental-strip-types __tests__/lib/runner.mjs && node --experimental-strip-types __tests__/lib/test-ticket-discount.mjs && node --experimental-strip-types __tests__/security/priority1-signatures.mjs"
   },
   "dependencies": {
     "@prisma/client": "6.19.3",

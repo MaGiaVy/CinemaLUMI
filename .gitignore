@@ -22,3 +22,5 @@ next-env.d.ts
 *.zip
 *.jar
 *-20261012T*
+.superpowers/
+

@@ -105,9 +105,10 @@ export async function middleware(request: NextRequest) {
   }
 
   // 5. Phân quyền tĩnh: Tuyến đường Khách hàng bảo vệ (Vé & Luồng thanh toán)
-  const isProtectedCustomerRoute = PROTECTED_CUSTOMER_PATHS.some(
-    (prefix) => currentPath === prefix || currentPath.startsWith(`${prefix}/`)
-  );
+  const isProtectedCustomerRoute =
+    PROTECTED_CUSTOMER_PATHS.some(
+      (prefix) => currentPath === prefix || currentPath.startsWith(`${prefix}/`)
+    ) || currentPath.includes('/checkout');
 
   if (isProtectedCustomerRoute) {
     if (!isAuthenticated) {
@@ -122,17 +123,13 @@ export async function middleware(request: NextRequest) {
 
 /**
  * Cấu hình matcher để tối ưu hiệu năng:
- * Chỉ áp dụng middleware cho các request trang thực tế, loại trừ static assets
+ * Chỉ áp dụng middleware cho các request trang thực tế cần bảo vệ
  */
 export const config = {
   matcher: [
-    /*
-     * Match all request paths except for the ones starting with:
-     * - api (API routes)
-     * - _next/static (static files)
-     * - _next/image (image optimization files)
-     * - favicon.ico, sitemap.xml, robots.txt (metadata files)
-     */
-    '/((?!api|_next/static|_next/image|favicon.ico|sitemap.xml|robots.txt).*)',
+    '/admin/:path*',
+    '/staff/:path*',
+    '/tickets/:path*',
+    '/screenings/:id/checkout/:path*',
   ],
 };

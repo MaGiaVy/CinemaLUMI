@@ -36,7 +36,7 @@ Trong đồ án LumiCinema, cá nhân đảm nhiệm vai trò hạt nhân bao qu
 | **UML Modeling (Report)** | Thiết kế Activity & Sequence Diagram cho Báo cáo Thống kê & Đối soát. | 1 sơ đồ Activity + 1 sơ đồ Sequence xử lý đối soát công nợ (`BR-10`). |
 | **Database Architecture** | Thiết kế ERD, xây dựng Schema Prisma, Migration PostgreSQL, Indexing, ACID. | 11 models, 10 enums, quan hệ toàn vẹn, xử lý giữ ghế chống xung đột. |
 | **App Development** | Xây dựng Full-stack Next.js: Middleware RBAC, Auth API, Dashboard Admin. | Ứng dụng Next.js hoàn chỉnh; Tự động hóa xuất tài liệu Word 55 sơ đồ. |
-| **Class Diagram** | Thiết kế bao quát toàn bộ Sơ đồ Lớp (Class Diagram) của hệ thống rạp phim. | 12 Entity Classes + Lớp kế thừa người dùng + Service Classes. |
+| **Class Diagram** | Thiết kế bao quát toàn bộ Sơ đồ Lớp (Class Diagram) của hệ thống rạp phim. | 12 Entity Classes + Lớp kế thừa người dùng + Service Classes; Trọn bộ mã nguồn [.puml](PlantUML_Class_Diagram/class_diagram_lumicinema.puml), vector [.svg](PlantUML_Class_Diagram/class_diagram_lumicinema.svg), ảnh [.png](PlantUML_Class_Diagram/class_diagram_lumicinema.png) và [README](PlantUML_Class_Diagram/README.md) cẩm nang phản biện. |
 
 ---
 
@@ -151,6 +151,11 @@ Trong đồ án LumiCinema, cá nhân đảm nhiệm vai trò hạt nhân bao qu
   * Hợp thành (Composition `*--`): `Screening` sở hữu `Seat`; `Payment` sở hữu `OrderCombo`.
   * Kết tập (Aggregation `o--`): `Screening` kết tập `Movie`; `Ticket` liên kết với `Screening` và `Seat`.
   * Bội số (Multiplicity): Ghi chú rõ ràng tỷ lệ liên kết ($1..1, 1..*, 0..1, 0..*$).
+* **Trọn bộ Tài nguyên và Sản phẩm Chuyển giao:**
+  * 📄 **File nguồn PlantUML:** [`PlantUML_Class_Diagram/class_diagram_lumicinema.puml`](PlantUML_Class_Diagram/class_diagram_lumicinema.puml) (9.3 KB, chuẩn cú pháp UML 2.5 với skinparam phân tách màu sắc logic).
+  * 🖼️ **Bản vẽ Vector SVG:** [`PlantUML_Class_Diagram/class_diagram_lumicinema.svg`](PlantUML_Class_Diagram/class_diagram_lumicinema.svg) (109 KB, đồ họa vector sắc nét vô hạn khi phóng to trên màn hình lớn hoặc in khổ lớn).
+  * 🖼️ **Bản vẽ Raster PNG:** [`PlantUML_Class_Diagram/class_diagram_lumicinema.png`](PlantUML_Class_Diagram/class_diagram_lumicinema.png) (320 KB, độ phân giải cao 300 DPI sẵn sàng chèn luận văn và slide trình chiếu).
+  * 📘 **Cẩm nang Phân tích & Hướng dẫn Bảo vệ Đồ án:** [`PlantUML_Class_Diagram/README.md`](PlantUML_Class_Diagram/README.md) (Bộ cẩm nang toàn diện: giải thích kiến trúc, ma trận phương thức, 15 kịch bản phản biện hội đồng).
 
 #### ⚠️ Khó khăn & Thách thức kỹ thuật:
 * **Sự lệch pha giữa Lập trình Hướng đối tượng và Cơ sở Dữ liệu Quan hệ (Object-Relational Impedance Mismatch):** CSDL dùng khóa ngoại số nguyên (`movieId`, `paymentId`), trong khi UML OOP phải dùng con trỏ/tập hợp đối tượng (`List<Ticket>`, `List<OrderCombo>`). Đã loại bỏ hoàn toàn khóa ngoại thô trên sơ đồ lớp để tuân thủ chuẩn OOP thuần túy.
@@ -160,6 +165,15 @@ Trong đồ án LumiCinema, cá nhân đảm nhiệm vai trò hạt nhân bao qu
 ---
 
 ## 3. ĐẶC TẢ CHI TIẾT 12 LỚP THỰC THỂ TRONG CLASS DIAGRAM
+
+> 📌 **Liên kết truy cập nhanh tài nguyên Sơ đồ Lớp (Class Diagram Deliverables):**
+> * 📄 **Mã nguồn PlantUML (.puml):** [PlantUML_Class_Diagram/class_diagram_lumicinema.puml](PlantUML_Class_Diagram/class_diagram_lumicinema.puml)
+> * 🌐 **Bản vẽ Vector SVG:** [PlantUML_Class_Diagram/class_diagram_lumicinema.svg](PlantUML_Class_Diagram/class_diagram_lumicinema.svg)
+> * 🖼️ **Hình ảnh sơ đồ PNG (300 DPI):** [PlantUML_Class_Diagram/class_diagram_lumicinema.png](PlantUML_Class_Diagram/class_diagram_lumicinema.png)
+> * 📘 **Cẩm nang Thuyết trình & 15 Kịch bản Phản biện Hội đồng:** [PlantUML_Class_Diagram/README.md](PlantUML_Class_Diagram/README.md)
+
+### 📸 Sơ đồ Tổng quan Kiến trúc Lớp (Class Diagram Preview)
+![LumiCinema Class Diagram](PlantUML_Class_Diagram/class_diagram_lumicinema.png)
 
 ```
 ========================================================================================
@@ -251,7 +265,7 @@ Dưới đây là các câu hỏi "điểm huyệt" mà Hội đồng chấm thi
 | **3** | **Sơ đồ Activity & Sequence (Báo cáo)** | 1 Activity Diagram + 1 Sequence Diagram Báo cáo Doanh thu đa chiều & Bóc tách công nợ hoàn tiền (`BR-10`). | **100%** | **Xuất sắc (A+)** |
 | **4** | **Thiết kế & Triển khai Cơ sở Dữ liệu** | 11 Models, 10 Enums trong Prisma Schema; PostgreSQL Migrations; Ràng buộc toàn vẹn; Indexing; ACID Transactions. | **100%** | **Xuất sắc (A+)** |
 | **5** | **Xây dựng Ứng dụng Full-stack (Next.js)** | Middleware phân quyền RBAC; Màn hình Auth; Dashboard Báo cáo Admin; Tự động hóa đóng gói 55 sơ đồ vào file Word. | **100%** | **Xuất sắc (A+)** |
-| **6** | **Thiết kế Sơ đồ Lớp (Class Diagram)** | 12 Lớp Thực thể nghiệp vụ giàu tính năng (Rich Domain Model); Chuẩn hóa kế thừa và quan hệ Composition/Aggregation. | **100%** | **Xuất sắc (A+)** |
+| **6** | **Thiết kế Sơ đồ Lớp (Class Diagram)** | 12 Lớp Thực thể nghiệp vụ giàu tính năng (Rich Domain Model); Chuẩn hóa kế thừa và quan hệ Composition/Aggregation; Trọn bộ mã nguồn [.puml](PlantUML_Class_Diagram/class_diagram_lumicinema.puml), vector [.svg](PlantUML_Class_Diagram/class_diagram_lumicinema.svg), ảnh [.png](PlantUML_Class_Diagram/class_diagram_lumicinema.png) và [Cẩm nang phản biện đồ án](PlantUML_Class_Diagram/README.md). | **100%** | **Xuất sắc (A+)** |
 
 ---
 *Tài liệu được tổng hợp và chuẩn hóa phục vụ Báo cáo Đồ án Tốt nghiệp & Bảo vệ Học phần Phân tích Thiết kế Hệ thống Thông tin.*

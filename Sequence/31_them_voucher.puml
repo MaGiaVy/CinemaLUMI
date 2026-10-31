@@ -1,0 +1,54 @@
+@startuml 31_them_voucher
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: THÊM VOUCHER MỚI
+
+actor "Quản trị viên (Admin)" as A
+boundary "Giao diện quản lý voucher" as UI
+control "Điều khiển voucher" as C
+entity "Dữ liệu hệ thống" as DB
+
+activate A
+A -> UI: Bấm chọn "Tạo voucher mới"
+activate UI
+UI --> A: Hiển thị form thông tin voucher (Mã code, % giảm, Đơn tối thiểu, HSD)
+deactivate UI
+
+A -> UI: Nhập thông tin voucher và bấm "Lưu voucher"
+activate UI
+UI -> C: Gửi dữ liệu voucher mới
+activate C
+C -> C: Kiểm tra dữ liệu (Mã không trống, HSD > Hiện tại, Mức giảm hợp lệ)
+
+alt Dữ liệu thiếu hoặc ngày hết hạn không hợp lệ
+    C --> UI: Báo 400 Bad Request (Lỗi dữ liệu đầu vào)
+    activate UI
+    UI --> A: Hiển thị thông báo lỗi cụ thể trên form
+    deactivate UI
+else Mã voucher đã tồn tại trong hệ thống
+    C -> DB: Tra cứu kiểm tra trùng mã voucher
+    activate DB
+    DB --> C: Mã voucher đã tồn tại
+    deactivate DB
+    C --> UI: Báo 409 Conflict (Mã voucher đã tồn tại)
+    activate UI
+    UI --> A: Cảnh báo mã voucher bị trùng lặp
+    deactivate UI
+else Dữ liệu hợp lệ
+    C -> DB: Lưu voucher mới vào CSDL (status = 'ACTIVE')
+    activate DB
+    DB --> C: Bản ghi voucher mới được tạo
+    deactivate DB
+    C --> UI: Báo 201 Created (Thêm voucher thành công)
+    activate UI
+    UI --> A: Hiển thị Toast thông báo thành công & làm mới danh sách
+    deactivate UI
+end
+deactivate C
+deactivate UI
+deactivate A
+@enduml

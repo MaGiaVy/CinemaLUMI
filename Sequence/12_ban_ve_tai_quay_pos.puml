@@ -1,0 +1,74 @@
+@startuml 12_ban_ve_tai_quay_pos
+hide footbox
+title SƠ ĐỒ TUẦN TỰ: BÁN VÉ TẠI QUẦY POS (IN-PERSON TICKET SALES)
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultTextAlignment center
+
+actor "Nhân viên quầy\n(Staff)" as NV
+boundary "Giao diện POS\n(Frontend Next.js)" as UI
+control "API Quầy & Vé\n(Next.js App Router)" as API
+entity "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
+
+activate NV
+NV -> UI : Mở màn hình Bán vé tại quầy (/staff/pos)
+activate UI
+
+UI -> API : GET /api/screenings?date=today
+activate API
+API -> DB : prisma.screening.findMany({ where: { date: today, status: 'UPCOMING' } })
+activate DB
+DB --> API : Trả về danh sách phim, phòng chiếu và suất chiếu
+deactivate DB
+API --> UI : 200 OK (Danh sách suất chiếu khả dụng)
+deactivate API
+
+UI --> NV : Hiển thị danh mục phim và các khung giờ chiếu
+NV -> UI : Chọn phim và suất chiếu theo yêu cầu của khách
+
+UI -> API : GET /api/screenings/{id}/seats
+activate API
+API -> DB : prisma.seat.findMany({ where: { screeningId } })
+activate DB
+DB --> API : Trả về 50 vị trí ghế (A1 -> E10) kèm trạng thái
+deactivate DB
+API --> UI : 200 OK (Trạng thái ghế: EMPTY, RESERVED, OCCUPIED)
+deactivate API
+
+UI --> NV : Hiển thị sơ đồ ma trận 50 ghế phòng chiếu
+NV -> UI : Chọn vị trí ghế và phân loại vé (Người lớn: 100%, Trẻ em: 50% - BR-02)
+
+UI -> API : POST /api/seats/reserve\n{ screeningId, seatIds: [...] }
+activate API
+API -> DB : Transaction kiểm tra & giữ chỗ (BR-01):\nSeat.status = 'RESERVED', reservedUntil = NOW() + 10 phút
+activate DB
+DB --> API : Xác nhận khóa ghế tạm thời thành công
+deactivate DB
+API --> UI : 200 OK (Ghế đã được giữ chỗ trong 10 phút)
+deactivate API
+
+NV -> UI : Chọn phương thức thanh toán tại quầy (Tiền mặt / Quẹt thẻ / POS QR)
+NV -> UI : Bấm nút "Xác nhận thanh toán & Xuất vé"
+
+UI -> API : POST /api/payments/pos-checkout\n{ screeningId, seats, ticketItems, paymentMethod: 'Cash' }
+activate API
+
+API -> API : Tính toán tổng tiền Server-side (Giá cơ bản + Phụ thu - Chiết khấu)
+
+API -> DB : Prisma Transaction nguyên tử:\n1. Tạo bản ghi Payment (status = 'Success')\n2. Tạo các bản ghi Ticket (status = 'Valid', sinh mã ký số HMAC-SHA256)\n3. Chuyển Seat.status = 'OCCUPIED'
+activate DB
+DB --> API : Xác nhận hoàn tất Transaction
+deactivate DB
+
+API --> UI : 200 OK\n{ success: true, paymentId, tickets: [{ id, code, seatCode, qrPayload }] }
+deactivate API
+
+UI -> UI : Gửi lệnh in vé đến máy in nhiệt tại quầy
+UI --> NV : Thông báo bán vé thành công & in cuống vé giấy
+NV -> NV : Bàn giao vé xem phim cho khách hàng
+
+deactivate UI
+deactivate NV
+@enduml

@@ -1,0 +1,33 @@
+@startuml state_seat
+skinparam monochrome true
+skinparam style strictuml
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam roundCorner 8
+skinparam state {
+    BorderThickness 1.5
+    ArrowThickness 1.2
+}
+
+title SƠ ĐỒ TRẠNG THÁI GHẾ THEO SUẤT CHIẾU (SCREENING SEAT STATE MACHINE)
+
+[*] --> EMPTY : Tạo suất chiếu mới\n/ Khởi tạo mặc định 50 ghế trống (A1-E10)
+
+EMPTY --> RESERVED : Khách click chọn ghế trên sơ đồ (FR-SEL-01)\n/ Đặt khóa tạm thời: reservedUntil = NOW() + 10 phút
+
+RESERVED --> EMPTY : [Quá hạn 10 phút giữ chỗ chưa thanh toán]\nhoặc Khách bỏ chọn ghế / Hủy phiên đặt vé\n/ Giải phóng ghế về trạng thái trống
+
+RESERVED --> OCCUPIED : Đơn hàng thanh toán thành công (VNPay / Tiền mặt POS)\n/ Xác nhận bán vé chính thức, gắn mã vé cố định
+
+OCCUPIED --> EMPTY : [Vé xem phim bị hủy hợp lệ trước giờ chiếu]\n(Khách hủy trước 2h hoặc Rạp hủy trước giờ chiếu)\n/ Giải phóng ghế để khách khác có thể đặt lại
+
+OCCUPIED --> [*] : Suất chiếu kết thúc (Ended)\n/ Lưu trữ lịch sử ghế ngồi của suất chiếu
+
+note right of RESERVED
+  <b>CƠ CHẾ KHÓA GHẾ TẠM THỜI:</b>
+  - Tránh tranh chấp đồng thời (Race condition)
+  - Nếu sau 10 phút không hoàn tất thanh toán,
+    hệ thống tự động trả ghế về EMPTY.
+end note
+
+@enduml

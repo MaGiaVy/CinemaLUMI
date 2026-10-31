@@ -1,0 +1,56 @@
+@startuml 09_ap_dung_voucher
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: ÁP DỤNG VOUCHER KHUYẾN MÃI
+
+actor "Khách hàng" as A
+boundary "Giao diện đơn hàng" as UI
+control "Điều khiển mua vé" as C
+entity "Dữ liệu hệ thống" as DB
+
+activate A
+A -> UI: Bấm chọn áp dụng voucher khuyến mãi
+activate UI
+UI --> A: Hiển thị ô nhập mã voucher hoặc danh sách voucher
+deactivate UI
+
+A -> UI: Nhập mã voucher và bấm Áp dụng
+activate UI
+UI -> C: Yêu cầu kiểm tra & áp dụng voucher
+activate C
+C -> DB: Tra cứu thông tin mã voucher trong cơ sở dữ liệu
+activate DB
+DB --> C: Thông tin voucher (Hạn sử dụng, điều kiện, trạng thái)
+deactivate DB
+
+alt Voucher không tồn tại trong hệ thống
+    C --> UI: Báo mã voucher không tồn tại
+    activate UI
+    UI --> A: Hiển thị thông báo mã giảm giá không hợp lệ
+    deactivate UI
+else Voucher đã hết hạn hoặc đã ngừng sử dụng (INACTIVE)
+    C --> UI: Báo voucher đã hết hạn hoặc bị thu hồi
+    activate UI
+    UI --> A: Hiển thị thông báo voucher không còn hiệu lực
+    deactivate UI
+else Đơn hàng không đủ điều kiện (Chưa đạt giá trị tối thiểu / sai loại phim)
+    C --> UI: Báo đơn hàng không đủ điều kiện áp dụng
+    activate UI
+    UI --> A: Hiển thị lý do từ chối áp dụng voucher
+    deactivate UI
+else Voucher hợp lệ & đủ điều kiện
+    C -> C: Ghi nhận voucher vào giao dịch (Tối đa 1 voucher/đơn) (BR-07)
+    C -> C: Tính lại số tiền (Chỉ giảm giá trên tiền vé, không giảm tiền combo) (BR-08)
+    C --> UI: Chi tiết giảm giá và tổng tiền thanh toán mới
+    activate UI
+    UI --> A: Hiển thị đơn hàng đã giảm giá thành công
+    deactivate UI
+end
+deactivate C
+deactivate UI
+deactivate A
+@enduml

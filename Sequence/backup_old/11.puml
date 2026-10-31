@@ -1,0 +1,46 @@
+@startuml
+hide footbox
+autonumber
+skinparam style strictuml
+
+actor "Người dùng\n(Khách hàng / Nhân viên / Admin)" as ND
+boundary "Giao diện Đăng nhập" as UI
+control "AuthController\n(NestJS)" as API
+control "AuthService\n(Xử lý nghiệp vụ)" as SVC
+entity "Database\n(Prisma)" as DB
+
+activate ND
+ND -> UI : Mở trang đăng nhập
+activate UI
+UI --> ND : Hiển thị form đăng nhập
+ND -> UI : Nhập email và mật khẩu
+UI -> API : POST /api/auth/dang-nhap
+activate API
+API -> SVC : dangNhap(email, mật khẩu)
+activate SVC
+SVC -> DB : Tìm người dùng theo email
+activate DB
+DB --> SVC : Thông tin người dùng (hoặc rỗng)
+deactivate DB
+SVC -> SVC : Kiểm tra tài khoản tồn tại và so khớp mật khẩu đã mã hóa
+alt Sai email hoặc mật khẩu
+  SVC --> API : Lỗi xác thực
+  API --> UI : 401 - Sai tài khoản hoặc mật khẩu
+  UI --> ND : Thông báo lỗi, yêu cầu nhập lại
+else Xác thực thành công
+  SVC -> SVC : Tạo phiên đăng nhập (token) kèm vai trò
+  SVC --> API : Token và vai trò
+  API --> UI : 200 - Đăng nhập thành công
+  alt Vai trò Khách hàng
+    UI --> ND : Chuyển đến giao diện Khách hàng
+  else Vai trò Nhân viên
+    UI --> ND : Chuyển đến giao diện Nhân viên
+  else Vai trò Admin
+    UI --> ND : Chuyển đến giao diện Admin
+  end
+end
+deactivate SVC
+deactivate API
+deactivate UI
+deactivate ND
+@enduml

@@ -1,0 +1,58 @@
+@startuml 35_them_suat_chieu
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: THÊM MỚI SUẤT CHIẾU
+
+actor "Quản trị viên (Admin)" as A
+boundary "Giao diện quản lý suất chiếu" as UI
+control "Điều khiển suất chiếu" as C
+entity "Dữ liệu hệ thống" as DB
+
+activate A
+A -> UI: Bấm chọn "Thêm suất chiếu mới"
+activate UI
+UI --> A: Hiển thị biểu mẫu tạo suất chiếu (Phim, Phòng chiếu, Thời gian bắt đầu)
+deactivate UI
+
+A -> UI: Chọn Phim, Phòng chiếu (1-5), Giờ chiếu và bấm "Xác nhận tạo"
+activate UI
+UI -> C: Gửi thông tin suất chiếu mới
+activate C
+C -> C: Kiểm tra dữ liệu đầu vào (Phòng hợp lệ, thời gian trong tương lai)
+
+alt Dữ liệu đầu vào không hợp lệ
+    C --> UI: Báo 400 Bad Request (Lỗi dữ liệu)
+    activate UI
+    UI --> A: Hiển thị cảnh báo lỗi dữ liệu
+    deactivate UI
+else Dữ liệu đầu vào hợp lệ
+    C -> C: Thực hiện kiểm tra trùng lịch phòng chiếu & thời gian dọn dẹp (BR-09)
+    C -> DB: Tra cứu các suất chiếu cùng phòng trong khoảng thời gian
+    activate DB
+    DB --> C: Danh sách suất chiếu trùng lịch (nếu có)
+    deactivate DB
+    
+    alt Bị trùng lịch hoặc không đủ 15 phút dọn dẹp phòng (BR-09)
+        C --> UI: Báo 409 Conflict (Trùng lịch phòng chiếu hoặc thiếu giờ dọn dẹp)
+        activate UI
+        UI --> A: Hiển thị cảnh báo xung đột lịch chiếu & yêu cầu chọn giờ khác
+        deactivate UI
+    else Phòng chiếu trống & đạt yêu cầu
+        C -> DB: Lưu suất chiếu mới & tự động tạo 50 ghế (A1-E10) trạng thái EMPTY
+        activate DB
+        DB --> C: Bản ghi suất chiếu mới kèm 50 ghế phòng chiếu
+        deactivate DB
+        C --> UI: Báo 201 Created (Tạo suất chiếu thành công)
+        activate UI
+        UI --> A: Hiển thị Toast thành công & cập nhật lịch chiếu trên timeline
+        deactivate UI
+    end
+end
+deactivate C
+deactivate UI
+deactivate A
+@enduml

@@ -1,0 +1,55 @@
+@startuml 01_dang_ky_tai_khoan
+hide footbox
+title SƠ ĐỒ TUẦN TỰ: ĐĂNG KÝ TÀI KHOẢN KHÁCH HÀNG (CUSTOMER SIGN UP)
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultTextAlignment center
+
+actor "Khách hàng\n(Customer)" as KH
+boundary "Giao diện Đăng ký\n(Frontend Next.js)" as UI
+control "API Xác thực\n(Next.js App Router)" as API
+entity "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
+
+activate KH
+KH -> UI : Truy cập trang Đăng ký (/register)
+activate UI
+UI --> KH : Hiển thị form đăng ký tài khoản
+
+KH -> UI : Nhập thông tin (Họ tên, Email, Mật khẩu, Xác nhận MK, SĐT)
+KH -> UI : Bấm nút "Tạo tài khoản"
+
+UI -> API : POST /api/auth/register\n{ name, email, password, phone }
+activate API
+
+API -> API : Xác thực schema Zod (RFC 5322, MK >= 6 ký tự)
+
+alt Dữ liệu đầu vào không hợp lệ (MK < 6 ký tự hoặc không khớp)
+    API --> UI : 400 Bad Request\n{ message: "Dữ liệu không hợp lệ" }
+    UI --> KH : Hiển thị thông báo lỗi chi tiết tại từng ô nhập
+else Dữ liệu hợp lệ
+    API -> DB : prisma.user.findUnique({ where: { email } })
+    activate DB
+    DB --> API : Trả về bản ghi người dùng (hoặc null)
+    deactivate DB
+
+    alt Email đã tồn tại trong hệ thống
+        API --> UI : 409 Conflict\n{ message: "Email này đã được sử dụng" }
+        UI --> KH : Hiển thị Toast cảnh báo email đã tồn tại
+    else Email chưa tồn tại (Hợp lệ để khởi tạo)
+        API -> API : Băm mật khẩu bảo mật\nbcryptjs.hash(password, 12) (NFR-SEC-01)
+        API -> DB : prisma.user.create({\n  data: { email, password: hashedPassword, name, phone, role: 'CUSTOMER' }\n})
+        activate DB
+        DB --> API : Trả về thông tin người dùng mới (user_id tự tăng)
+        deactivate DB
+
+        API --> UI : 201 Created\n{ success: true, message: "Đăng ký thành công", data: { id, email, name, role } }
+        UI --> KH : Hiển thị Toast thành công & chuyển hướng sang trang Đăng nhập (/login)
+    end
+end
+
+deactivate API
+deactivate UI
+deactivate KH
+@enduml

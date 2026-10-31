@@ -1,0 +1,31 @@
+@startuml state_combo
+skinparam monochrome true
+skinparam style strictuml
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam roundCorner 8
+skinparam state {
+    BorderThickness 1.5
+    ArrowThickness 1.2
+}
+
+title SƠ ĐỒ TRẠNG THÁI MÓN BẮP NƯỚC TRONG ĐƠN (ORDER COMBO STATE MACHINE)
+
+[*] --> PENDING_PICKUP : Đơn hàng thanh toán thành công có kèm Combo\n/ Tạo danh sách món chờ nhận, hiển thị trên mã đơn hàng
+
+PENDING_PICKUP --> PICKED_UP : Khách xuất trình mã đơn tại quầy bắp nước (Concession)\n& Nhân viên bấm "Xác nhận đã giao bắp nước" (FR-CHK-02)\n/ Đánh dấu món đã nhận, trừ tồn kho Combos.stock
+
+PENDING_PICKUP --> CANCELLED : Suất chiếu bị hủy khẩn cấp do sự cố kỹ thuật của rạp (BR-04)\n/ Hủy món bắp nước trong đơn,\n  Cộng hoàn lại số lượng tồn kho Combos.stock,\n  Tạo công nợ hoàn tiền mặt 100% cho khách
+
+PICKED_UP --> [*] : Hoàn tất nhận bắp nước
+CANCELLED --> [*] : Hoàn tất quy trình hủy & hoàn tiền combo
+
+note right of PENDING_PICKUP
+  <b>TÍNH ĐỘC LẬP (FR-CHK-02):</b>
+  Khách hàng có thể nhận bắp nước
+  trước khi soát vé vào phòng chiếu
+  hoặc sau khi xem phim xong,
+  hoàn toàn độc lập với trạng thái của Vé.
+end note
+
+@enduml

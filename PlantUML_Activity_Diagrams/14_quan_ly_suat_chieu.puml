@@ -1,0 +1,71 @@
+﻿@startuml 14_quan_ly_suat_chieu
+title SƠ ĐỒ HOẠT ĐỘNG: LÊN LỊCH VÀ QUẢN LÝ SUẤT CHIẾU (SCREENING MANAGEMENT)
+skinparam conditionStyle insideDiamond
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam monochrome true
+skinparam wrapWidth 180
+
+|Admin|
+|Hệ thống|
+|Admin|
+start
+:Chọn quản lý suất chiếu;
+
+|Hệ thống|
+:Hiển thị danh sách suất chiếu;
+
+|Admin|
+:Chọn thêm hoặc sửa suất chiếu;
+if (Thêm mới?) then (Có)
+else (Không)
+  :Chọn suất chiếu cần sửa;
+  |Hệ thống|
+  :Tìm thông tin suất chiếu;
+  if (Tồn tại?) then (Có)
+    :Hiển thị thông tin hiện tại;
+  else (Không)
+    :Thông báo không tìm thấy suất chiếu;
+    stop
+  endif
+endif
+
+|Hệ thống|
+:Hiển thị biểu mẫu thêm hoặc sửa suất chiếu;
+
+|Admin|
+:Chọn phim, phòng chiếu và giờ bắt đầu;
+if (Xác nhận?) then (Có)
+else (Không)
+  :Hủy thao tác;
+  stop
+endif
+
+|Hệ thống|
+:Tính giờ kết thúc = giờ bắt đầu + thời lượng phim;
+:Kiểm tra suất chiếu có giao nhau về thời gian\nvới suất khác trong cùng phòng chiếu;
+while (Hợp lệ?) is (Không)
+  :Thông báo lỗi cần điều chỉnh;
+  |Admin|
+  :Điều chỉnh phim, phòng chiếu hoặc giờ bắt đầu;
+  :Xác nhận thông tin;
+  |Hệ thống|
+  :Tính lại giờ kết thúc và kiểm tra lại trùng phòng;
+endwhile (Có)
+
+|Hệ thống|
+:Lưu suất chiếu theo thao tác đã chọn;
+if (Thành công?) then (Có)
+  if (Thêm mới?) then (Có)
+    :Tự động tạo 50 ghế trống\ntừ A1 đến E10 cho suất chiếu;
+  else (Không)
+  endif
+  :Thông báo thành công;
+  :Cập nhật danh sách suất chiếu;
+  stop
+else (Không)
+  :Thông báo thao tác thất bại;
+  stop
+endif
+@enduml
+

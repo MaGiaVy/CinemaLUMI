@@ -1,0 +1,64 @@
+@startuml 14_soat_ve_vao_rap
+hide footbox
+title SƠ ĐỒ TUẦN TỰ: SOÁT VÉ VÀO RẠP BẰNG MÃ QR (TICKET CHECK-IN)
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultTextAlignment center
+
+actor "Khách hàng" as KH
+actor "Nhân viên soát vé\n(Staff)" as NV
+boundary "Giao diện Soát vé\n(Frontend Next.js)" as UI
+control "API Soát vé\n(Next.js App Router)" as API
+entity "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
+
+activate KH
+KH -> NV : Xuất trình vé điện tử (Mã QR) hoặc cuống vé giấy
+activate NV
+
+NV -> UI : Quét mã QR hoặc nhập mã vé (#LMC-XXXXXX)
+activate UI
+
+UI -> API : PATCH /api/tickets/{id}/mark-used\n{ qrPayload, signature, staffId }
+activate API
+
+API -> API : Giải mã và xác thực chữ ký số HMAC-SHA256 (NFR-SEC-02)\nsử dụng khóa bí mật NEXTAUTH_SECRET
+
+alt Chữ ký HMAC không khớp (Vé bị chỉnh sửa / làm giả)
+    API --> UI : 400 Bad Request\n{ message: "Cảnh báo: Vé giả mạo hoặc mã QR không hợp lệ!" }
+    UI --> NV : Hiển thị cảnh báo đỏ từ chối vào rạp
+    NV -> KH : Từ chối tiếp nhận và yêu cầu đối soát
+else Chữ ký hợp lệ
+    API -> DB : prisma.ticket.findUnique({ where: { id }, include: { screening: true } })
+    activate DB
+    DB --> API : Trả về thông tin chi tiết vé và suất chiếu
+    deactivate DB
+
+    API -> API : Kiểm tra điều kiện vào rạp:\n- Trạng thái vé (status)\n- Khung giờ chiếu (hiện tại trong [Giờ chiếu - 30p, Giờ kết thúc])
+
+    alt Vé đã được sử dụng trước đó (status == 'Used')
+        API --> UI : 409 Conflict\n{ message: "Vé này đã được quét check-in trước đó!" }
+        UI --> NV : Cảnh báo: Vé đã sử dụng, từ chối quét lại
+        NV -> KH : Từ chối cho khách vào rạp
+    else Vé đã bị hủy (status == 'Cancelled')
+        API --> UI : 400 Bad Request\n{ message: "Vé này đã bị hủy hoặc đền bù!" }
+        UI --> NV : Cảnh báo: Vé không còn hiệu lực
+        NV -> KH : Thông báo vé đã bị hủy
+    else Vé hợp lệ ('Valid') và đúng khung giờ chiếu
+        API -> DB : prisma.ticket.update({\n  where: { id },\n  data: { status: 'Used', usedAt: NOW(), checkedBy: staffId }\n})
+        activate DB
+        DB --> API : Xác nhận cập nhật trạng thái vé thành công
+        deactivate DB
+
+        API --> UI : 200 OK\n{ success: true, movieTitle, room, seatCode }
+        UI --> NV : Hiển thị màn hình Xanh: "HỢP LỆ - Cho phép vào rạp"\nkèm thông tin Phim, Phòng chiếu, Ghế ngồi
+        NV -> KH : Mời khách vào phòng chiếu và chúc xem phim vui vẻ
+    end
+end
+
+deactivate API
+deactivate UI
+deactivate NV
+deactivate KH
+@enduml

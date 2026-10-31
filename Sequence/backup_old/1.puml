@@ -1,0 +1,42 @@
+@startuml
+title Hủy vé do khách và cấp voucher bồi hoàn
+autonumber
+skinparam maxMessageSize 250
+
+actor "Khách hàng /\nNhân viên / Admin" as A
+participant "Hệ thống" as HT
+database "CSDL" as DB
+participant "Email/SMS" as TB
+
+alt Khách hàng (online)
+    A -> HT : Chọn vé cần hủy từ danh sách vé đã mua
+else Nhân viên / Admin (tại quầy)
+    A -> HT : Tra cứu theo mã vé / mã đơn,\nchọn vé và lý do " khách hủy "
+end
+
+HT -> DB : Lấy thông tin vé
+DB --> HT : Trạng thái vé, giờ chiếu, tiền thực trả
+
+HT -> HT : Kiểm tra điều kiện:\n- Vé chưa sử dụng\n- Chưa hủy / hoàn tiền / cấp voucher\n- Giờ chiếu - hiện tại >= 2 tiếng
+
+alt Không đủ điều kiện
+    HT --> A : Từ chối, nêu rõ lý do
+else Đủ điều kiện
+    HT --> A : Thông báo: không hoàn tiền,\nnhận voucher giảm 50%
+    A -> HT : Xác nhận hủy
+
+    HT -> DB : Vé -> "đã hủy", ghế -> "trống"
+    HT -> DB : Tạo voucher bồi hoàn\n(giảm 50%, dùng 1 lần, hạn 30 ngày)
+    HT -> DB : Ghi log (người thực hiện, lý do, cách xử lý)
+
+    alt Khách có tài khoản
+        HT -> DB : Lưu voucher vào tài khoản
+        HT -> TB : Gửi thông báo voucher
+    else Khách vãng lai mua tại quầy
+        HT --> A : Trả mã voucher riêng\n(nhân viên in phiếu hoặc gửi SMS)
+    end
+
+    HT --> A : Hủy thành công
+    note right of HT : Vé khác trong đơn và combo giữ nguyên.\nKhông hoàn tiền, không hoàn kho combo.
+end
+@enduml

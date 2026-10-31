@@ -1,0 +1,53 @@
+@startuml 34_quan_ly_suat_chieu_tong_quan
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: QUẢN TRỊ LỊCH CHIẾU VÀ SUẤT CHIẾU (TỔNG QUAN)
+
+actor "Quản trị viên (Admin)" as A
+boundary "Giao diện quản lý suất chiếu" as UI
+control "Điều khiển suất chiếu" as C
+entity "Dữ liệu hệ thống" as DB
+
+activate A
+A -> UI: Truy cập trang Quản lý Suất chiếu (/admin/screenings)
+activate UI
+UI -> C: Yêu cầu lịch chiếu theo ngày và rạp
+activate C
+C -> DB: Truy vấn danh sách suất chiếu (Phim, Phòng, Giờ bắt đầu, Giờ kết thúc)
+activate DB
+DB --> C: Danh sách các suất chiếu
+deactivate DB
+C --> UI: Dữ liệu lịch chiếu & các chức năng quản trị
+deactivate C
+UI --> A: Hiển thị timeline lịch chiếu và các nút chức năng
+deactivate UI
+
+alt Quản trị viên chọn Tạo suất chiếu mới
+    A -> UI: Bấm nút "Tạo suất chiếu mới"
+    activate UI
+    UI -> C: Yêu cầu mở form tạo suất chiếu
+    activate C
+    C --> UI: Biểu mẫu tạo suất chiếu (Chọn phim, phòng, giờ)
+    deactivate C
+    UI --> A: Hiển thị form tạo suất chiếu
+    deactivate UI
+else Quản trị viên chọn Sửa suất chiếu
+    A -> UI: Chọn một suất chiếu & bấm "Chỉnh sửa"
+    activate UI
+    UI -> C: Yêu cầu dữ liệu chi tiết của suất chiếu
+    activate C
+    C -> DB: Tra cứu suất chiếu theo ID
+    activate DB
+    DB --> C: Chi tiết suất chiếu
+    deactivate DB
+    C --> UI: Dữ liệu suất chiếu hiện tại
+    deactivate C
+    UI --> A: Hiển thị form chỉnh sửa suất chiếu
+    deactivate UI
+end
+deactivate A
+@enduml

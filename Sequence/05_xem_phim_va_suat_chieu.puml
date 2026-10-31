@@ -1,0 +1,76 @@
+@startuml 05_xem_phim_va_suat_chieu
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: XEM PHIM VÀ SUẤT CHIẾU
+
+actor "Khách hàng" as A
+boundary "Giao diện chọn phim" as UI
+control "Điều khiển mua vé" as C
+entity "Dữ liệu hệ thống" as DB
+
+activate A
+A -> UI: Mở danh sách phim
+activate UI
+UI -> C: Yêu cầu phim đang có suất chiếu
+activate C
+C -> DB: Lấy danh sách phim có suất chiếu
+activate DB
+DB --> C: Danh sách phim
+deactivate DB
+C --> UI: Danh sách phim
+deactivate C
+UI --> A: Hiển thị danh sách phim
+deactivate UI
+
+A -> UI: Chọn phim
+activate UI
+UI -> C: Yêu cầu thông tin phim và suất chiếu
+activate C
+C -> DB: Lấy thông tin phim, suất chiếu và tình trạng chỗ
+activate DB
+DB --> C: Thông tin phim và các suất chiếu
+deactivate DB
+
+alt Không có suất khả dụng
+    C --> UI: Thông báo không có suất chiếu phù hợp
+    activate UI
+    UI --> A: Hiển thị thông báo không có suất chiếu
+    deactivate UI
+else Có suất khả dụng
+    C --> UI: Danh sách suất chiếu khả dụng
+    activate UI
+    UI --> A: Hiển thị thông tin phim và các suất chiếu
+    deactivate UI
+end
+deactivate C
+deactivate UI
+
+A -> UI: Chọn suất chiếu mong muốn
+activate UI
+UI -> C: Kiểm tra suất chiếu đã chọn
+activate C
+C -> DB: Kiểm tra số lượng chỗ còn lại
+activate DB
+DB --> C: Kết quả kiểm tra (Số chỗ trống)
+deactivate DB
+
+alt Hết chỗ
+    C --> UI: Yêu cầu chọn suất chiếu khác
+    activate UI
+    UI --> A: Hiển thị thông báo suất chiếu đã hết vé
+    deactivate UI
+else Còn chỗ trống
+    C -> C: Ghi nhận phim và suất chiếu vào phiên đặt vé
+    C --> UI: Cho phép chọn ghế
+    activate UI
+    UI --> A: Chuyển hướng sang màn hình sơ đồ chọn ghế
+    deactivate UI
+end
+deactivate C
+deactivate UI
+deactivate A
+@enduml

@@ -1,0 +1,24 @@
+# dependencies
+node_modules/
+/.pnp
+.pnp.*
+
+# environment variables & secrets
+.env*
+!.env.example
+
+# next.js build
+.next/
+out/
+build/
+dist/
+
+# misc & logs
+*.log
+*.pem
+.DS_Store
+*.tsbuildinfo
+next-env.d.ts
+*.zip
+*.jar
+*-20261012T*

@@ -1,0 +1,112 @@
+@startuml
+title Activity — Mua vé và đặt combo online
+
+skinparam defaultFontName DejaVu Sans
+skinparam defaultFontSize 14
+skinparam shadowing false
+skinparam monochrome true
+skinparam conditionStyle InsideDiamond
+skinparam backgroundColor white
+skinparam ArrowColor black
+skinparam activity {
+  BackgroundColor white
+  BorderColor black
+  FontColor black
+  DiamondBackgroundColor white
+  DiamondBorderColor black
+  DiamondFontColor black
+  StartColor black
+  EndColor black
+}
+
+|Khách hàng|
+start
+:Chọn mua vé và đặt combo online;
+
+|Hệ thống|
+:Hiển thị thông tin phim và suất chiếu;
+
+|Khách hàng|
+:Chọn phim và suất chiếu;
+
+|Hệ thống|
+:Hiển thị sơ đồ ghế và trạng thái ghế;
+|Khách hàng|
+:Chọn ghế;
+|Hệ thống|
+:Kiểm tra trạng thái ghế;
+while (Ghế còn\nkhả dụng?) is (Không)
+  :Thông báo và yêu cầu chọn ghế khác;
+  |Hệ thống|
+  :Hiển thị sơ đồ ghế và trạng thái ghế;
+  |Khách hàng|
+  :Chọn ghế;
+  |Hệ thống|
+  :Kiểm tra trạng thái ghế;
+endwhile (Có)
+
+:Ghi nhận ghế được chọn;
+:Hiển thị các loại vé;
+|Khách hàng|
+:Chọn loại vé;
+|Hệ thống|
+:Ghi nhận loại vé và cập nhật giá;
+
+|Khách hàng|
+if (Muốn thêm\ncombo?) then (Có)
+  :Chọn combo và số lượng;
+  |Hệ thống|
+  :Kiểm tra combo và tồn kho;
+  if (Có thể\nđáp ứng?) then (Có)
+    :Thêm combo vào đơn hàng;
+  else (Không)
+    :Thông báo không thể thêm combo;
+  endif
+else (Không)
+endif
+
+|Khách hàng|
+if (Muốn áp dụng\nvoucher?) then (Có)
+  :Nhập hoặc chọn voucher;
+  |Hệ thống|
+  :Kiểm tra voucher;
+  if (Voucher\nhợp lệ?) then (Có)
+    :Áp dụng giảm giá;
+  else (Không)
+    :Thông báo voucher không hợp lệ;
+    :Không áp dụng voucher;
+  endif
+else (Không)
+endif
+
+|Hệ thống|
+:Hiển thị thông tin đơn hàng\nvà số tiền cần thanh toán;
+|Khách hàng|
+:Chọn thanh toán online\nvà phương thức VNPay hoặc MoMo;
+|Hệ thống|
+:Gửi yêu cầu đến cổng thanh toán;
+|Cổng thanh toán|
+:Tiếp nhận yêu cầu thanh toán;
+|Khách hàng|
+:Thực hiện thanh toán trên cổng;
+|Cổng thanh toán|
+:Xử lý giao dịch và gửi kết quả;
+|Hệ thống|
+if (Đã nhận được\nkết quả?) then (Có)
+  :Ghi nhận kết quả giao dịch;
+  if (Thanh toán\nthành công?) then (Có)
+    :Ghi nhận mua vé thành công;
+    :Thông báo giao dịch thành công;
+  else (Không)
+    if (Khách hàng hủy\nthanh toán?) then (Có)
+      :Thông báo thanh toán đã hủy; 
+    else (Không)
+      :Thông báo thanh toán thất bại;
+    endif
+    :Giao dịch mua vé chưa hoàn tất;
+  endif
+else (Chưa)
+  :Chưa xác nhận giao dịch hoàn tất;
+endif
+stop
+@enduml

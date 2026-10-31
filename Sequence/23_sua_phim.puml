@@ -1,0 +1,61 @@
+@startuml 23_sua_phim
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: CHỈNH SỬA THÔNG TIN PHIM
+
+actor "Quản trị viên (Admin)" as A
+boundary "Giao diện quản lý phim" as UI
+control "Điều khiển phim" as C
+entity "Dữ liệu hệ thống" as DB
+
+activate A
+A -> UI: Chọn phim cần chỉnh sửa và bấm "Sửa"
+activate UI
+UI -> C: Yêu cầu thông tin chi tiết phim theo ID
+activate C
+C -> DB: Tra cứu phim trong CSDL
+activate DB
+DB --> C: Bản ghi thông tin phim hoặc null
+deactivate DB
+
+alt Không tìm thấy phim trong hệ thống
+    C --> UI: Báo lỗi 404 Not Found (Phim không tồn tại)
+    activate UI
+    UI --> A: Hiển thị thông báo lỗi không tìm thấy phim
+    deactivate UI
+else Tìm thấy thông tin phim
+    C --> UI: Dữ liệu phim hiện tại
+    deactivate C
+    UI --> A: Hiển thị form chỉnh sửa với dữ liệu cũ
+    deactivate UI
+    
+    A -> UI: Nhập thông tin chỉnh sửa và bấm "Cập nhật"
+    activate UI
+    UI -> C: Gửi dữ liệu cập nhật phim
+    activate C
+    C -> C: Kiểm tra tính hợp lệ dữ liệu cập nhật
+    
+    alt Dữ liệu cập nhật không hợp lệ
+        C --> UI: Báo lỗi 400 Bad Request (Lỗi dữ liệu)
+        activate UI
+        UI --> A: Hiển thị lỗi yêu cầu điều chỉnh lại
+        deactivate UI
+    else Dữ liệu hợp lệ
+        C -> DB: Cập nhật thông tin phim vào CSDL
+        activate DB
+        DB --> C: Bản ghi phim đã được cập nhật
+        deactivate DB
+        C --> UI: Báo 200 OK (Cập nhật thành công)
+        activate UI
+        UI --> A: Hiển thị Toast cập nhật thành công & làm mới bảng
+        deactivate UI
+    end
+    deactivate C
+    deactivate UI
+end
+deactivate A
+@enduml

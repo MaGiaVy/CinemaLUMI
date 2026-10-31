@@ -1,0 +1,66 @@
+@startuml 30_quan_ly_voucher_tong_quan
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: QUẢN TRỊ VOUCHER KHUYẾN MÃI (TỔNG QUAN)
+
+actor "Quản trị viên (Admin)" as A
+boundary "Giao diện quản lý voucher" as UI
+control "Điều khiển voucher" as C
+entity "Dữ liệu hệ thống" as DB
+
+activate A
+A -> UI: Truy cập trang Quản lý Voucher (/admin/vouchers)
+activate UI
+UI -> C: Yêu cầu danh sách voucher hiện có
+activate C
+C -> DB: Truy vấn danh sách voucher (Mã, Mức giảm, HSD, Trạng thái)
+activate DB
+DB --> C: Danh sách các bản ghi voucher
+deactivate DB
+C --> UI: Danh sách voucher và các chức năng quản trị
+deactivate C
+UI --> A: Hiển thị bảng danh sách voucher & nút chức năng
+deactivate UI
+
+alt Quản trị viên chọn Thêm voucher mới
+    A -> UI: Bấm nút "Tạo voucher mới"
+    activate UI
+    UI -> C: Yêu cầu form tạo voucher
+    activate C
+    C --> UI: Biểu mẫu tạo voucher
+    deactivate C
+    UI --> A: Hiển thị form tạo voucher mới
+    deactivate UI
+else Quản trị viên chọn Sửa voucher
+    A -> UI: Chọn một voucher & bấm "Chỉnh sửa"
+    activate UI
+    UI -> C: Yêu cầu thông tin chi tiết voucher
+    activate C
+    C -> DB: Tra cứu voucher theo ID
+    activate DB
+    DB --> C: Dữ liệu voucher hiện tại
+    deactivate DB
+    C --> UI: Dữ liệu voucher
+    deactivate C
+    UI --> A: Hiển thị form chỉnh sửa voucher
+    deactivate UI
+else Quản trị viên chọn Ngừng sử dụng voucher
+    A -> UI: Chọn voucher & bấm "Ngừng sử dụng"
+    activate UI
+    UI -> C: Yêu cầu cập nhật trạng thái ngừng áp dụng
+    activate C
+    C -> DB: Cập nhật status = 'INACTIVE'
+    activate DB
+    DB --> C: Xác nhận cập nhật thành công
+    deactivate DB
+    C --> UI: Thông báo cập nhật trạng thái thành công
+    deactivate C
+    UI --> A: Hiển thị Toast thành công & cập nhật bảng
+    deactivate UI
+end
+deactivate A
+@enduml

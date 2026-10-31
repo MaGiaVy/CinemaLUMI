@@ -1,0 +1,59 @@
+@startuml 08_them_combo_vao_don_hang
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: THÊM COMBO VÀO ĐƠN HÀNG
+
+actor "Khách hàng" as A
+boundary "Giao diện chọn combo" as UI
+control "Điều khiển mua vé" as C
+entity "Dữ liệu hệ thống" as DB
+
+activate A
+A -> UI: Chọn thêm combo bắp nước
+activate UI
+UI -> C: Yêu cầu danh sách combo đang phục vụ
+activate C
+C -> DB: Lấy danh sách combo đang bán (ACTIVE)
+activate DB
+DB --> C: Danh sách combo và đơn giá
+deactivate DB
+C --> UI: Danh sách combo
+deactivate C
+UI --> A: Hiển thị danh mục combo bắp nước
+deactivate UI
+
+A -> UI: Chọn combo và số lượng mong muốn
+activate UI
+UI -> C: Yêu cầu thêm combo vào đơn hàng
+activate C
+C -> DB: Kiểm tra trạng thái bán và số lượng tồn kho
+activate DB
+DB --> C: Trạng thái kinh doanh và tồn kho hiện tại
+deactivate DB
+
+alt Combo đã ngừng bán
+    C --> UI: Báo combo đã ngừng kinh doanh
+    activate UI
+    UI --> A: Hiển thị thông báo combo không còn phục vụ
+    deactivate UI
+else Số lượng yêu cầu vượt quá tồn kho
+    C --> UI: Báo số lượng tồn kho không đủ
+    activate UI
+    UI --> A: Yêu cầu điều chỉnh lại số lượng combo
+    deactivate UI
+else Đang bán và đủ tồn kho
+    C -> C: Thêm combo vào đơn hàng hiện tại
+    C -> C: Cập nhật tổng tiền đơn hàng (Tiền vé + Tiền combo)
+    C --> UI: Đơn hàng mới và tổng tiền chi tiết
+    activate UI
+    UI --> A: Hiển thị danh sách combo đã chọn & tổng tiền mới
+    deactivate UI
+end
+deactivate C
+deactivate UI
+deactivate A
+@enduml

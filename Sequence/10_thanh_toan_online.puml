@@ -1,0 +1,69 @@
+@startuml 10_thanh_toan_online
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: XỬ LÝ THANH TOÁN ONLINE TỔNG QUAN
+
+actor "Khách hàng" as A
+boundary "Giao diện thanh toán" as UI
+control "Điều khiển thanh toán" as C
+entity "Dữ liệu hệ thống" as DB
+participant "Cổng VNPay / MoMo" as PAY
+
+activate A
+A -> UI: Chọn tiến hành thanh toán đơn hàng
+activate UI
+UI -> C: Yêu cầu thông tin thanh toán cho đơn hàng
+activate C
+C -> C: Lấy chi tiết đơn hàng (Vé, Combo, Voucher, Tổng tiền)
+C --> UI: Thông tin tóm tắt và danh sách phương thức thanh toán
+deactivate C
+UI --> A: Hiển thị màn hình chọn phương thức (VNPay / MoMo)
+deactivate UI
+
+A -> UI: Chọn cổng thanh toán (VNPay hoặc MoMo)
+activate UI
+UI -> C: Gửi phương thức thanh toán đã chọn
+activate C
+C -> PAY: Tạo URL thanh toán với số tiền và mã đơn hàng
+activate PAY
+PAY --> C: Trả về URL thanh toán bảo mật
+deactivate PAY
+C --> UI: Chuyển hướng đến cổng thanh toán
+deactivate C
+UI --> A: Điều hướng trình duyệt sang cổng thanh toán
+deactivate UI
+
+A -> PAY: Khách hàng quét mã / nhập thông tin thẻ để thanh toán
+activate PAY
+alt Thanh toán thành công
+    PAY --> C: IPN Webhook thông báo thanh toán thành công
+    activate C
+    C -> DB: Cập nhật trạng thái Đơn hàng (PAID), Vé (Valid), Trừ tồn kho combo
+    activate DB
+    DB --> C: Xác nhận cập nhật dữ liệu thành công
+    deactivate DB
+    C --> UI: Xác nhận giao dịch hoàn tất
+    activate UI
+    UI --> A: Hiển thị màn hình vé điện tử kèm mã QR
+    deactivate UI
+    deactivate C
+else Khách hàng hủy hoặc thanh toán thất bại
+    PAY --> C: IPN Webhook thông báo giao dịch thất bại / đã hủy
+    activate C
+    C -> DB: Hủy đơn hàng, giải phóng ghế giữ chỗ về EMPTY
+    activate DB
+    DB --> C: Xác nhận giải phóng
+    deactivate DB
+    C --> UI: Thông báo thanh toán thất bại
+    activate UI
+    UI --> A: Hiển thị lỗi thanh toán & cho phép thanh toán lại
+    deactivate UI
+    deactivate C
+end
+deactivate PAY
+deactivate A
+@enduml

@@ -1,0 +1,43 @@
+@startuml 03_dang_xuat_he_thong
+hide footbox
+title SƠ ĐỒ TUẦN TỰ: ĐĂNG XUẤT HỆ THỐNG (LOGOUT / SIGN OUT)
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultTextAlignment center
+
+actor "Người dùng\n(Khách / NV / Admin)" as ND
+boundary "Giao diện Header / Menu\n(Frontend Next.js)" as UI
+control "API Đăng xuất (NextAuth)\n(Next.js App Router)" as API
+entity "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
+
+activate ND
+ND -> UI : Bấm nút "Đăng xuất" trên menu tài khoản
+activate UI
+UI --> ND : Hiển thị hộp thoại xác nhận đăng xuất
+
+ND -> UI : Bấm "Đồng ý đăng xuất"
+
+UI -> API : POST /api/auth/signout\n(NextAuth signOut)
+activate API
+
+API -> API : Thu hồi JWT Session Token
+API -> API : Cấu hình xóa Cookie:\nSet-Cookie: next-auth.session-token=; Max-Age=0; Path=/
+
+API -> DB : Ghi nhận nhật ký kiểm toán (Audit Trail NFR-INT-02):\n{ userId, action: 'LOGOUT', timestamp: NOW(), clientIp }
+activate DB
+DB --> API : Xác nhận lưu Audit Log thành công
+deactivate DB
+
+API --> UI : 200 OK\n{ message: "Đăng xuất thành công" }
+deactivate API
+
+UI -> UI : Xóa trạng thái Session (SessionProvider -> unauthenticated)
+UI -> UI : Xóa bộ nhớ tạm Client (sessionStorage phiên giữ ghế, localStorage)
+UI -> UI : Cập nhật lại thanh điều hướng (Navbar về trạng thái vãng lai)
+UI --> ND : Hiển thị Toast thông báo và chuyển hướng về Trang chủ (/)
+
+deactivate UI
+deactivate ND
+@enduml

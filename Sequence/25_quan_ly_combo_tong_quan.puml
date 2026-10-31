@@ -1,0 +1,62 @@
+@startuml 25_quan_ly_combo_tong_quan
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: QUẢN TRỊ DANH MỤC COMBO BẮP NƯỚC (TỔNG QUAN)
+
+actor "Quản trị viên (Admin)" as A
+boundary "Giao diện quản lý combo" as UI
+control "Điều khiển combo" as C
+entity "Dữ liệu hệ thống" as DB
+
+activate A
+A -> UI: Truy cập trang Quản lý Combo (/admin/combos)
+activate UI
+UI -> C: Yêu cầu danh sách combo hiện tại
+activate C
+C -> DB: Truy vấn danh mục combo & số lượng tồn kho
+activate DB
+DB --> C: Danh sách bản ghi combo
+deactivate DB
+C --> UI: Danh sách combo và danh mục thao tác
+deactivate C
+UI --> A: Hiển thị bảng combo, đơn giá, tồn kho và trạng thái
+deactivate UI
+
+alt Quản trị viên chọn Thêm combo mới
+    A -> UI: Bấm nút "Thêm combo mới"
+    activate UI
+    UI -> C: Chuyển hướng sang quy trình Thêm combo
+    activate C
+    C --> UI: Trả về form biểu mẫu tạo combo
+    deactivate C
+    UI --> A: Hiển thị form Thêm combo mới
+    deactivate UI
+else Quản trị viên chọn Sửa thông tin combo
+    A -> UI: Chọn một combo & bấm nút "Chỉnh sửa"
+    activate UI
+    UI -> C: Yêu cầu dữ liệu chi tiết của combo
+    activate C
+    C -> DB: Tra cứu combo theo ID
+    activate DB
+    DB --> C: Chi tiết combo (Tên, giá, mô tả, tồn kho)
+    deactivate DB
+    C --> UI: Dữ liệu combo hiện tại
+    deactivate C
+    UI --> A: Hiển thị form chỉnh sửa combo
+    deactivate UI
+else Quản trị viên chọn Cập nhật tồn kho
+    A -> UI: Bấm nút "Cập nhật tồn kho"
+    activate UI
+    UI -> C: Yêu cầu mở form điều chỉnh tồn kho
+    activate C
+    C --> UI: Dữ liệu tồn kho hiện tại
+    deactivate C
+    UI --> A: Hiển thị popup điều chỉnh số lượng tồn
+    deactivate UI
+end
+deactivate A
+@enduml

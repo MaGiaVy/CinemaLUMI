@@ -1,0 +1,79 @@
+﻿@startuml 13_quan_ly_phim
+title SƠ ĐỒ HOẠT ĐỘNG: QUẢN LÝ DANH MỤC PHIM (MOVIE MANAGEMENT)
+skinparam conditionStyle insideDiamond
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam monochrome true
+skinparam wrapWidth 180
+
+|Admin|
+|Hệ thống|
+|Admin|
+start
+:Chọn quản lý phim;
+
+|Hệ thống|
+:Hiển thị danh sách phim;
+
+|Admin|
+:Chọn thêm, sửa hoặc ngừng chiếu;
+if (Thêm mới?) then (Có)
+else (Không)
+  :Chọn phim cần xử lý;
+  |Hệ thống|
+  :Tìm thông tin phim;
+  if (Tồn tại?) then (Có)
+    :Hiển thị thông tin hiện tại;
+  else (Không)
+    :Thông báo không tìm thấy phim;
+    stop
+  endif
+endif
+
+|Admin|
+if (Ngừng chiếu?) then (Có)
+  |Hệ thống|
+  if (Đã ngừng?) then (Có)
+    :Thông báo phim đã ngừng chiếu;
+    stop
+  else (Không)
+    :Kiểm tra phim đã có suất chiếu\nhoặc giao dịch vé hay chưa;
+    :Không xóa vĩnh viễn, chỉ chuyển trạng thái\nsang Ngừng chiếu (xóa mềm);
+  endif
+else (Không)
+endif
+
+|Hệ thống|
+:Hiển thị biểu mẫu hoặc yêu cầu xác nhận\ntheo thao tác đã chọn;
+
+|Admin|
+:Nhập hoặc sửa thông tin phim\n(tên, thể loại, thời lượng, poster)\nvà chọn nhãn độ tuổi P, C13 hoặc T18;
+if (Xác nhận?) then (Có)
+else (Không)
+  :Hủy thao tác;
+  stop
+endif
+
+|Hệ thống|
+:Kiểm tra thông tin phim;
+while (Hợp lệ?) is (Không)
+  :Thông báo lỗi và yêu cầu nhập lại;
+  |Admin|
+  :Điều chỉnh thông tin phim;
+  :Xác nhận thông tin;
+  |Hệ thống|
+  :Kiểm tra lại thông tin phim;
+endwhile (Có)
+
+|Hệ thống|
+:Lưu mới, sửa thông tin hoặc ngừng chiếu phim\ntheo thao tác đã chọn;
+if (Thành công?) then (Có)
+  :Thông báo thành công;
+  :Cập nhật danh sách phim;
+  stop
+else (Không)
+  :Thông báo thao tác thất bại;
+  stop
+endif
+@enduml
+

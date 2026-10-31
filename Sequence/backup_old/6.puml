@@ -1,0 +1,36 @@
+@startuml
+title Sequence Diagram - Quan ly ve khach hang
+
+actor "Nguoi quan ly" as QL
+participant "Giao dien Web" as FE
+participant "Backend" as BE
+database "Co so du lieu" as DB
+
+QL -> FE: 1. Chon Quan ly ve khach hang
+FE -> BE: 2. Yeu cau danh sach ve
+BE -> DB: 3. Truy van danh sach ve
+DB --> BE: 4. Tra danh sach ve
+BE --> FE: 5. Tra du lieu ve
+FE --> QL: 6. Hien thi danh sach ve
+
+QL -> FE: 7. Nhap ma ve, email hoac so dien thoai
+FE -> BE: 8. Gui yeu cau tra cuu
+BE -> DB: 9. Tim kiem ve
+DB --> BE: 10. Tra ket qua tra cuu
+
+alt Tim thay ve
+    BE --> FE: 11. Tra danh sach ve phu hop
+    FE --> QL: 12. Hien thi ket qua
+
+    QL -> FE: 13. Chon ve xem chi tiet
+    FE -> BE: 14. Yeu cau chi tiet ve
+    BE -> DB: 15. Truy van chi tiet va trang thai ve
+    DB --> BE: 16. Tra thong tin ve
+    BE --> FE: 17. Tra chi tiet ve
+    FE --> QL: 18. Hien thi ma ve, khach hang,\nphim, suat chieu, phong, ghe, gia va trang thai
+else Khong tim thay ve
+    BE --> FE: Thong bao khong tim thay ve
+    FE --> QL: Hien thi thong bao loi
+end
+
+@enduml

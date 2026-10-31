@@ -1,0 +1,83 @@
+﻿@startuml 06_ban_ve_tai_quay
+title SƠ ĐỒ HOẠT ĐỘNG: BÁN VÉ TẠI QUẦY (POS TICKET SALES)
+skinparam conditionStyle insideDiamond
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam monochrome true
+skinparam wrapWidth 180
+
+|Nhân viên|
+|Hệ thống|
+|Nhân viên|
+start
+:Chọn chức năng bán vé tại quầy;
+
+|Hệ thống|
+:Hiển thị danh sách suất chiếu đang mở bán;
+
+|Nhân viên|
+:Chọn suất chiếu theo yêu cầu khách;
+
+|Hệ thống|
+:Hiển thị sơ đồ ghế và trạng thái từng ghế;
+
+|Nhân viên|
+:Chọn ghế trên sơ đồ;
+
+|Hệ thống|
+:Kiểm tra trạng thái ghế;
+while (Ghế trống?) is (Không)
+  :Thông báo ghế không khả dụng;
+  |Nhân viên|
+  :Chọn lại ghế;
+  |Hệ thống|
+  :Kiểm tra lại trạng thái ghế;
+endwhile (Có)
+:Chuyển ghế sang RESERVED\ngiữ chỗ 10 phút;
+
+|Nhân viên|
+:Chọn loại vé cho từng ghế\n(Thường hoặc Trẻ em);
+if (Vé trẻ em?) then (Có)
+  :Kiểm tra giấy tờ độ tuổi của khách;
+  if (Đạt?) then (Có)
+  else (Không)
+    :Chuyển về vé Thường;
+  endif
+else (Không)
+endif
+
+|Hệ thống|
+:Tính giá vé (Thường 100%, Trẻ em 50%);
+
+|Nhân viên|
+:Tìm tài khoản khách bằng\nsố điện thoại hoặc email;
+
+|Hệ thống|
+if (Có tài khoản?) then (Có)
+  :Gắn vé vào tài khoản khách\nđể tích điểm và lưu vé;
+else (Không)
+  :Cho phép hoàn tất giao dịch\nmà không cần tài khoản;
+endif
+:Hiển thị tổng tiền cần thanh toán;
+
+|Nhân viên|
+:Chọn hình thức thanh toán\n(Tiền mặt hoặc quét mã chuyển khoản QR);
+:Thu tiền từ khách;
+if (Đã thu?) then (Có)
+  |Hệ thống|
+  :Chuyển các vé sang Valid;
+  :Chuyển các ghế sang OCCUPIED;
+  :Sinh chữ ký HMAC-SHA256\nvà mã QR Code cho vé;
+  :In vé cho khách;
+  |Nhân viên|
+  :Giao vé cho khách;
+  stop
+else (Không)
+  |Hệ thống|
+  :Hủy giao dịch và giải phóng ghế về EMPTY;
+  |Nhân viên|
+  :Thông báo giao dịch chưa hoàn tất;
+  stop
+endif
+@enduml
+

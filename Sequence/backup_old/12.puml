@@ -1,0 +1,31 @@
+@startuml
+hide footbox
+autonumber
+skinparam style strictuml
+
+actor "Người dùng\n(Khách hàng / Nhân viên / Admin)" as ND
+boundary "Giao diện Thanh điều hướng" as UI
+control "AuthController\n(NestJS)" as API
+control "AuthService\n(Xử lý nghiệp vụ)" as SVC
+entity "Database\n(Prisma)" as DB
+
+activate ND
+ND -> UI : Chọn Đăng xuất
+activate UI
+UI -> API : POST /api/auth/dang-xuat
+activate API
+API -> SVC : dangXuat(token)
+activate SVC
+SVC -> DB : Vô hiệu hóa phiên đăng nhập hiện tại
+activate DB
+DB --> SVC : Phiên đã bị vô hiệu hóa
+deactivate DB
+SVC --> API : Kết thúc phiên thành công
+deactivate SVC
+API --> UI : 200 - Đã đăng xuất
+deactivate API
+UI -> UI : Xóa thông tin phiên trên thiết bị
+UI --> ND : Chuyển về trang đăng nhập
+deactivate UI
+deactivate ND
+@enduml

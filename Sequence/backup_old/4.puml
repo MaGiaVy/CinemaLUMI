@@ -1,0 +1,62 @@
+@startuml
+
+actor "Khách hàng" as KH
+boundary "Giao diện bán vé" as UI
+control "Bộ điều khiển bán vé" as CTRL
+database "CSDL" as DB
+
+KH -> UI : Yêu cầu mua vé
+activate UI
+
+UI -> CTRL : Chọn chức năng bán vé
+activate CTRL
+
+CTRL -> DB : Lấy danh sách phim
+activate DB
+DB --> CTRL : Danh sách phim
+deactivate DB
+
+CTRL --> UI : Hiển thị phim
+
+KH -> UI : Chọn suất chiếu
+
+UI -> CTRL : Gửi thông tin suất chiếu
+
+CTRL -> DB : Kiểm tra ghế trống
+activate DB
+DB --> CTRL : Danh sách ghế
+deactivate DB
+
+CTRL --> UI : Hiển thị ghế
+
+KH -> UI : Chọn ghế
+
+UI -> CTRL : Xác nhận ghế
+
+CTRL -> DB : Tính tiền
+activate DB
+DB --> CTRL : Tổng tiền
+deactivate DB
+
+CTRL --> UI : Hiển thị tổng tiền
+
+KH -> UI : Thanh toán
+
+UI -> CTRL : Xác nhận thanh toán
+
+CTRL -> DB : Lưu giao dịch
+activate DB
+DB --> CTRL : Thành công
+
+CTRL -> DB : Cập nhật trạng thái ghế
+DB --> CTRL : Thành công
+deactivate DB
+
+CTRL --> UI : In vé
+
+UI --> KH : Giao vé
+
+deactivate CTRL
+deactivate UI
+
+@enduml

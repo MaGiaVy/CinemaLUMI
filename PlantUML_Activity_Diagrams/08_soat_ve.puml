@@ -1,0 +1,64 @@
+﻿@startuml 08_soat_ve
+title SƠ ĐỒ HOẠT ĐỘNG: SOÁT VÉ VÀO RẠP (TICKET CHECK-IN)
+skinparam conditionStyle insideDiamond
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam monochrome true
+skinparam wrapWidth 180
+
+|Nhân viên|
+|Hệ thống|
+|Nhân viên|
+start
+:Chọn chức năng soát vé;
+:Quét mã QR trên vé\nhoặc nhập mã vé #LMC-XXXXXX;
+
+|Hệ thống|
+:Đọc mã vé và xác thực\nchữ ký HMAC-SHA256 của mã QR;
+if (Chữ ký đúng?) then (Có)
+else (Không)
+  :Từ chối vé và thông báo vé không hợp lệ;
+  |Nhân viên|
+  :Không cho khách vào phòng chiếu;
+  stop
+endif
+
+|Hệ thống|
+:Tìm vé trong cơ sở dữ liệu;
+if (Tồn tại?) then (Có)
+else (Không)
+  :Thông báo không tìm thấy vé;
+  |Nhân viên|
+  :Không cho khách vào phòng chiếu;
+  stop
+endif
+
+|Hệ thống|
+if (Vé Valid?) then (Có)
+else (Không)
+  :Từ chối vé và hiển thị trạng thái hiện tại\n(vé đã sử dụng không được quét lại lần hai);
+  |Nhân viên|
+  :Không cho khách vào phòng chiếu;
+  stop
+endif
+
+|Hệ thống|
+:Đối chiếu phòng chiếu và thời gian hiện tại\nvới suất chiếu của vé;
+if (Đúng giờ?) then (Có)
+else (Không)
+  :Từ chối vé và thông báo lý do;
+  |Nhân viên|
+  :Hướng dẫn khách theo thông báo;
+  stop
+endif
+
+|Hệ thống|
+:Chuyển trạng thái vé sang Used\nvà ghi nhận thời gian soát vé;
+:Hiển thị kết quả vé hợp lệ;
+
+|Nhân viên|
+:Cho khách vào phòng chiếu;
+
+stop
+@enduml
+

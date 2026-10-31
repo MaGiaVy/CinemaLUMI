@@ -1,0 +1,55 @@
+@startuml 03_dang_xuat
+title SƠ ĐỒ HOẠT ĐỘNG: ĐĂNG XUẤT HỆ THỐNG (LOGOUT / SIGN OUT)
+skinparam conditionStyle insideDiamond
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam monochrome true
+skinparam wrapWidth 180
+
+|Người dùng (Actor)|
+start
+:Người dùng trong phiên làm việc hợp lệ;
+:Bấm vào Menu tài khoản trên Navbar;
+:Chọn chức năng "Đăng xuất";
+
+|Giao diện (Frontend Next.js)|
+:Hiển thị Hộp thoại xác nhận đăng xuất;
+
+|Người dùng (Actor)|
+if (Xác nhận?) then (Hủy bỏ:\nGiữ nguyên phiên)
+  |Giao diện (Frontend Next.js)|
+  :Đóng hộp thoại xác nhận;
+  |Người dùng (Actor)|
+  :Tiếp tục sử dụng chức năng;
+  stop
+else (Đồng ý)
+  |Giao diện (Frontend Next.js)|
+  :Khởi chạy trạng thái Loading;
+  :Gọi NextAuth signOut({ redirect: false });
+  :Gửi request POST /api/auth/signout;
+
+  |Máy chủ xử lý (Backend API / NextAuth)|
+  :Tiếp nhận yêu cầu đăng xuất;
+  :Thu hồi và vô hiệu hóa JWT Token;
+  :Cấu hình xóa HttpOnly Cookie (Max-Age=0);
+  :Chuẩn bị bản ghi Audit Log đăng xuất;
+
+  |Cơ sở dữ liệu (PostgreSQL)|
+  :Ghi nhận nhật ký kiểm toán (Audit Trail):\nUser ID, Timestamp, IP Client;
+  :Xác nhận ghi log thành công;
+
+  |Máy chủ xử lý (Backend API / NextAuth)|
+  :Đóng gói phản hồi HTTP 200 OK;
+
+  |Giao diện (Frontend Next.js)|
+  :Cập nhật Session về unauthenticated;
+  :Xóa sạch sessionStorage & localStorage;
+  :Làm mới trạng thái Navbar;
+  :Hiển thị Toast "Đăng xuất thành công!";
+  :Điều hướng người dùng về Trang chủ (/);
+
+  |Người dùng (Actor)|
+  :Quay trở lại giao diện công khai;
+  stop
+endif
+@enduml

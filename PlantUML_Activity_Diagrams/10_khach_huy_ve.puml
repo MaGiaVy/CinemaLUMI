@@ -1,0 +1,69 @@
+﻿@startuml 10_khach_huy_ve
+title SƠ ĐỒ HOẠT ĐỘNG: KHÁCH HỦY VÉ VÀ CẤP VOUCHER 50% (CUSTOMER TICKET CANCELLATION)
+skinparam conditionStyle insideDiamond
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam monochrome true
+skinparam wrapWidth 180
+
+|Khách hàng|
+|Nhân viên|
+|Hệ thống|
+|Khách hàng|
+start
+:Yêu cầu hủy vé;
+if (Kênh hủy?) then (Tại quầy)
+  :Xuất trình mã vé cho nhân viên;
+  |Nhân viên|
+  :Tra cứu vé theo mã vé;
+  :Chọn hủy vé cho khách;
+else (Online)
+  |Khách hàng|
+  :Mở lịch sử vé của tôi;
+  :Chọn vé cần hủy và bấm Hủy vé;
+endif
+
+|Hệ thống|
+:Kiểm tra trạng thái vé;
+if (Vé Valid?) then (Có)
+else (Không)
+  :Từ chối hủy vé và thông báo lý do;
+  stop
+endif
+
+|Hệ thống|
+:Tính thời gian còn lại đến giờ chiếu;
+if (Đủ 2 giờ?) then (Có)
+else (Không)
+  :Từ chối hủy vé theo quy định;
+  stop
+endif
+
+|Hệ thống|
+:Hiển thị cảnh báo: chỉ cấp voucher giảm 50%,\nkhông hoàn tiền mặt hoặc chuyển khoản;
+
+|Khách hàng|
+if (Đồng ý?) then (Có)
+else (Không)
+  :Giữ nguyên vé và kết thúc yêu cầu;
+  stop
+endif
+
+|Hệ thống|
+:Chuyển vé sang Cancelled\n(chỉ vé được chọn, các vé khác trong đơn không đổi);
+:Giải phóng ghế về EMPTY;
+:Giữ nguyên hiệu lực combo đi kèm theo mã đơn;
+:Sinh voucher bồi hoàn COMP50_[TicketID]_[Random]\ngiảm 50%, hạn dùng 30 ngày;
+:Ghi nhận nhật ký kiểm toán;
+if (Có tài khoản?) then (Có)
+  :Gắn voucher vào tài khoản khách;
+else (Không)
+  :In mã voucher cho khách;
+endif
+
+|Khách hàng|
+:Nhận thông báo hủy vé và mã voucher;
+
+stop
+@enduml
+

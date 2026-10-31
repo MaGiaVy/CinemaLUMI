@@ -1,0 +1,86 @@
+@startuml 17_bao_cao_doanh_thu
+title SƠ ĐỒ HOẠT ĐỘNG: BÁO CÁO DOANH THU & ĐỐI SOÁT TÀI CHÍNH (REVENUE & AUDIT)
+skinparam conditionStyle insideDiamond
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam monochrome true
+skinparam wrapWidth 180
+
+|Người dùng (Quản trị viên - Admin)|
+start
+:Truy cập mục "Báo cáo doanh thu" (/admin/reports);
+
+|Giao diện (Frontend Next.js)|
+:Kiểm tra trạng thái xác thực và quyền hạn;
+
+|Máy chủ xử lý (Backend API / NextAuth)|
+if (Admin?) then (Không:\nHTTP 403)
+  :Trả về mã lỗi HTTP 403 Forbidden;
+  |Giao diện (Frontend Next.js)|
+  :Hiển thị thông báo "Truy cập bị từ chối";
+  :Chuyển hướng người dùng về Trang chủ (/);
+  |Người dùng (Quản trị viên - Admin)|
+  :Bị từ chối truy cập;
+  stop
+else (Có)
+  |Giao diện (Frontend Next.js)|
+  :Hiển thị giao diện Báo cáo Doanh thu\nvà bảng điều khiển bộ lọc;
+
+  |Người dùng (Quản trị viên - Admin)|
+  :Thiết lập bộ lọc (thời gian, phim,\nphòng chiếu, kênh bán Online/POS);
+  :Bấm nút "Xem báo cáo";
+
+  |Giao diện (Frontend Next.js)|
+  :Hiển thị hiệu ứng tải dữ liệu (Loading);
+  :Gửi request GET /api/admin/reports/revenue;
+
+  |Máy chủ xử lý (Backend API / NextAuth)|
+  :Tiếp nhận và kiểm tra Query Parameters;
+  if (Hợp lệ?) then (Không:\nNgày bắt đầu > kết thúc)
+    :Sinh mã lỗi HTTP 400 Bad Request;
+    |Giao diện (Frontend Next.js)|
+    :Tắt Loading & hiển thị Toast lỗi;
+    |Người dùng (Quản trị viên - Admin)|
+    :Điều chỉnh lại khoảng ngày;
+    stop
+  else (Có)
+    |Máy chủ xử lý (Backend API / NextAuth)|
+    :Khởi tạo các truy vấn cơ sở dữ liệu song song;
+
+    |Cơ sở dữ liệu (PostgreSQL)|
+    :Truy vấn doanh thu vé thực thu\n(tickets & payments status Valid/Used);
+    :Truy vấn doanh thu bắp nước (order_combos);\n:Truy vấn vé chờ hoàn & vé đã hoàn tiền mặt;\n:Truy vấn tỷ lệ lấp đầy ghế theo suất chiếu;
+    :Trả về các tập kết quả truy vấn;
+
+    |Máy chủ xử lý (Backend API / NextAuth)|
+    :Tổng hợp số liệu kế toán chuẩn (FR-REP-02/BR-10):\n- Net Ticket & Combo Revenue\n- Tiền chờ hoàn & Tiền đã hoàn\n- Tỷ lệ lấp đầy phòng chiếu;
+    :Đóng gói dữ liệu báo cáo JSON 200 OK;
+
+    |Giao diện (Frontend Next.js)|
+    :Tắt hiệu ứng Loading;
+    if (Có dữ liệu?) then (Không)
+      :Hiển thị Empty State:\n"Không tìm thấy giao dịch";
+    else (Có)
+      :Render 4 thẻ KPI tài chính;\n:Render biểu đồ doanh thu & tỷ lệ lấp đầy;\n:Render bảng số liệu chi tiết từng suất chiếu;
+    endif
+
+    |Người dùng (Quản trị viên - Admin)|
+    :Xem xét, phân tích số liệu tài chính;
+    if (Thao tác?) then (Xuất file)
+      |Giao diện (Frontend Next.js)|
+      :Xử lý xuất file bảng tính (.xlsx/.csv);\n:Kích hoạt tải file xuống máy trạm;
+      |Người dùng (Quản trị viên - Admin)|
+      :Lưu trữ file báo cáo;
+      stop
+    else if (Đổi lọc?) then (Lọc lại)
+      |Người dùng (Quản trị viên - Admin)|
+      :Chọn lại khoảng ngày hoặc phòng chiếu;
+      stop
+    else (Xong)
+      |Người dùng (Quản trị viên - Admin)|
+      :Rời khỏi màn hình Báo cáo;
+      stop
+    endif
+  endif
+endif
+@enduml

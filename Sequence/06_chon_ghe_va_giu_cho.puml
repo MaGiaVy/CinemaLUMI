@@ -1,0 +1,75 @@
+@startuml 06_chon_ghe_va_giu_cho
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: CHỌN GHẾ VÀ GIỮ CHỖ TẠM THỜI
+
+actor "Khách hàng" as A
+boundary "Giao diện chọn ghế" as UI
+control "Điều khiển mua vé" as C
+entity "Dữ liệu hệ thống" as DB
+
+activate A
+A -> UI: Mở màn hình chọn ghế của suất chiếu đã chọn
+activate UI
+UI -> C: Yêu cầu sơ đồ ghế của suất chiếu đã chọn
+activate C
+C -> DB: Lấy sơ đồ phòng chiếu và trạng thái ghế
+activate DB
+DB --> C: Sơ đồ ghế và trạng thái (EMPTY, RESERVED, BOOKED)
+deactivate DB
+C --> UI: Dữ liệu sơ đồ ghế
+deactivate C
+UI --> A: Hiển thị sơ đồ ghế và trạng thái trực quan
+deactivate UI
+
+A -> UI: Chọn một hoặc nhiều ghế
+activate UI
+UI -> C: Gửi danh sách ghế được chọn
+activate C
+C -> DB: Kiểm tra trạng thái các ghế được chọn
+activate DB
+DB --> C: Kết quả kiểm tra trạng thái ghế
+deactivate DB
+
+alt Có ghế không khả dụng (đã có người giữ hoặc đặt)
+    C --> UI: Báo ghế không khả dụng, yêu cầu chọn ghế khác
+    activate UI
+    UI --> A: Hiển thị thông báo ghế đã bị trùng
+    deactivate UI
+else Tất cả ghế khả dụng
+    C -> DB: Khóa giữ chỗ tạm 10 phút (RESERVED) (BR-01)
+    activate DB
+    DB --> C: Xác nhận giữ chỗ thành công
+    deactivate DB
+    C -> C: Ghi nhận ghế vào giao dịch hiện tại
+    C --> UI: Danh sách ghế đã chọn & bộ đếm ngược 10 phút
+    activate UI
+    UI --> A: Hiển thị ghế đã chọn & thời gian giữ chỗ
+    deactivate UI
+end
+deactivate C
+deactivate UI
+
+opt Khách hàng muốn đổi ý bỏ chọn ghế
+    A -> UI: Bỏ chọn ghế trên sơ đồ
+    activate UI
+    UI -> C: Yêu cầu giải phóng ghế đã bỏ
+    activate C
+    C -> DB: Giải phóng ghế về trạng thái trống (EMPTY)
+    activate DB
+    DB --> C: Xác nhận giải phóng
+    deactivate DB
+    C -> C: Cập nhật lại danh sách ghế trong giao dịch
+    C --> UI: Danh sách ghế mới sau khi bỏ
+    activate UI
+    UI --> A: Hiển thị sơ đồ ghế cập nhật
+    deactivate UI
+    deactivate C
+    deactivate UI
+end
+deactivate A
+@enduml

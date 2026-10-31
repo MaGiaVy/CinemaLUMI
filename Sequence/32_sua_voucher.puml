@@ -1,0 +1,61 @@
+@startuml 32_sua_voucher
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: CHỈNH SỬA VOUCHER
+
+actor "Quản trị viên (Admin)" as A
+boundary "Giao diện quản lý voucher" as UI
+control "Điều khiển voucher" as C
+entity "Dữ liệu hệ thống" as DB
+
+activate A
+A -> UI: Chọn voucher cần sửa và bấm "Chỉnh sửa"
+activate UI
+UI -> C: Yêu cầu thông tin voucher theo ID
+activate C
+C -> DB: Tra cứu voucher trong CSDL
+activate DB
+DB --> C: Bản ghi voucher hoặc null
+deactivate DB
+
+alt Không tìm thấy voucher
+    C --> UI: Báo 404 Not Found (Voucher không tồn tại)
+    activate UI
+    UI --> A: Hiển thị thông báo không tìm thấy voucher
+    deactivate UI
+else Tìm thấy voucher
+    C --> UI: Thông tin voucher hiện tại
+    deactivate C
+    UI --> A: Hiển thị form chỉnh sửa với dữ liệu cũ
+    deactivate UI
+    
+    A -> UI: Điều chỉnh hạn sử dụng, điều kiện và bấm "Cập nhật"
+    activate UI
+    UI -> C: Gửi dữ liệu cập nhật voucher
+    activate C
+    C -> C: Kiểm tra dữ liệu cập nhật
+    
+    alt Dữ liệu cập nhật không hợp lệ
+        C --> UI: Báo 400 Bad Request (Hạn sử dụng không hợp lệ)
+        activate UI
+        UI --> A: Hiển thị cảnh báo lỗi dữ liệu
+        deactivate UI
+    else Dữ liệu hợp lệ
+        C -> DB: Cập nhật thông tin voucher vào CSDL
+        activate DB
+        DB --> C: Bản ghi voucher đã cập nhật
+        deactivate DB
+        C --> UI: Báo 200 OK (Cập nhật thành công)
+        activate UI
+        UI --> A: Hiển thị Toast thành công & làm mới bảng voucher
+        deactivate UI
+    end
+    deactivate C
+    deactivate UI
+end
+deactivate A
+@enduml

@@ -1,0 +1,53 @@
+@startuml 29_cap_nhat_ton_kho_combo
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: CẬP NHẬT TỒN KHO COMBO
+
+actor "Quản trị viên (Admin)" as A
+boundary "Giao diện quản lý combo" as UI
+control "Điều khiển combo" as C
+entity "Dữ liệu hệ thống" as DB
+
+activate A
+A -> UI: Chọn combo và bấm "Cập nhật tồn kho"
+activate UI
+UI -> C: Yêu cầu số lượng tồn kho hiện tại
+activate C
+C -> DB: Tra cứu số lượng tồn kho hiện tại
+activate DB
+DB --> C: Số lượng tồn kho hiện tại (stock)
+deactivate DB
+C --> UI: Số lượng tồn kho
+deactivate C
+UI --> A: Hiển thị popup nhập số lượng tồn kho mới
+deactivate UI
+
+A -> UI: Nhập số lượng tồn mới và bấm "Xác nhận cập nhật"
+activate UI
+UI -> C: Gửi số lượng tồn kho mới
+activate C
+C -> C: Kiểm tra tính hợp lệ (newStock >= 0 và là số nguyên)
+
+alt Số lượng tồn kho âm hoặc không hợp lệ
+    C --> UI: Báo 400 Bad Request (Số lượng tồn kho không được âm)
+    activate UI
+    UI --> A: Hiển thị cảnh báo lỗi dữ liệu
+    deactivate UI
+else Số lượng hợp lệ
+    C -> DB: Cập nhật stock = newStock trong CSDL
+    activate DB
+    DB --> C: Bản ghi combo đã cập nhật tồn kho
+    deactivate DB
+    C --> UI: Báo 200 OK (Cập nhật tồn kho thành công)
+    activate UI
+    UI --> A: Hiển thị Toast thành công & làm mới số lượng trên bảng
+    deactivate UI
+end
+deactivate C
+deactivate UI
+deactivate A
+@enduml

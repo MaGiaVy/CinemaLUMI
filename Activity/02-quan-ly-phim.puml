@@ -1,0 +1,85 @@
+@startuml
+title Activity — Quản lý phim
+
+' Nguồn: https://docs.google.com/document/d/1Bo2MbuEJUP8o421n0obrvHAogGqLLJeWQNq8HZ_7780/edit
+' Tiền điều kiện: Admin có quyền quản lý phim. Các nhánh lựa chọn ứng với các chức năng trong đặc tả.
+skinparam defaultFontName DejaVu Sans
+skinparam defaultFontSize 14
+skinparam shadowing false
+skinparam monochrome true
+skinparam conditionStyle InsideDiamond
+skinparam backgroundColor white
+skinparam ArrowColor black
+skinparam activity {
+  BackgroundColor white
+  BorderColor black
+  FontColor black
+  DiamondBackgroundColor white
+  DiamondBorderColor black
+  DiamondFontColor black
+  StartColor black
+  EndColor black
+}
+
+|Admin|
+start
+:Chọn quản lý phim;
+|Hệ thống|
+:Hiển thị danh sách phim;
+|Admin|
+:Chọn thêm, sửa, ngừng chiếu;
+if (Thêm mới?) then (Không)
+  :Chọn phim cần xử lý;
+  |Hệ thống|
+  :Tìm thông tin phim;
+  if (Phim\ntồn tại?) then (Có)
+    :Hiển thị thông tin hiện tại;
+  else (Không)
+    :Thông báo không tìm thấy phim;
+    stop
+  endif
+else (Có)
+endif
+|Admin|
+if (Chọn\nngừng chiếu?) then (Có)
+  |Hệ thống|
+  if (Đã\nngừng chiếu?) then (Có)
+    :Thông báo phim đã ngừng chiếu;
+    stop
+  else (Không)
+  endif
+else (Không)
+endif
+|Hệ thống|
+:Hiển thị biểu mẫu hoặc yêu cầu xác nhận\ntheo thao tác đã chọn;
+|Admin|
+:Nhập hoặc sửa thông tin nếu cần,
+xem lại thông tin phim;
+if (Xác nhận\nthao tác?) then (Có)
+else (Không)
+  :Hủy thao tác;
+  stop
+endif
+
+|Hệ thống|
+:Kiểm tra thông tin phim;
+while (Dữ liệu\nhợp lệ?) is (Không)
+  :Thông báo lỗi và yêu cầu nhập lại;
+  |Admin|
+  :Điều chỉnh thông tin phim;
+  :Xác nhận thông tin;
+  |Hệ thống|
+  :Kiểm tra lại thông tin phim;
+endwhile (Có)
+
+:Lưu mới / sửa thông tin / ngừng chiếu\ntheo thao tác đã chọn;
+
+|Hệ thống|
+if (Lưu thay đổi\nthành công?) then (Có)
+  :Thông báo thành công;
+  :Cập nhật danh sách phim;
+else (Không)
+  :Thông báo thao tác thất bại;
+endif
+stop
+@enduml

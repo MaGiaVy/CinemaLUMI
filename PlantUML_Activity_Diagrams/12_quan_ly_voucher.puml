@@ -1,0 +1,77 @@
+﻿@startuml 12_quan_ly_voucher
+title SƠ ĐỒ HOẠT ĐỘNG: QUẢN LÝ VOUCHER KHUYẾN MÃI (VOUCHER MANAGEMENT)
+skinparam conditionStyle insideDiamond
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam monochrome true
+skinparam wrapWidth 180
+
+|Admin|
+|Hệ thống|
+|Admin|
+start
+:Chọn quản lý voucher;
+
+|Hệ thống|
+:Hiển thị danh sách voucher\n(khuyến mãi do Admin và bồi hoàn do hệ thống sinh);
+
+|Admin|
+:Chọn thêm, sửa hoặc ngừng sử dụng\nvoucher khuyến mãi;
+if (Thêm mới?) then (Có)
+else (Không)
+  :Chọn voucher cần xử lý;
+  |Hệ thống|
+  :Tìm thông tin voucher;
+  if (Tồn tại?) then (Có)
+    :Hiển thị thông tin hiện tại;
+  else (Không)
+    :Thông báo không tìm thấy voucher;
+    stop
+  endif
+endif
+
+|Admin|
+if (Ngừng dùng?) then (Có)
+  |Hệ thống|
+  if (Đã ngừng?) then (Có)
+    :Thông báo voucher đã ngừng sử dụng;
+    stop
+  else (Không)
+  endif
+else (Không)
+endif
+
+|Hệ thống|
+:Hiển thị biểu mẫu hoặc yêu cầu xác nhận\ntheo thao tác đã chọn;
+
+|Admin|
+:Nhập hoặc sửa mã voucher, mức giảm,\nhạn dùng, giới hạn lượt dùng (nếu cần);
+if (Xác nhận?) then (Có)
+else (Không)
+  :Hủy thao tác;
+  stop
+endif
+
+|Hệ thống|
+:Kiểm tra thông tin voucher;
+while (Hợp lệ?) is (Không)
+  :Thông báo lỗi và yêu cầu nhập lại;
+  |Admin|
+  :Điều chỉnh thông tin voucher;
+  :Xác nhận thông tin;
+  |Hệ thống|
+  :Kiểm tra lại thông tin voucher;
+endwhile (Có)
+
+|Hệ thống|
+:Lưu mới, sửa thông tin hoặc ngừng sử dụng voucher\ntheo thao tác đã chọn;
+if (Thành công?) then (Có)
+  :Thông báo thành công;
+  :Cập nhật danh sách voucher;
+  stop
+else (Không)
+  :Thông báo thao tác thất bại;
+  stop
+endif
+@enduml
+

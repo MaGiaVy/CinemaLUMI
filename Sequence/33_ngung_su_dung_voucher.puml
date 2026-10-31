@@ -1,0 +1,55 @@
+@startuml 33_ngung_su_dung_voucher
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: NGỪNG SỬ DỤNG VOUCHER
+
+actor "Quản trị viên (Admin)" as A
+boundary "Giao diện quản lý voucher" as UI
+control "Điều khiển voucher" as C
+entity "Dữ liệu hệ thống" as DB
+
+activate A
+A -> UI: Chọn voucher và bấm "Ngừng sử dụng"
+activate UI
+UI --> A: Hiển thị hộp thoại xác nhận thu hồi voucher
+deactivate UI
+
+alt Quản trị viên hủy thao tác
+    A -> UI: Bấm "Hủy bỏ"
+    activate UI
+    UI --> A: Đóng hộp thoại, giữ nguyên trạng thái voucher
+    deactivate UI
+else Quản trị viên xác nhận ngừng sử dụng
+    A -> UI: Bấm "Xác nhận ngừng sử dụng"
+    activate UI
+    UI -> C: Yêu cầu chuyển trạng thái voucher sang INACTIVE
+    activate C
+    C -> DB: Tra cứu trạng thái hiện tại của voucher
+    activate DB
+    DB --> C: Trạng thái hiện tại của voucher
+    deactivate DB
+    
+    alt Voucher vốn đã ngừng sử dụng
+        C --> UI: Báo 400 Bad Request (Voucher đã ngừng sử dụng trước đó)
+        activate UI
+        UI --> A: Hiển thị thông báo trạng thái hiện tại
+        deactivate UI
+    else Voucher đang hoạt động (ACTIVE)
+        C -> DB: Cập nhật status = 'INACTIVE'
+        activate DB
+        DB --> C: Xác nhận cập nhật thành công
+        deactivate DB
+        C --> UI: Báo 200 OK (Thu hồi voucher thành công)
+        activate UI
+        UI --> A: Hiển thị Toast thành công & chuyển trạng thái sang INACTIVE
+        deactivate UI
+    end
+    deactivate C
+    deactivate UI
+end
+deactivate A
+@enduml

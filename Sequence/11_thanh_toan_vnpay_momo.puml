@@ -1,0 +1,52 @@
+@startuml 11_thanh_toan_vnpay_momo
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: THANH TOÁN QUA CỔNG VNPAY / MOMO
+
+actor "Khách hàng" as A
+control "Điều khiển thanh toán" as C
+entity "Dữ liệu hệ thống" as DB
+participant "Cổng VNPay / MoMo" as PAY
+
+activate C
+C -> PAY: Gửi yêu cầu thanh toán (Mã đơn hàng, Số tiền, Chữ ký HMAC)
+activate PAY
+PAY -> PAY: Xác thực chữ ký số và khởi tạo phiên thanh toán
+PAY --> A: Hiển thị giao diện thanh toán bảo mật (QR / OTP)
+activate A
+
+alt Khách hàng xác nhận thanh toán thành công
+    A -> PAY: Nhập mã OTP / Quét mã thanh toán thành công
+    PAY -> PAY: Khấu trừ tiền & ký số biên lai giao dịch
+    PAY --> C: Gửi IPN Webhook (Mã giao dịch, responseCode = 00, Chữ ký hợp lệ)
+    C -> DB: Ghi nhận giao dịch thành công & chuyển trạng thái đơn PAID
+    activate DB
+    DB --> C: Xác nhận cập nhật
+    deactivate DB
+    PAY --> A: Thông báo giao dịch thanh toán thành công trên ứng dụng
+else Khách hàng chủ động hủy thanh toán
+    A -> PAY: Bấm nút Hủy giao dịch trên cổng thanh toán
+    PAY --> C: Gửi IPN Webhook (responseCode = 24 - Đã hủy bởi người dùng)
+    C -> DB: Ghi nhận trạng thái CANCELLED & giải phóng ghế giữ chỗ
+    activate DB
+    DB --> C: Xác nhận cập nhật
+    deactivate DB
+    PAY --> A: Thông báo hủy giao dịch & điều hướng về rạp
+else Thẻ không đủ số dư hoặc lỗi ngân hàng
+    A -> PAY: Xác nhận thanh toán
+    PAY -> PAY: Kiểm tra tài khoản (Lỗi số dư / Từ chối thẻ)
+    PAY --> C: Gửi IPN Webhook (responseCode != 00 - Lỗi thanh toán)
+    C -> DB: Ghi nhận trạng thái FAILED
+    activate DB
+    DB --> C: Xác nhận cập nhật
+    deactivate DB
+    PAY --> A: Báo lỗi thanh toán trên cổng
+end
+deactivate A
+deactivate PAY
+deactivate C
+@enduml

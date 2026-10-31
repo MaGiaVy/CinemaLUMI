@@ -1,0 +1,49 @@
+@startuml state_ticket
+skinparam monochrome true
+skinparam style strictuml
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam roundCorner 8
+skinparam state {
+    BorderThickness 1.5
+    ArrowThickness 1.2
+}
+
+title SƠ ĐỒ TRẠNG THÁI VÉ XEM PHIM (TICKET STATE MACHINE) - LUMI CINEMA
+
+[*] --> PENDING_PAYMENT : Khách chọn ghế & đặt vé\n/ Tạo đơn hàng chờ thanh toán
+
+PENDING_PAYMENT --> Cancelled : Hết 15 phút không thanh toán\nhoặc Khách chủ động hủy\n/ Giải phóng ghế giữ chỗ (EMPTY)
+
+PENDING_PAYMENT --> Valid : Thanh toán thành công (VNPay IPN / Tiền mặt POS)\n/ Sinh mã vé, tạo QR Code & gửi xác nhận
+
+state Valid {
+    [*] --> ChoSoatVe
+    ChoSoatVe : Vé hợp lệ và đang chờ đến giờ chiếu
+}
+
+Valid --> Used : Nhân viên quét mã QR tại cổng kiểm soát\n[Giờ chiếu - 30p <= Hiện tại <= Giờ chiếu + 45p]\n/ Đóng dấu vé đã sử dụng (FR-CHK-01)
+
+Valid --> Cancelled : [Khách yêu cầu hủy TRƯỚC giờ chiếu >= 2 tiếng]\n/ Hủy vé, sinh Voucher giảm 50% hạn 30 ngày (BR-03)\n[Không hoàn tiền mặt/chuyển khoản]
+
+Valid --> Cancelled : [Rạp gặp sự cố kỹ thuật: mất điện, hỏng máy chiếu (FR-ADM-04)]\n/ Hủy vé, tự động thiết lập refundStatus = PENDING_CASH_REFUND (BR-04)
+
+state Cancelled {
+    state "PENDING_CASH_REFUND\n(Chờ hoàn tiền mặt 100%)" as PendingRefund
+    state "HUY_BOI_KHACH\n(Đã cấp Voucher 50%)" as ClientCancelled
+}
+
+Cancelled --> REFUNDED_CASH : Khách xuất trình mã vé tại quầy rạp\n[Trong vòng 30 ngày kể từ ngày hủy]\n/ Thu ngân chi trả tiền mặt 100% giá trị vé (FR-CAN-02)
+
+note right of Used
+  <b>RÀNG BUỘC BẤT BIẾN (FR-CAN-03):</b>
+  Vé ở trạng thái <b>Used</b> tuyệt đối
+  <b>KHÔNG ĐƯỢC PHÉP</b> hủy hay hoàn tiền
+  dưới bất kỳ hình thức nào.
+end note
+
+Used --> [*] : Suất chiếu hoàn tất
+REFUNDED_CASH --> [*] : Hoàn tất chi trả tiền mặt
+ClientCancelled --> [*] : Kết thúc quy trình hủy do khách
+
+@enduml

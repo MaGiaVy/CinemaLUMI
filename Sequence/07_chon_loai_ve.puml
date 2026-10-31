@@ -1,0 +1,53 @@
+@startuml 07_chon_loai_ve
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: CHỌN LOẠI VÉ
+
+actor "Khách hàng" as A
+boundary "Giao diện chọn loại vé" as UI
+control "Điều khiển mua vé" as C
+entity "Dữ liệu hệ thống" as DB
+
+activate A
+A -> UI: Chuyển sang bước chọn loại vé
+activate UI
+UI -> C: Yêu cầu danh sách loại vé theo nhãn tuổi phim
+activate C
+C -> DB: Lấy các loại vé (Thường 100%, Trẻ em 50%) và nhãn tuổi phim
+activate DB
+DB --> C: Danh sách loại vé và nhãn độ tuổi (P, K, T13, T16, T18)
+deactivate DB
+C --> UI: Danh sách loại vé khả dụng
+deactivate C
+UI --> A: Hiển thị các loại vé phù hợp
+deactivate UI
+
+A -> UI: Chọn loại vé cho từng ghế đã chọn
+activate UI
+UI -> C: Gửi loại vé được chọn
+activate C
+C -> DB: Kiểm tra sự phù hợp với nhãn tuổi phim & lấy bảng giá (BR-02)
+activate DB
+DB --> C: Trạng thái hợp lệ và đơn giá vé tương ứng
+deactivate DB
+
+alt Không phù hợp nhãn tuổi (VD: Vé Trẻ em cho phim T18)
+    C --> UI: Báo loại vé không áp dụng cho phim này
+    activate UI
+    UI --> A: Hiển thị cảnh báo & yêu cầu chọn loại vé khác
+    deactivate UI
+else Hợp lệ với nhãn tuổi phim
+    C -> C: Ghi nhận loại vé và đơn giá vào giao dịch
+    C --> UI: Xác nhận loại vé và hiển thị tổng tiền vé
+    activate UI
+    UI --> A: Hiển thị danh sách vé & đơn giá cập nhật
+    deactivate UI
+end
+deactivate C
+deactivate UI
+deactivate A
+@enduml

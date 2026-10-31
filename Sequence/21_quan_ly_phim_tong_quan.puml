@@ -1,0 +1,66 @@
+@startuml 21_quan_ly_phim_tong_quan
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: QUẢN TRỊ DANH MỤC PHIM (TỔNG QUAN)
+
+actor "Quản trị viên (Admin)" as A
+boundary "Giao diện quản lý phim" as UI
+control "Điều khiển phim" as C
+entity "Dữ liệu hệ thống" as DB
+
+activate A
+A -> UI: Truy cập trang Quản lý phim (/admin/movies)
+activate UI
+UI -> C: Yêu cầu danh sách phim hiện có
+activate C
+C -> DB: Truy vấn danh sách phim (Lọc trạng thái, thể loại)
+activate DB
+DB --> C: Danh sách bản ghi phim
+deactivate DB
+C --> UI: Dữ liệu danh sách phim & danh mục chức năng
+deactivate C
+UI --> A: Hiển thị bảng danh sách phim & các nút thao tác
+deactivate UI
+
+alt Quản trị viên chọn Thêm phim mới
+    A -> UI: Bấm nút "Thêm phim mới"
+    activate UI
+    UI -> C: Chuyển hướng sang quy trình Thêm phim
+    activate C
+    C --> UI: Trả về form biểu mẫu nhập liệu phim
+    deactivate C
+    UI --> A: Hiển thị modal / form Thêm phim
+    deactivate UI
+else Quản trị viên chọn Sửa thông tin phim
+    A -> UI: Chọn một phim & bấm nút "Chỉnh sửa"
+    activate UI
+    UI -> C: Yêu cầu dữ liệu chi tiết của phim theo ID
+    activate C
+    C -> DB: Tra cứu phim theo movie_id
+    activate DB
+    DB --> C: Dữ liệu chi tiết phim
+    deactivate DB
+    C --> UI: Dữ liệu phim hiện tại
+    deactivate C
+    UI --> A: Hiển thị form chỉnh sửa phim với dữ liệu đã điền
+    deactivate UI
+else Quản trị viên chọn Ngừng chiếu phim
+    A -> UI: Chọn phim & bấm nút "Ngừng chiếu"
+    activate UI
+    UI -> C: Yêu cầu cập nhật trạng thái ngừng chiếu
+    activate C
+    C -> DB: Cập nhật status = 'INACTIVE'
+    activate DB
+    DB --> C: Xác nhận cập nhật trạng thái thành công
+    deactivate DB
+    C --> UI: Thông báo cập nhật thành công & danh sách mới
+    deactivate C
+    UI --> A: Hiển thị Toast thành công & làm mới bảng phim
+    deactivate UI
+end
+deactivate A
+@enduml

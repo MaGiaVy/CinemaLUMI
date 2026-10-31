@@ -1,0 +1,49 @@
+@startuml
+hide footbox
+autonumber
+skinparam style strictuml
+
+actor "Khách hàng" as KH
+boundary "Giao diện Đăng ký" as UI
+control "AuthController\n(NestJS)" as API
+control "AuthService\n(Xử lý nghiệp vụ)" as SVC
+entity "Database\n(Prisma)" as DB
+
+activate KH
+KH -> UI : Mở trang đăng ký
+activate UI
+UI --> KH : Hiển thị form đăng ký
+KH -> UI : Nhập họ tên, email, số điện thoại,\nmật khẩu, xác nhận mật khẩu
+UI -> API : POST /api/auth/dang-ky
+activate API
+API -> SVC : dangKy(họ tên, email, SĐT, mật khẩu, xác nhận)
+activate SVC
+alt Mật khẩu dưới 6 ký tự hoặc xác nhận mật khẩu không khớp
+  SVC --> API : Lỗi dữ liệu không hợp lệ
+  API --> UI : 400 - Dữ liệu không hợp lệ
+  UI --> KH : Thông báo lỗi, yêu cầu nhập lại
+else Dữ liệu hợp lệ
+  SVC -> DB : Tìm người dùng theo email
+  activate DB
+  DB --> SVC : Kết quả tìm kiếm
+  deactivate DB
+  alt Email đã tồn tại
+    SVC --> API : Lỗi email đã được sử dụng
+    API --> UI : 409 - Email đã tồn tại
+    UI --> KH : Thông báo email đã được sử dụng, yêu cầu nhập lại
+  else Email chưa tồn tại
+    SVC -> SVC : Mã hóa mật khẩu
+    SVC -> DB : Tạo người dùng mới (vai trò Khách hàng)
+    activate DB
+    DB --> SVC : Người dùng đã được tạo
+    deactivate DB
+    SVC --> API : Đăng ký thành công
+    API --> UI : 201 - Đăng ký thành công
+    UI --> KH : Thông báo thành công, chuyển sang trang đăng nhập
+  end
+end
+deactivate SVC
+deactivate API
+deactivate UI
+deactivate KH
+@enduml

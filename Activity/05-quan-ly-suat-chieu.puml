@@ -1,0 +1,77 @@
+@startuml
+title Activity — Quản lý suất chiếu
+
+' Nguồn: https://docs.google.com/document/d/1Bo2MbuEJUP8o421n0obrvHAogGqLLJeWQNq8HZ_7780/edit
+' Tiền điều kiện: Admin có quyền quản lý suất chiếu; phim cần tạo suất chiếu tồn tại.
+skinparam defaultFontName DejaVu Sans
+skinparam defaultFontSize 14
+skinparam shadowing false
+skinparam monochrome true
+skinparam conditionStyle InsideDiamond
+skinparam backgroundColor white
+skinparam ArrowColor black
+skinparam activity {
+  BackgroundColor white
+  BorderColor black
+  FontColor black
+  DiamondBackgroundColor white
+  DiamondBorderColor black
+  DiamondFontColor black
+  StartColor black
+  EndColor black
+}
+
+|Admin|
+start
+:Chọn quản lý suất chiếu;
+|Hệ thống|
+:Hiển thị danh sách suất chiếu;
+|Admin|
+:Chọn thêm hoặc sửa suất chiếu;
+if (Sửa suất\nchiếu?) then (Có)
+  :Chọn suất chiếu cần sửa;
+  |Hệ thống|
+  :Tìm suất chiếu;
+  if (Suất chiếu\ntồn tại?) then (Có)
+    :Hiển thị thông tin hiện tại;
+  else (Không)
+    :Thông báo không tìm thấy suất chiếu;
+    stop
+  endif
+else (Không)
+endif
+|Hệ thống|
+:Hiển thị biểu mẫu thêm hoặc sửa suất chiếu;
+|Admin|
+:Nhập hoặc chỉnh sửa thông tin suất chiếu;
+|Hệ thống|
+:Kiểm tra dữ liệu suất chiếu; 
+if (Thêm mới?) then (Có)
+  :Kiểm tra độ phù hợp của suất chiếu;
+else (Không)
+endif
+while (Thông tin đạt\nyêu cầu?) is (Không)
+  :Thông báo lỗi cần điều chỉnh;
+  |Admin|
+  :Điều chỉnh thông tin suất chiếu;
+  |Hệ thống|
+  :Kiểm tra lại dữ liệu; 
+  if (Thêm mới?) then (Có)
+    :Kiểm tra lại độ phù hợp;
+  else (Không)
+  endif
+endwhile (Có)
+|Admin|
+:Xác nhận lưu;
+|Hệ thống|
+:Lưu mới hoặc cập nhật suất chiếu\ntheo thao tác đã chọn;
+
+|Hệ thống|
+if (Lưu thay đổi\nthành công?) then (Có)
+  :Thông báo thành công;
+  :Cập nhật danh sách suất chiếu;
+else (Không)
+  :Thông báo thao tác thất bại;
+endif
+stop
+@enduml

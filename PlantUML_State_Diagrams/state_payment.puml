@@ -1,0 +1,34 @@
+@startuml state_payment
+skinparam monochrome true
+skinparam style strictuml
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam roundCorner 8
+skinparam state {
+    BorderThickness 1.5
+    ArrowThickness 1.2
+}
+
+title SƠ ĐỒ TRẠNG THÁI GIAO DỊCH THANH TOÁN (PAYMENT TRANSACTION STATE MACHINE)
+
+[*] --> Pending : Khách xác nhận đặt hàng\n/ Sinh URL thanh toán VNPay hoặc Tạo đơn POS tại quầy
+
+Pending --> Success : Nhận IPN VNPay hợp lệ (vnp_ResponseCode == "00" && Checksum đúng)\nHOẶC Thu ngân POS xác nhận thu đủ tiền mặt (FR-POS-02)\n/ Cập nhật đơn hàng thành công, kích hoạt xuất vé & combo
+
+Pending --> Failed : [Khách nhấn Hủy trên cổng VNPay]\nhoặc [Quá hạn phiên giao dịch 15 phút]\nhoặc [Checksum IPN không hợp lệ]\n/ Hủy đơn hàng, giải phóng các ghế đang giữ chỗ (EMPTY)
+
+Success --> Refunded : Suất chiếu bị hủy khẩn cấp do sự cố kỹ thuật của rạp (BR-04)\n& Khách xuất trình vé tại quầy trong vòng 30 ngày (FR-CAN-02)\n/ Thu ngân xuất quỹ tiền mặt hoàn 100% cho khách
+
+Success --> [*] : Giao dịch hoàn tất thành công, ghi nhận doanh thu
+Failed --> [*] : Kết thúc giao dịch thất bại
+Refunded --> [*] : Hoàn tất quy trình hoàn tiền mặt
+
+note right of Pending
+  <b>RÀNG BUỘC THANH TOÁN:</b>
+  - Timeout tối đa 15 phút.
+  - Phải xác thực chữ ký bảo mật
+    (Secure Hash / Checksum HMAC SHA512)
+    từ cổng VNPay trước khi chuyển sang Success.
+end note
+
+@enduml

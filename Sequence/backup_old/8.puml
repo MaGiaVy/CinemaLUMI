@@ -1,0 +1,56 @@
+@startuml
+title Sequence Diagram - Quan ly danh gia phim
+
+actor "Nguoi quan ly" as QL
+actor "Khach hang" as KH
+participant "Giao dien Web" as FE
+participant "Backend" as BE
+database "Co so du lieu" as DB
+
+QL -> FE: 1. Chon Quan ly danh gia phim
+FE -> BE: 2. Yeu cau danh sach danh gia
+BE -> DB: 3. Truy van danh sach danh gia
+DB --> BE: 4. Tra danh sach danh gia
+BE --> FE: 5. Tra du lieu danh gia
+FE --> QL: 6. Hien thi danh sach danh gia
+
+QL -> FE: 7. Chon mot danh gia
+FE -> BE: 8. Yeu cau chi tiet danh gia
+BE -> DB: 9. Truy van chi tiet danh gia
+DB --> BE: 10. Tra thong tin danh gia
+BE --> FE: 11. Tra chi tiet danh gia
+FE --> QL: 12. Hien thi phim, khach hang,\nso sao, nhan xet va thoi gian
+
+alt Xoa danh gia
+    QL -> FE: 13. Chon xoa va xac nhan
+    FE -> BE: 14. Gui yeu cau xoa danh gia
+    BE -> DB: 15. Xoa hoac an danh gia
+    DB --> BE: 16. Tra ket qua xu ly
+    BE --> FE: 17. Thong bao ket qua
+    FE --> QL: 18. Cap nhat danh sach danh gia
+else Gui phan hoi
+    QL -> FE: 13. Nhap va gui phan hoi
+    FE -> BE: 14. Gui noi dung phan hoi
+    BE -> BE: 15. Kiem tra noi dung va quyen
+    BE -> DB: 16. Luu phan hoi
+    DB --> BE: 17. Xac nhan luu
+    BE --> FE: 18. Tra ket qua
+    FE --> QL: 19. Hien thi thong bao
+end
+
+== Khach hang danh gia phim ==
+
+KH -> FE: 20. Chon phim va mo danh gia
+FE --> KH: 21. Hien thi bieu mau danh gia
+KH -> FE: 22. Chon 1-5 sao va nhap nhan xet
+KH -> FE: 23. Nhan Gui danh gia
+FE -> BE: 24. Gui so sao va nhan xet
+BE -> BE: 25. Kiem tra dang nhap va du lieu
+BE -> DB: 26. Luu danh gia phim
+DB --> BE: 27. Xac nhan luu
+BE -> DB: 28. Cap nhat diem trung binh phim
+DB --> BE: 29. Tra ket qua cap nhat
+BE --> FE: 30. Tra ket qua danh gia
+FE --> KH: 31. Hien thi thong bao ket qua
+
+@enduml

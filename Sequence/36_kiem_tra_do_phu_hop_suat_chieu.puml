@@ -1,0 +1,44 @@
+@startuml 36_kiem_tra_do_phu_hop_suat_chieu
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: KIỂM TRA ĐỘ PHÙ HỢP SUẤT CHIẾU
+
+actor "Quản trị viên (Admin)" as A
+boundary "Giao diện quản lý suất chiếu" as UI
+control "Điều khiển suất chiếu" as C
+entity "Dữ liệu hệ thống" as DB
+
+activate A
+A -> UI: Nhập thông tin suất chiếu dự kiến (Phim, Phòng, Giờ bắt đầu)
+activate UI
+UI -> C: Gửi thông tin suất chiếu dự kiến để kiểm tra
+activate C
+
+C -> DB: Lấy thời lượng phim (duration) từ bảng Movie
+activate DB
+DB --> C: Thời lượng phim (phút)
+deactivate DB
+
+C -> C: Tính toán: Giờ kết thúc = Giờ bắt đầu + Thời lượng phim
+C -> C: Tính khoảng cách an toàn: Giờ kết thúc + 15 phút dọn dẹp (BR-09)
+
+C -> DB: Tra cứu các suất chiếu khác trong cùng phòng chiếu giao thoa khung giờ
+activate DB
+DB --> C: Danh sách suất chiếu hiện có trong phòng
+deactivate DB
+
+alt Trùng lịch phòng chiếu hoặc không đủ khoảng cách 15 phút dọn dẹp
+    C --> UI: Báo không phù hợp: Trùng lịch chiếu trong phòng
+    UI --> A: Hiển thị cảnh báo trực quan & đề xuất khung giờ trống tiếp theo
+else Khung giờ hoàn toàn khả dụng
+    C --> UI: Đạt yêu cầu: Phòng chiếu trống & đáp ứng thời gian dọn dẹp
+    UI --> A: Đánh dấu hợp lệ (tick xanh) & cho phép bấm "Xác nhận tạo"
+end
+deactivate C
+deactivate UI
+deactivate A
+@enduml

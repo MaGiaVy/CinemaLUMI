@@ -1,0 +1,109 @@
+@startuml 04_mua_ve_va_dat_combo_online_tong_quan
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: MUA VÉ VÀ ĐẶT COMBO ONLINE (TỔNG QUAN)
+
+actor "Khách hàng" as A
+boundary "Giao diện mua vé" as UI
+control "Điều khiển mua vé" as C
+entity "Dữ liệu hệ thống" as DB
+participant "VNPay / MoMo" as PAY
+
+activate A
+A -> UI: Chọn mua vé và đặt combo online
+activate UI
+UI -> C: Bắt đầu giao dịch
+activate C
+C -> DB: Lấy phim và suất chiếu khả dụng
+activate DB
+DB --> C: Danh sách phim và suất chiếu
+deactivate DB
+C --> UI: Hiển thị phim và suất chiếu
+deactivate C
+UI --> A: Hiển thị danh sách phim & suất chiếu
+deactivate UI
+
+A -> UI: Chọn phim và suất chiếu
+activate UI
+UI -> C: Ghi nhận lựa chọn
+activate C
+C -> DB: Lấy ghế và trạng thái
+activate DB
+DB --> C: Sơ đồ ghế
+deactivate DB
+C --> UI: Hiển thị ghế và loại vé
+deactivate C
+UI --> A: Hiển thị sơ đồ ghế & bảng giá
+deactivate UI
+
+A -> UI: Chọn ghế và loại vé
+activate UI
+UI -> C: Gửi lựa chọn
+activate C
+C -> DB: Kiểm tra trạng thái ghế và giá vé
+activate DB
+DB --> C: Kết quả kiểm tra
+deactivate DB
+
+alt Ghế không khả dụng
+    C --> UI: Yêu cầu chọn ghế khác
+    activate UI
+    UI --> A: Báo ghế đã có người đặt
+    deactivate UI
+else Ghế hợp lệ
+    opt Có nhu cầu chọn combo
+        C -> C: Thêm combo vào đơn hàng
+    end
+    opt Có mã giảm giá
+        C -> C: Kiểm tra và áp dụng voucher
+    end
+    C --> UI: Đơn hàng và tổng tiền
+    activate UI
+    UI --> A: Hiển thị đơn hàng & thông tin thanh toán
+    deactivate UI
+end
+deactivate C
+deactivate UI
+
+A -> UI: Chọn phương thức thanh toán online
+activate UI
+UI -> C: Yêu cầu thanh toán
+activate C
+C -> PAY: Gửi yêu cầu đến VNPay / MoMo
+activate PAY
+PAY --> A: Hiển thị giao diện cổng thanh toán
+deactivate PAY
+deactivate C
+deactivate UI
+
+A -> PAY: Xác nhận thanh toán
+activate PAY
+PAY --> C: Webhook/IPN trả kết quả giao dịch
+activate C
+alt Giao dịch thành công
+    C -> DB: Cập nhật trạng thái Vé (Valid), Đơn hàng (PAID)
+    activate DB
+    DB --> C: Xác nhận cập nhật
+    deactivate DB
+    C --> UI: Xác nhận mua vé & gửi vé điện tử (QR)
+    activate UI
+    UI --> A: Hiển thị vé và mã QR nhận vé/combo
+    deactivate UI
+else Giao dịch thất bại hoặc hủy
+    C -> DB: Giải phóng ghế (EMPTY), hủy đơn hàng
+    activate DB
+    DB --> C: Xác nhận giải phóng ghế
+    deactivate DB
+    C --> UI: Báo giao dịch chưa hoàn tất
+    activate UI
+    UI --> A: Thông báo thanh toán thất bại
+    deactivate UI
+end
+deactivate C
+deactivate PAY
+deactivate A
+@enduml

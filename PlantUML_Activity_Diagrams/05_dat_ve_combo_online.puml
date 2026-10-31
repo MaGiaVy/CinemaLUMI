@@ -1,0 +1,113 @@
+﻿@startuml 05_dat_ve_combo_online
+title SƠ ĐỒ HOẠT ĐỘNG: ĐẶT VÉ VÀ MUA COMBO ONLINE (ONLINE TICKET & COMBO BOOKING)
+skinparam conditionStyle insideDiamond
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam monochrome true
+skinparam wrapWidth 180
+
+|Khách hàng|
+|Hệ thống|
+|Cổng thanh toán VNPay|
+|Khách hàng|
+start
+:Chọn phim đang chiếu;
+:Lọc suất chiếu theo ngày chiếu,\nthể loại phim và phòng chiếu;
+
+|Hệ thống|
+:Hiển thị danh sách suất chiếu phù hợp;
+
+|Khách hàng|
+:Chọn suất chiếu;
+
+|Hệ thống|
+:Hiển thị sơ đồ 50 ghế (A1-E10)\nvà trạng thái từng ghế;
+
+|Khách hàng|
+:Chọn ghế (tối đa số ghế quy định);
+
+|Hệ thống|
+:Kiểm tra trạng thái ghế;
+while (Ghế trống?) is (Không)
+  :Thông báo và yêu cầu chọn ghế khác;
+  |Khách hàng|
+  :Chọn lại ghế;
+  |Hệ thống|
+  :Kiểm tra lại trạng thái ghế;
+endwhile (Có)
+:Chuyển ghế sang RESERVED\nđặt reservedUntil = NOW() + 10 phút;
+
+|Khách hàng|
+:Chọn loại vé cho từng ghế\n(Thường hoặc Trẻ em);
+
+|Hệ thống|
+if (Hợp lệ?) then (Có)
+else (Không)
+  :Khóa lựa chọn vé trẻ em\nvà chuyển về vé Thường;
+endif
+:Tính giá vé (Thường 100%, Trẻ em 50%);
+
+|Khách hàng|
+if (Thêm combo?) then (Có)
+  :Chọn combo và số lượng;
+  |Hệ thống|
+  if (Còn hàng?) then (Có)
+    :Giữ tồn kho combo tạm thời 10 phút\nvà thêm combo vào đơn hàng;
+  else (Không)
+    :Thông báo combo không đủ tồn kho;
+  endif
+else (Không)
+endif
+
+|Khách hàng|
+if (Dùng voucher?) then (Có)
+  :Nhập hoặc chọn mã voucher;
+  |Hệ thống|
+  if (Hợp lệ?) then (Có)
+    :Áp dụng giảm giá trên tiền vé\n(không áp dụng trên tiền combo);
+  else (Không)
+    :Thông báo voucher không hợp lệ\nvà không áp dụng giảm giá;
+  endif
+else (Không)
+endif
+
+|Hệ thống|
+:Tính tổng đơn = tiền vé sau giảm giá + tiền combo;
+:Hiển thị thông tin đơn hàng và số tiền cần thanh toán;
+
+|Khách hàng|
+:Chọn thanh toán online qua VNPay;
+
+|Hệ thống|
+:Tạo đơn hàng trạng thái Pending\nvà sinh đường dẫn thanh toán VNPay;
+
+|Cổng thanh toán VNPay|
+:Tiếp nhận yêu cầu thanh toán;
+
+|Khách hàng|
+:Thực hiện thanh toán trên cổng VNPay;
+
+|Cổng thanh toán VNPay|
+:Xử lý giao dịch và gửi kết quả IPN về hệ thống;
+
+|Hệ thống|
+:Xác thực chữ ký (checksum) của kết quả IPN;
+if (Thành công?) then (Có)
+  :Chuyển các vé sang Valid;
+  :Chuyển các ghế sang OCCUPIED;
+  :Trừ kho combo chính thức\nvà đặt trạng thái combo là Chưa nhận;
+  :Sinh chữ ký HMAC-SHA256 trên mã vé\nđể tạo mã QR Code;
+  :Gửi email xác nhận kèm vé điện tử;
+  |Khách hàng|
+  :Nhận vé điện tử có mã QR;
+  stop
+else (Không)
+  |Hệ thống|
+  :Hủy đơn hàng, giải phóng ghế về EMPTY;
+  :Hoàn lại tồn kho combo\nvà hoàn lượt dùng voucher;
+  |Khách hàng|
+  :Nhận thông báo giao dịch chưa hoàn tất;
+  stop
+endif
+@enduml
+

@@ -1,0 +1,66 @@
+@startuml 37_sua_suat_chieu
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: CHỈNH SỬA SUẤT CHIẾU
+
+actor "Quản trị viên (Admin)" as A
+boundary "Giao diện quản lý suất chiếu" as UI
+control "Điều khiển suất chiếu" as C
+entity "Dữ liệu hệ thống" as DB
+
+activate A
+A -> UI: Chọn suất chiếu cần sửa và bấm "Chỉnh sửa"
+activate UI
+UI -> C: Yêu cầu thông tin chi tiết suất chiếu theo ID
+activate C
+C -> DB: Tra cứu suất chiếu và kiểm tra danh sách vé đã đặt
+activate DB
+DB --> C: Thông tin suất chiếu và số lượng vé đã đặt
+deactivate DB
+
+alt Không tìm thấy suất chiếu
+    C --> UI: Báo 404 Not Found (Không tìm thấy suất chiếu)
+    activate UI
+    UI --> A: Hiển thị thông báo lỗi
+    deactivate UI
+else Đã có vé được đặt (tickets > 0)
+    C --> UI: Báo 400 Bad Request (Không thể sửa suất chiếu đã có khách mua vé)
+    activate UI
+    UI --> A: Cảnh báo không thể đổi lịch do đã có vé bán ra
+    deactivate UI
+else Chưa có vé nào được đặt (Hợp lệ để sửa)
+    C --> UI: Thông tin suất chiếu hiện tại
+    deactivate C
+    UI --> A: Hiển thị form chỉnh sửa lịch chiếu
+    deactivate UI
+    
+    A -> UI: Thay đổi khung giờ / phòng chiếu và bấm "Lưu thay đổi"
+    activate UI
+    UI -> C: Gửi dữ liệu điều chỉnh suất chiếu
+    activate C
+    C -> C: Kiểm tra xung đột phòng chiếu & thời gian dọn dẹp (BR-09)
+    
+    alt Bị trùng lịch với suất chiếu khác
+        C --> UI: Báo 409 Conflict (Trùng lịch với suất chiếu khác)
+        activate UI
+        UI --> A: Cảnh báo xung đột lịch phòng chiếu
+        deactivate UI
+    else Khung giờ hợp lệ
+        C -> DB: Cập nhật phòng chiếu và khung giờ mới vào CSDL
+        activate DB
+        DB --> C: Bản ghi suất chiếu đã cập nhật
+        deactivate DB
+        C --> UI: Báo 200 OK (Cập nhật suất chiếu thành công)
+        activate UI
+        UI --> A: Hiển thị Toast thành công & cập nhật lại timeline
+        deactivate UI
+    end
+    deactivate C
+    deactivate UI
+end
+deactivate A
+@enduml

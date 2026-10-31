@@ -5,7 +5,6 @@ import { prisma } from '@/lib/prisma';
 import { authOptions } from '@/lib/auth';
 import { AppError, handleError } from '@/lib/error';
 import { apiResponse } from '@/lib/api-response';
-import { TicketStatus } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -192,10 +191,10 @@ export async function GET(request: NextRequest) {
  * Thêm đánh giá & bình luận cho phim:
  * 1. Yêu cầu người dùng phải đăng nhập (Session NextAuth).
  * 2. Validate dữ liệu payload bằng Zod (movie_id, rating: 1-5, comment).
- * 3. Validation Nghiệp vụ Cốt lõi:
- *    - Dùng Prisma kiểm tra xem user_id này đã từng có Ticket nào của movie_id này với trạng thái 'Used' chưa.
- *    - Nếu chưa có (chưa xem phim hoặc vé chưa check-in), ném ra AppError 403:
- *      'Bạn chỉ được đánh giá phim sau khi đã xem'
+ * 3. Quy tắc nghiệp vụ BR-06 (SRS FR-REV-01):
+ *    - Khách hàng chỉ cần đăng nhập thành công là có quyền gửi đánh giá (Rating 1-5 sao và comment).
+ *    - Không ràng buộc điều kiện phải mua vé xem phim trước đó (mô hình cộng đồng mở tương tự IMDb, Letterboxd).
+ *    - Chống spam: Mỗi tài khoản chỉ có tối đa 1 bài đánh giá cho 1 bộ phim (Idempotent Upsert).
  * 4. Nếu hợp lệ, lưu bản ghi vào bảng Review (nếu đã từng đánh giá thì cập nhật).
  * 5. Tự động tính toán lại điểm rating trung bình của phim trong bảng Movie.
  * 6. Trả về kết quả qua helper apiResponse.
@@ -258,33 +257,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // 5. VALIDATION NGHIỆP VỤ CỐT LÕI (BR-07):
-    // Khách hàng chỉ được đánh giá phim sau khi đã xem (có vé xem phim đó với trạng thái 'Used')
-    const currentUserRole = (session?.user as { role?: string })?.role;
-    if (currentUserRole !== 'ADMIN') {
-      const usedTicket = await prisma.ticket.findFirst({
-        where: {
-          userId: currentUserId,
-          status: TicketStatus.Used,
-          screening: {
-            movieId: movie_id,
-          },
-        },
-        select: {
-          id: true,
-        },
-      });
-
-      if (!usedTicket) {
-        throw new AppError(
-          403,
-          'Bạn chỉ được đánh giá phim sau khi đã xem',
-          'FORBIDDEN'
-        );
-      }
-    }
-
-    // 6. Kiểm tra xem người dùng đã từng gửi đánh giá phim này chưa
+    // 5. Kiểm tra xem người dùng đã từng gửi đánh giá phim này chưa (BR-06: 1 review/user/movie)
     const existingReview = await prisma.review.findFirst({
       where: {
         userId: currentUserId,

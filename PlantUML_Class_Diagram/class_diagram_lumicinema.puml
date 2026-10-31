@@ -314,13 +314,14 @@ end note
 
 note right of Ticket
   **BR-03 & BR-04: Soát vé & Hủy vé**
-  - QR Code bảo mật kèm chữ ký HMAC-SHA256
+  - QR Code bảo mật kèm chữ ký HMAC-SHA256 (BR-09)
   - Soát vé chống check-in trùng lặp (Idempotent)
-  - Hủy vé trước 60p nhận Voucher bồi hoàn COMP50
+  - Hủy vé trước >= 2 tiếng nhận Voucher bồi hoàn COMP50 (BR-03)
+  - Rạp hủy vé sự cố bồi hoàn tiền mặt 100% (BR-04)
 end note
 
 note left of Screening
-  **BR-09: Kiểm tra xung đột phòng chiếu**
+  **BR-08 / BR-09: Giãn cách suất chiếu phòng**
   - [startTime, endTime + 15p buffer] không trùng
   - Đảm bảo phòng chiếu được dọn dẹp kỹ lưỡng
 end note
@@ -328,7 +329,7 @@ end note
 note bottom of Payment
   **BR-08 & BR-10: Cổng thanh toán & Doanh thu**
   - Tích hợp VNPay / Momo xác thực mã checksum IPN
-  - Bóc tách doanh thu phòng vé và quầy bắp nước
+  - Bóc tách doanh thu thực thu và tiền hoàn vé (BR-10)
 end note
 
 @enduml

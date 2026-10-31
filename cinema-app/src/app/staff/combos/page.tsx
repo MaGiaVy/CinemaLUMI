@@ -168,10 +168,10 @@ export default function StaffCombosPage() {
         {/* Thông báo Alert */}
         {alertMessage && (
           <div
-            className={`p-4 rounded-xl flex items-center justify-between text-sm ${
+            className={`p-4 rounded-xl border-2 border-l-[6px] flex items-center justify-between text-sm shadow-xl font-medium ${
               alertMessage.type === 'success'
-                ? 'bg-[#2ECC71]/20 border border-[#2ECC71]/50 text-[#2ECC71]'
-                : 'bg-[#E63946]/20 border border-[#E63946]/50 text-[#E63946]'
+                ? 'bg-[#0E2517] border-[#2ECC71] text-white shadow-[#2ECC71]/20'
+                : 'bg-[#2D0F14] border-[#E63946] text-white shadow-[#E63946]/20'
             }`}
           >
             <span>{alertMessage.type === 'success' ? '✅' : '⚠️'} {alertMessage.text}</span>

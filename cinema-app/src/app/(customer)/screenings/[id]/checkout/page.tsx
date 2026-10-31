@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams, useRouter, useSearchParams } from 'next/navigation';
+import { useSession } from 'next-auth/react';
 import Image from 'next/image';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
@@ -80,6 +81,7 @@ export default function CheckoutPage() {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
+  const { data: session, status: authStatus } = useSession();
 
   const screeningId = useMemo(() => {
     const rawId = params?.id;
@@ -299,6 +301,16 @@ export default function CheckoutPage() {
 
   // Xác nhận thanh toán
   const handleConfirmPayment = async () => {
+    // 1. Kiểm tra phiên đăng nhập phía Client trước khi gọi API
+    if (authStatus === 'unauthenticated' || !session) {
+      showToast('Vui lòng đăng nhập để tiến hành đặt vé trực tuyến. Đang chuyển hướng...', 'warning');
+      const currentUrl = typeof window !== 'undefined' ? window.location.pathname + window.location.search : '';
+      setTimeout(() => {
+        router.push(`/login?callbackUrl=${encodeURIComponent(currentUrl)}`);
+      }, 1000);
+      return;
+    }
+
     try {
       setIsProcessingPayment(true);
 
@@ -324,7 +336,19 @@ export default function CheckoutPage() {
       const result = await res.json();
 
       if (!res.ok || !result.success) {
-        throw new Error(result.error || result.message || 'Khởi tạo thanh toán thất bại');
+        // Nếu phiên hết hạn hoặc chưa đăng nhập từ API server
+        if (res.status === 401 || result.code === 'UNAUTHENTICATED') {
+          showToast('Phiên làm việc đã hết hạn. Vui lòng đăng nhập lại để tiếp tục.', 'warning');
+          const currentUrl = typeof window !== 'undefined' ? window.location.pathname + window.location.search : '';
+          setTimeout(() => {
+            router.push(`/login?callbackUrl=${encodeURIComponent(currentUrl)}`);
+          }, 1000);
+          return;
+        }
+
+        const errMsg = result.error || result.message || 'Khởi tạo thanh toán thất bại';
+        showToast(errMsg, 'error');
+        return;
       }
 
       const paymentData = result.data;
@@ -345,7 +369,6 @@ export default function CheckoutPage() {
         setIsPaymentSuccess(true);
       }
     } catch (err) {
-      console.error('Lỗi thanh toán:', err);
       showToast(err instanceof Error ? err.message : 'Thanh toán thất bại. Vui lòng thử lại.', 'error');
     } finally {
       setIsProcessingPayment(false);
@@ -740,6 +763,25 @@ export default function CheckoutPage() {
                     </div>
                   </div>
                 </div>
+
+                {!session && (
+                  <div className="p-3 bg-[#FFB703]/10 border border-[#FFB703]/30 rounded-xl flex items-center justify-between text-xs text-[#FFB703]">
+                    <div className="flex items-center gap-2">
+                      <span>🔒</span>
+                      <span>Bạn cần đăng nhập để thanh toán vé.</span>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const currentUrl = typeof window !== 'undefined' ? window.location.pathname + window.location.search : '';
+                        router.push(`/login?callbackUrl=${encodeURIComponent(currentUrl)}`);
+                      }}
+                      className="bg-[#FFB703] text-black font-bold px-2.5 py-1 rounded-lg hover:bg-[#FCA311] transition-colors"
+                    >
+                      Đăng nhập ngay
+                    </button>
+                  </div>
+                )}
 
                 {/* Nút Xác Nhận Thanh Toán */}
                 <Button

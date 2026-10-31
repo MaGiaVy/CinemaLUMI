@@ -36,7 +36,7 @@ const initialForm: NewComboForm = {
   price: '',
   stock: '50',
   status: 'ACTIVE',
-  image: 'https://images.unsplash.com/photo-1585647347483-22b66260dfff?w=400&h=300&fit=crop&auto=format',
+  image: '/combos/combo-solo.jpg',
 };
 
 export default function AdminCombosPage() {

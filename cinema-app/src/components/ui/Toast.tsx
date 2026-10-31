@@ -13,47 +13,86 @@ interface ToastProps {
   onRemove: (id: string) => void;
 }
 
-const icons = {
-  success: '✓',
-  error: '✕',
-  info: 'ℹ',
-  warning: '⚠',
-};
-
-const colors = {
-  success: 'border-l-[#2ECC71] bg-[#2ECC71]/10',
-  error: 'border-l-[#E63946] bg-[#E63946]/10',
-  info: 'border-l-[#0088FF] bg-[#0088FF]/10',
-  warning: 'border-l-[#FFB703] bg-[#FFB703]/10',
-};
-
-const iconColors = {
-  success: 'text-[#2ECC71]',
-  error: 'text-[#E63946]',
-  info: 'text-[#0088FF]',
-  warning: 'text-[#FFB703]',
+const toastConfigs = {
+  success: {
+    bg: 'bg-[#0E2517]',
+    border: 'border-[#2ECC71] border-l-[#2ECC71]',
+    badgeBg: 'bg-[#2ECC71]',
+    badgeText: 'text-black',
+    icon: '✓',
+    title: 'Thành công',
+    shadow: 'shadow-2xl shadow-[#2ECC71]/30',
+  },
+  error: {
+    bg: 'bg-[#2D0F14]',
+    border: 'border-[#E63946] border-l-[#E63946]',
+    badgeBg: 'bg-[#E63946]',
+    badgeText: 'text-white',
+    icon: '✕',
+    title: 'Lỗi',
+    shadow: 'shadow-2xl shadow-[#E63946]/30',
+  },
+  warning: {
+    bg: 'bg-[#2E2005]',
+    border: 'border-[#FFB703] border-l-[#FFB703]',
+    badgeBg: 'bg-[#FFB703]',
+    badgeText: 'text-black',
+    icon: '!',
+    title: 'Cảnh báo',
+    shadow: 'shadow-2xl shadow-[#FFB703]/30',
+  },
+  info: {
+    bg: 'bg-[#0C1E33]',
+    border: 'border-[#0088FF] border-l-[#0088FF]',
+    badgeBg: 'bg-[#0088FF]',
+    badgeText: 'text-white',
+    icon: 'ℹ',
+    title: 'Thông báo',
+    shadow: 'shadow-2xl shadow-[#0088FF]/30',
+  },
 };
 
 function ToastItem({ toast, onRemove }: { toast: ToastMessage; onRemove: (id: string) => void }) {
   const [exiting, setExiting] = useState(false);
+  const cfg = toastConfigs[toast.type] || toastConfigs.info;
 
   useEffect(() => {
     const timer = setTimeout(() => {
       setExiting(true);
       setTimeout(() => onRemove(toast.id), 300);
-    }, 3000);
+    }, 4500);
     return () => clearTimeout(timer);
   }, [toast.id, onRemove]);
 
+  const handleClose = () => {
+    setExiting(true);
+    setTimeout(() => onRemove(toast.id), 300);
+  };
+
   return (
     <div
-      className={`flex items-start gap-3 px-4 py-3 rounded-lg border border-[#404040] border-l-4 ${colors[toast.type]} ${exiting ? 'toast-exit' : 'toast-enter'} min-w-[280px] max-w-[360px] shadow-xl`}
+      role="alert"
+      className={`flex items-start gap-3.5 px-4 py-3.5 rounded-xl border-2 border-l-[6px] ${cfg.bg} ${cfg.border} ${cfg.shadow} ${
+        exiting ? 'toast-exit' : 'toast-enter'
+      } min-w-[320px] max-w-[440px] text-white opacity-100 z-50`}
+      style={{ opacity: 1 }}
     >
-      <span className={`text-base font-bold mt-0.5 ${iconColors[toast.type]}`}>{icons[toast.type]}</span>
-      <p className="text-sm text-white flex-1">{toast.message}</p>
+      <div className={`w-7 h-7 rounded-full ${cfg.badgeBg} ${cfg.badgeText} flex items-center justify-center font-black text-sm shrink-0 mt-0.5 shadow-md`}>
+        {cfg.icon}
+      </div>
+      <div className="flex-1 min-w-0 pr-1">
+        <p className="text-xs font-bold uppercase tracking-wider opacity-90 mb-0.5">
+          {cfg.title}
+        </p>
+        <p className="text-sm font-medium text-white leading-relaxed break-words">
+          {toast.message}
+        </p>
+      </div>
       <button
-        onClick={() => { setExiting(true); setTimeout(() => onRemove(toast.id), 300); }}
-        className="text-[#B3B3B3] hover:text-white ml-1 text-sm"
+        type="button"
+        onClick={handleClose}
+        className="w-6 h-6 rounded-lg bg-white/10 hover:bg-white/25 text-[#E0E0E0] hover:text-white flex items-center justify-center text-xs transition-colors shrink-0 font-bold"
+        title="Đóng thông báo"
       >
         ✕
       </button>
@@ -62,8 +101,10 @@ function ToastItem({ toast, onRemove }: { toast: ToastMessage; onRemove: (id: st
 }
 
 export default function Toast({ toasts, onRemove }: ToastProps) {
+  if (!toasts || toasts.length === 0) return null;
+
   return (
-    <div className="fixed top-4 right-4 z-[100] flex flex-col gap-2">
+    <div className="fixed top-5 right-5 z-[9999] flex flex-col gap-3 pointer-events-auto">
       {toasts.map(toast => (
         <ToastItem key={toast.id} toast={toast} onRemove={onRemove} />
       ))}

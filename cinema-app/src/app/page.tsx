@@ -3,7 +3,6 @@ import Link from 'next/link';
 import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import { prisma } from '@/lib/prisma';
-import { movies as mockMovies } from '@/data/mockData';
 
 interface DisplayMovie {
   id: string | number;
@@ -26,18 +25,22 @@ export default async function HomePage() {
 
   try {
     const rawDbMovies = await prisma.movie.findMany({
+      where: {
+        isDeleted: false,
+        status: { in: ['SHOWING', 'UPCOMING'] },
+      },
       orderBy: { createdAt: 'desc' },
       include: {
         screenings: {
           where: { status: 'UPCOMING' },
           orderBy: { startTime: 'asc' },
-          take: 3,
+          take: 5,
         },
       },
     });
 
     if (rawDbMovies.length > 0) {
-      allMovies = rawDbMovies.map(m => ({
+      allMovies = rawDbMovies.map((m) => ({
         id: m.id,
         title: m.title,
         poster: m.poster,
@@ -52,39 +55,18 @@ export default async function HomePage() {
       }));
     }
   } catch (err) {
-    console.warn('[HomePage] Could not load movies from DB, using fallback:', err);
+    console.error('[HomePage] Error loading movies from DB:', err);
   }
 
-  // Bổ sung thêm các phim từ mockData nếu DB ít hơn 8 phim để giao diện rạp phim luôn phong phú
-  if (allMovies.length < 8) {
-    const existingTitles = new Set(allMovies.map(m => m.title.toLowerCase()));
-    for (const m of mockMovies) {
-      if (!existingTitles.has(m.title.toLowerCase())) {
-        allMovies.push({
-          id: m.id,
-          title: m.title,
-          poster: m.poster,
-          banner: m.banner || m.poster,
-          trailer: null,
-          genre: Array.isArray(m.genre) ? m.genre.join(', ') : m.genre,
-          duration: m.duration,
-          rating: m.rating,
-          ageRating: 'P',
-          ticketPrice: m.ticketPrice,
-          description: m.description,
-        });
-      }
-    }
-  }
-
-  const heroMovie = allMovies.find(m => m.title.toLowerCase().includes('spider-man')) || allMovies[0];
+  const heroMovie =
+    allMovies.find((m) => m.title.toLowerCase().includes('spider-man')) || allMovies[0];
 
   const heroBanner =
-    heroMovie.trailer?.startsWith('http')
+    heroMovie?.trailer?.startsWith('http')
       ? heroMovie.trailer
-      : heroMovie.banner ||
-        heroMovie.poster ||
-        'https://images.unsplash.com/photo-1536440136628-849c177e76a1?w=1600&h=900&fit=crop';
+      : heroMovie?.banner ||
+        heroMovie?.poster ||
+        'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600&h=900&fit=crop&auto=format';
 
   return (
     <div className="min-h-screen bg-[#141414] text-white flex flex-col font-sans">

@@ -7,7 +7,7 @@ import Link from 'next/link';
 import Badge from '@/components/ui/Badge';
 import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
-import { ToastMessage } from '@/components/ui/Toast';
+import Toast, { ToastMessage } from '@/components/ui/Toast';
 import { StaffTicketSearchResult } from '@/app/api/staff/tickets/search/route';
 import { StaffCancelTicketResult } from '@/app/api/staff/tickets/[id]/cancel-with-voucher/route';
 
@@ -179,31 +179,7 @@ function TicketLookupContent() {
   return (
     <div className="flex-1 bg-[#141414] p-6 lg:p-8 min-h-screen">
       {/* Toast Notification Container */}
-      <div className="fixed top-5 right-5 z-50 flex flex-col gap-2 pointer-events-none">
-        {toasts.map((toast) => (
-          <div
-            key={toast.id}
-            className={`pointer-events-auto flex items-start gap-3 px-4 py-3 rounded-xl border border-[#404040] shadow-2xl min-w-[300px] max-w-[420px] transition-all duration-200 ${
-              toast.type === 'success'
-                ? 'bg-[#183323] border-[#2ECC71]/40 text-white'
-                : toast.type === 'error'
-                ? 'bg-[#3b1c1f] border-[#E63946]/40 text-white'
-                : 'bg-[#1c2a38] border-[#0088FF]/40 text-white'
-            }`}
-          >
-            <span className="text-lg">
-              {toast.type === 'success' ? '✅' : toast.type === 'error' ? '❌' : 'ℹ️'}
-            </span>
-            <div className="flex-1 text-sm font-medium">{toast.message}</div>
-            <button
-              onClick={() => removeToast(toast.id)}
-              className="text-[#A3A3A3] hover:text-white text-sm ml-1"
-            >
-              ✕
-            </button>
-          </div>
-        ))}
-      </div>
+      <Toast toasts={toasts} onRemove={removeToast} />
 
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}

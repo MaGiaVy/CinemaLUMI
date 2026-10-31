@@ -369,6 +369,15 @@ function PaymentContent() {
       const result = await res.json();
 
       if (!res.ok || !result.success) {
+        if (res.status === 401 || result.code === 'UNAUTHENTICATED') {
+          showToast('Vui lòng đăng nhập để tiến hành đặt vé trực tuyến. Đang chuyển hướng...', 'warning');
+          const currentUrl = typeof window !== 'undefined' ? window.location.pathname + window.location.search : '';
+          setTimeout(() => {
+            router.push(`/login?callbackUrl=${encodeURIComponent(currentUrl)}`);
+          }, 1000);
+          return;
+        }
+
         const errorMsg = result.error || result.message || 'Khởi tạo thanh toán thất bại';
         showToast(errorMsg, 'error');
         return;
@@ -386,7 +395,6 @@ function PaymentContent() {
         router.push(`/payment-result?payment_id=${paymentData.payment_id}&status=success`);
       }
     } catch (err) {
-      console.error('Lỗi khi khởi tạo thanh toán:', err);
       showToast(err instanceof Error ? err.message : 'Lỗi kết nối đến máy chủ thanh toán', 'error');
     } finally {
       setIsProcessing(false);

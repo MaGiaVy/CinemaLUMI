@@ -74,7 +74,7 @@ function ToastItem({ toast, onRemove }: { toast: ToastMessage; onRemove: (id: st
       role="alert"
       className={`flex items-start gap-3.5 px-4 py-3.5 rounded-xl border-2 border-l-[6px] ${cfg.bg} ${cfg.border} ${cfg.shadow} ${
         exiting ? 'toast-exit' : 'toast-enter'
-      } min-w-[320px] max-w-[440px] text-white opacity-100 z-50`}
+      } min-w-[320px] max-w-[440px] text-white opacity-100 z-50 pointer-events-auto`}
       style={{ opacity: 1 }}
     >
       <div className={`w-7 h-7 rounded-full ${cfg.badgeBg} ${cfg.badgeText} flex items-center justify-center font-black text-sm shrink-0 mt-0.5 shadow-md`}>
@@ -104,7 +104,7 @@ export default function Toast({ toasts, onRemove }: ToastProps) {
   if (!toasts || toasts.length === 0) return null;
 
   return (
-    <div className="fixed top-5 right-5 z-[9999] flex flex-col gap-3 pointer-events-auto">
+    <div className="fixed top-5 right-5 z-[9999] flex flex-col gap-3 pointer-events-none">
       {toasts.map(toast => (
         <ToastItem key={toast.id} toast={toast} onRemove={onRemove} />
       ))}

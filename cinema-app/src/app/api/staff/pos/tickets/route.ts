@@ -263,12 +263,15 @@ export async function POST(request: NextRequest) {
           });
         }
 
+        const deliveredAt = new Date();
         await tx.orderCombo.createMany({
           data: comboBreakdown.map(c => ({
             paymentId: payment.id,
             comboId: c.combo_id,
             quantity: c.quantity,
             price: c.unit_price,
+            isDelivered: true,
+            deliveredAt,
           })),
         });
       }

@@ -20,6 +20,20 @@ interface DisplayMovie {
 
 export const dynamic = 'force-dynamic';
 
+const DEFAULT_HERO_MOVIE: DisplayMovie = {
+  id: '',
+  title: 'Lumi Cinema - Trải Nghiệm Điện Ảnh Đỉnh Cao',
+  poster: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=800&h=1200&fit=crop&auto=format',
+  banner: 'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600&h=900&fit=crop&auto=format',
+  trailer: null,
+  genre: 'Hành động, Phiêu lưu, Khoa học viễn tưởng',
+  duration: 120,
+  rating: 4.8,
+  ageRating: 'P',
+  ticketPrice: 120000,
+  description: 'Khám phá trải nghiệm điện ảnh đỉnh cao tại Lumi Cinema với hệ thống máy chiếu Laser 4K và âm thanh vòm Dolby Atmos sống động nhất.',
+};
+
 export default async function HomePage() {
   let allMovies: DisplayMovie[] = [];
 
@@ -59,14 +73,14 @@ export default async function HomePage() {
   }
 
   const heroMovie =
-    allMovies.find((m) => m.title.toLowerCase().includes('spider-man')) || allMovies[0];
+    allMovies.find((m) => m.title.toLowerCase().includes('spider-man')) || allMovies[0] || DEFAULT_HERO_MOVIE;
 
   const heroBanner =
     heroMovie?.trailer?.startsWith('http')
       ? heroMovie.trailer
       : heroMovie?.banner ||
         heroMovie?.poster ||
-        'https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=1600&h=900&fit=crop&auto=format';
+        DEFAULT_HERO_MOVIE.banner!;
 
   return (
     <div className="min-h-screen bg-[#141414] text-white flex flex-col font-sans">
@@ -178,7 +192,13 @@ export default async function HomePage() {
 
           {/* Responsive Movie Cards Grid */}
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
-            {allMovies.map((movie) => {
+            {allMovies.length === 0 ? (
+              <div className="col-span-full py-16 text-center text-slate-400">
+                <p className="text-lg font-medium text-white mb-2">Chưa có phim nào đang khởi chiếu</p>
+                <p className="text-sm text-slate-500">Vui lòng quay lại sau để cập nhật lịch chiếu mới nhất từ cụm rạp.</p>
+              </div>
+            ) : (
+              allMovies.map((movie) => {
               const genreText = Array.isArray(movie.genre)
                 ? movie.genre.join(', ')
                 : movie.genre || 'Hành động, Phiêu lưu';
@@ -238,7 +258,8 @@ export default async function HomePage() {
                   </div>
                 </div>
               );
-            })}
+            })
+          )}
           </div>
         </section>
 

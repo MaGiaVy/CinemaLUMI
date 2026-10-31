@@ -766,6 +766,17 @@ export default function StaffPosPage() {
                     <span className="text-white font-bold">{completedReceipt.movie_title} ({completedReceipt.room})</span>
                   </div>
                 )}
+                {completedReceipt.items && completedReceipt.items.length > 0 && (
+                  <div className="pt-2 border-t border-[#2D2D2D] space-y-1">
+                    <span className="text-[#737373] block mb-1">Bắp nước bàn giao tại quầy:</span>
+                    {completedReceipt.items.map((item: any, idx: number) => (
+                      <div key={idx} className="flex justify-between text-white">
+                        <span>🍿 {item.name} x {item.quantity}</span>
+                        <span>{Number(item.total_price).toLocaleString('vi-VN')} đ</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
                 <div className="flex justify-between pt-1 border-t border-[#2D2D2D]">
                   <span className="text-[#737373]">Tổng tiền thu:</span>
                   <span className="text-[#FFB703] font-black text-sm">

@@ -70,7 +70,7 @@ export async function POST(request: NextRequest) {
       throw new AppError(404, 'Không tìm thấy thông tin bắp nước yêu cầu', 'COMBO_NOT_FOUND');
     }
 
-    // 2. NGHIỆP VỤ BẢO VỆ CHẶN NHẬN LẦN HAI (Anti-Double Claim Rule)
+    // 2. NGHIỆP VỤ BẢO VỆ CHẶN NHẬN LẦN HAI (Anti-Double Claim Rule - BR-05)
     const alreadyDelivered = currentCombos.filter((c) => c.isDelivered);
     if (alreadyDelivered.length > 0) {
       const deliveredNames = alreadyDelivered
@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
         .join(', ');
       
       throw new AppError(
-        400,
+        409,
         `CẢNH BÁO TRÙNG LẶP: Combo ${deliveredNames} đã được nhận trước đó. Hệ thống nghiêm cấm giao nhận lần 2!`,
         'COMBO_ALREADY_DELIVERED'
       );

@@ -124,7 +124,7 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // 3.2. Trừ tồn kho và tạo OrderCombo
+      // 3.2. Trừ tồn kho và tạo OrderCombo (Bán trực tiếp tại quầy: giao ngay tại chỗ FR-POS-03)
       for (const item of itemDetails) {
         await tx.combo.update({
           where: { id: item.combo_id },
@@ -134,12 +134,15 @@ export async function POST(request: NextRequest) {
         });
       }
 
+      const deliveredAt = new Date();
       await tx.orderCombo.createMany({
         data: itemDetails.map(item => ({
           paymentId: payment.id,
           comboId: item.combo_id,
           quantity: item.quantity,
           price: item.unit_price,
+          isDelivered: true,
+          deliveredAt,
         })),
       });
 

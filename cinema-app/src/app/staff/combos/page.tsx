@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
+import Toast, { ToastMessage } from '@/components/ui/Toast';
 
 interface ComboItem {
   orderComboId: number;
@@ -46,6 +47,16 @@ export default function StaffCombosPage() {
   const [deliveringId, setDeliveringId] = useState<number | null>(null);
   const [deliveringPaymentId, setDeliveringPaymentId] = useState<number | null>(null);
   const [alertMessage, setAlertMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+  const [toasts, setToasts] = useState<ToastMessage[]>([]);
+
+  const showToast = useCallback((message: string, type: ToastMessage['type'] = 'info') => {
+    const id = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+    setToasts((prev) => [...prev, { id, type, message }]);
+  }, []);
+
+  const removeToast = useCallback((id: string) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id));
+  }, []);
 
   const fetchOrders = useCallback(async () => {
     setLoading(true);
@@ -90,13 +101,23 @@ export default function StaffCombosPage() {
       });
       const json = await res.json();
 
+      if (res.status === 409) {
+        showToast(json.message || `CẢNH BÁO: "${comboName}" đã được nhận trước đó (BR-05)!`, 'warning');
+        setAlertMessage({ type: 'error', text: json.message || `"${comboName}" đã được nhận trước đó!` });
+        await fetchOrders();
+        return;
+      }
+
       if (json.success) {
+        showToast(`Đã xác nhận giao: ${comboName}!`, 'success');
         setAlertMessage({ type: 'success', text: `Đã xác nhận giao: ${comboName}!` });
         await fetchOrders();
       } else {
+        showToast(json.message || 'Lỗi khi giao combo', 'error');
         setAlertMessage({ type: 'error', text: json.message || 'Lỗi khi giao combo' });
       }
     } catch (err) {
+      showToast('Lỗi đường truyền máy chủ', 'error');
       setAlertMessage({ type: 'error', text: 'Lỗi đường truyền máy chủ' });
     } finally {
       setDeliveringId(null);
@@ -117,13 +138,23 @@ export default function StaffCombosPage() {
       });
       const json = await res.json();
 
+      if (res.status === 409) {
+        showToast(json.message || `CẢNH BÁO: Đơn hàng #${paymentId} đã được nhận trước đó (BR-05)!`, 'warning');
+        setAlertMessage({ type: 'error', text: json.message || `Đơn hàng #${paymentId} đã được nhận trước đó!` });
+        await fetchOrders();
+        return;
+      }
+
       if (json.success) {
+        showToast(`Đã giao trọn bộ bắp nước cho đơn hàng #${paymentId}!`, 'success');
         setAlertMessage({ type: 'success', text: `Đã giao trọn bộ bắp nước cho đơn hàng #${paymentId}!` });
         await fetchOrders();
       } else {
+        showToast(json.message || 'Lỗi khi giao bắp nước', 'error');
         setAlertMessage({ type: 'error', text: json.message || 'Lỗi khi giao bắp nước' });
       }
     } catch (err) {
+      showToast('Lỗi đường truyền máy chủ', 'error');
       setAlertMessage({ type: 'error', text: 'Lỗi đường truyền máy chủ' });
     } finally {
       setDeliveringPaymentId(null);
@@ -132,6 +163,7 @@ export default function StaffCombosPage() {
 
   return (
     <div className="flex-1 bg-[#141414] p-6 lg:p-8 min-h-screen">
+      <Toast toasts={toasts} onRemove={removeToast} />
       <div className="max-w-6xl mx-auto space-y-6">
         {/* Header */}
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#2D2D2D] pb-5">
@@ -283,7 +315,7 @@ export default function StaffCombosPage() {
                     </div>
 
                     <div className="flex items-center gap-3">
-                      {!isAllDelivered && (
+                      {!isAllDelivered ? (
                         <Button
                           variant="primary"
                           size="sm"
@@ -293,6 +325,13 @@ export default function StaffCombosPage() {
                         >
                           {deliveringPaymentId === order.paymentId ? 'Đang xác nhận...' : '✅ Giao toàn bộ combo'}
                         </Button>
+                      ) : (
+                        <button
+                          disabled
+                          className="bg-[#262626] text-[#737373] border border-[#3A3A3A] text-xs font-semibold px-3 py-1.5 rounded-lg cursor-not-allowed opacity-75 flex items-center gap-1.5"
+                        >
+                          <span>🔒</span> Đã giao đủ toàn bộ
+                        </button>
                       )}
                     </div>
                   </div>
@@ -343,12 +382,15 @@ export default function StaffCombosPage() {
 
                         <div className="flex items-center gap-3 self-end sm:self-center">
                           {combo.isDelivered ? (
-                            <div className="text-right">
-                              <span className="inline-flex items-center gap-1.5 text-xs text-[#2ECC71] bg-[#2ECC71]/10 border border-[#2ECC71]/30 px-3 py-1 rounded-full font-semibold">
+                            <div className="flex flex-col items-end gap-1">
+                              <button
+                                disabled
+                                className="inline-flex items-center gap-1.5 text-xs text-[#2ECC71] bg-[#2ECC71]/10 border border-[#2ECC71]/30 px-3 py-1.5 rounded-lg font-semibold cursor-not-allowed opacity-90"
+                              >
                                 <span>🔒</span> ĐÃ NHẬN (CHẶN PHÁT LẦN 2)
-                              </span>
+                              </button>
                               {combo.deliveredAt && (
-                                <p className="text-[10px] text-[#737373] mt-0.5">
+                                <p className="text-[10px] text-[#737373]">
                                   Lúc: {new Date(combo.deliveredAt).toLocaleTimeString('vi-VN')} {new Date(combo.deliveredAt).toLocaleDateString('vi-VN')}
                                 </p>
                               )}

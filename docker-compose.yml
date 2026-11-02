@@ -1,0 +1,34 @@
+services:
+  # 1. Cơ sở Dữ liệu PostgreSQL Local (Thay thế hoàn toàn Supabase Cloud)
+  postgres:
+    image: postgres:16-alpine
+    container_name: lumicinema_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: lumicinema
+    ports:
+      - "5434:5432"
+    volumes:
+      - lumicinema_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d lumicinema"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # 2. Giao diện Web quản trị CSDL trực quan (Tùy chọn - Giống hệt Supabase Table Editor)
+  adminer:
+    image: adminer:latest
+    container_name: lumicinema_adminer
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  lumicinema_pgdata:
+    driver: local

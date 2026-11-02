@@ -53,6 +53,7 @@ enum PaymentMethod {
   Momo
   Cash
   BankCard
+  ZaloPay
 }
 
 enum PaymentStatus {
@@ -89,10 +90,11 @@ model User {
   updatedAt DateTime @updatedAt @map("updated_at")
 
   // Quan hệ (Relations)
-  payments Payment[]
-  tickets  Ticket[]
-  reviews  Review[]
-  coupons  Coupon[]
+  payments          Payment[]
+  tickets           Ticket[]
+  reviews           Review[]
+  coupons           Coupon[]
+  comboReservations ComboReservation[]
 
   @@map("users")
 }
@@ -146,6 +148,8 @@ model Screening {
   tickets Ticket[]
   seats   Seat[]
 
+  @@index([movieId])
+  @@index([date, status])
   @@map("screenings")
 }
 
@@ -232,14 +236,18 @@ model Combo {
 model ComboReservation {
   id            Int      @id @default(autoincrement()) @map("reservation_id")
   comboId       Int      @map("combo_id")
+  userId        Int?     @map("user_id")
   quantity      Int      @default(1)
   status        String   @default("RESERVED") @db.VarChar(20) // 'RESERVED' | 'RELEASED' | 'COMPLETED'
   reservedUntil DateTime @map("reserved_until")
   createdAt     DateTime @default(now()) @map("created_at")
   updatedAt     DateTime @updatedAt @map("updated_at")
 
-  combo         Combo    @relation(fields: [comboId], references: [id], onDelete: Cascade)
+  combo Combo @relation(fields: [comboId], references: [id], onDelete: Cascade)
+  user  User? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
+  @@index([userId])
+  @@index([comboId])
   @@map("combo_reservations")
 }
 
@@ -263,6 +271,8 @@ model Payment {
   tickets     Ticket[]
   orderCombos OrderCombo[]
 
+  @@index([userId])
+  @@index([status])
   @@map("payments")
 }
 
@@ -287,6 +297,9 @@ model Ticket {
   seat      Seat?      @relation(fields: [seatId], references: [id], onDelete: SetNull)
   payment   Payment    @relation(fields: [paymentId], references: [id], onDelete: Restrict)
 
+  @@index([userId])
+  @@index([paymentId])
+  @@index([screeningId])
   @@index([screeningId, seatId])
   @@map("tickets")
 }
@@ -307,6 +320,8 @@ model OrderCombo {
   payment Payment @relation(fields: [paymentId], references: [id], onDelete: Cascade)
   combo   Combo   @relation(fields: [comboId], references: [id], onDelete: Restrict)
 
+  @@index([paymentId])
+  @@index([comboId])
   @@map("order_combos")
 }
 

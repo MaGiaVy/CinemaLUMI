@@ -9,6 +9,7 @@ import Toast, { ToastMessage } from '@/components/ui/Toast';
 import ReviewList from '@/components/reviews/ReviewList';
 import ReviewForm from '@/components/reviews/ReviewForm';
 import { ReviewResponseItem } from '@/app/api/reviews/route';
+import { getLocalDateString } from '@/lib/date-utils';
 
 interface MovieDetails {
   id: number;
@@ -44,7 +45,12 @@ function formatTime(dateStr?: string | null): string {
   if (!dateStr) return '--:--';
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return '--:--';
-  return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
+  return d.toLocaleTimeString('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    hour: '2-digit',
+    minute: '2-digit',
+    hour12: false,
+  });
 }
 
 /**
@@ -55,6 +61,7 @@ function formatDate(dateStr?: string | null): string {
   const d = new Date(dateStr);
   if (isNaN(d.getTime())) return '---';
   return d.toLocaleDateString('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
     weekday: 'short',
     day: '2-digit',
     month: '2-digit',
@@ -143,13 +150,13 @@ function MovieDetailContent() {
     fetchMovieData();
   };
 
-  // Gom nhóm danh sách suất chiếu theo ngày
+  // Gom nhóm danh sách suất chiếu theo ngày (chuẩn múi giờ Việt Nam Asia/Ho_Chi_Minh)
   const uniqueDates = useMemo(() => {
     if (!movie?.screenings || movie.screenings.length === 0) return [];
     const dateMap = new Map<string, string>();
     movie.screenings.forEach(s => {
-      const d = new Date(s.date || s.startTime).toISOString().split('T')[0];
-      if (!dateMap.has(d)) {
+      const d = getLocalDateString(s.date || s.startTime);
+      if (d && !dateMap.has(d)) {
         dateMap.set(d, formatDate(s.date || s.startTime));
       }
     });
@@ -163,7 +170,7 @@ function MovieDetailContent() {
     if (!currentDate) return movie.screenings;
 
     return movie.screenings.filter(s => {
-      const d = new Date(s.date || s.startTime).toISOString().split('T')[0];
+      const d = getLocalDateString(s.date || s.startTime);
       return d === currentDate;
     });
   }, [movie?.screenings, uniqueDates, selectedDateIndex]);

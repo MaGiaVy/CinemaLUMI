@@ -3,12 +3,23 @@
 import { Suspense, useEffect } from 'react';
 import { useSearchParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
+import { QRCodeSVG } from 'qrcode.react';
 
 function PaymentResultInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
 
   const paymentId = searchParams.get('payment_id') || searchParams.get('paymentId');
+  const appTransId = searchParams.get('apptransid') || searchParams.get('app_trans_id');
+  const txnRef = searchParams.get('vnp_TxnRef') || searchParams.get('order_code');
+  const qrValue = paymentId
+    ? `LUMI-TICKET-PAYMENT-${paymentId}`
+    : appTransId
+      ? `LUMI-TICKET-ZP-${appTransId}`
+      : txnRef
+        ? `LUMI-TICKET-${txnRef}`
+        : 'LUMI-CINEMA-TICKET';
+  const paymentMethodName = searchParams.get('method') || (appTransId ? 'ZaloPay' : 'VNPay');
   const statusParam = searchParams.get('status') || '';
   const responseCode = searchParams.get('code') || searchParams.get('vnp_ResponseCode') || '00';
   const isSuccess = statusParam.toLowerCase() === 'success' || responseCode === '00';
@@ -39,7 +50,7 @@ function PaymentResultInner() {
               Thanh Toán Thành Công!
             </h1>
             <p className="text-gray-400 text-sm mb-6">
-              Giao dịch của bạn đã được xác nhận qua cổng thanh toán VNPay. Vé điện tử đã sẵn sàng để vào rạp!
+              Giao dịch của bạn đã được xác nhận thành công qua cổng thanh toán {paymentMethodName}. Vé điện tử đã sẵn sàng để vào rạp!
             </p>
 
             {/* Chi tiết đơn hàng */}
@@ -59,7 +70,7 @@ function PaymentResultInner() {
               <div className="flex justify-between items-center pb-3 border-b border-[#20222D]">
                 <span className="text-gray-400">Phương thức:</span>
                 <span className="font-semibold text-white flex items-center gap-1.5">
-                  <span>💳</span> VNPay Gateway
+                  <span>💳</span> {paymentMethodName} Gateway
                 </span>
               </div>
               <div className="flex justify-between items-center">
@@ -70,20 +81,14 @@ function PaymentResultInner() {
               </div>
             </div>
 
-            {/* Simulated QR Code vé vào rạp */}
+            {/* Mã QR vé điện tử */}
             <div className="bg-[#12131A] border border-[#252733] rounded-xl p-4 mb-6 flex flex-col items-center">
-              <div className="w-32 h-32 bg-white rounded-lg p-2 flex items-center justify-center shadow-inner mb-2">
-                <div className="grid grid-cols-5 gap-1 w-full h-full">
-                  {Array.from({ length: 25 }, (_, i) => (
-                    <div
-                      key={i}
-                      className="rounded-[1px]"
-                      style={{
-                        background: (i % 2 === 0 || i % 7 === 0 || i === 0 || i === 24) ? '#111' : '#f0f0f0',
-                      }}
-                    />
-                  ))}
-                </div>
+              <div className="w-36 h-36 bg-white rounded-xl p-3 flex items-center justify-center shadow-inner mb-2">
+                <QRCodeSVG
+                  value={qrValue}
+                  size={120}
+                  level="M"
+                />
               </div>
               <p className="text-xs text-gray-400 text-center font-medium">
                 Quét mã QR tại cổng kiểm soát vé vào phòng chiếu

@@ -8,6 +8,7 @@ import Button from '@/components/ui/Button';
 import Badge from '@/components/ui/Badge';
 import CountdownTimer from '@/components/ui/CountdownTimer';
 import Toast, { ToastMessage } from '@/components/ui/Toast';
+import { QRCodeSVG } from 'qrcode.react';
 
 interface MovieData {
   id: number;
@@ -48,6 +49,13 @@ interface ValidatedCouponData {
 }
 
 const PAYMENT_METHODS = [
+  {
+    id: 'zalopay',
+    label: 'Cổng thanh toán ZaloPay (Sandbox)',
+    icon: '⚡',
+    badge: 'Khuyên dùng',
+    description: 'Thanh toán quét mã QR động hoặc chuyển hướng ứng dụng ZaloPay Sandbox',
+  },
   {
     id: 'vnpay',
     label: 'VNPAY-QR',
@@ -94,7 +102,7 @@ export default function CheckoutPage() {
   const [selectedSeatIds, setSelectedSeatIds] = useState<number[]>([]);
   const [reservedCombos, setReservedCombos] = useState<ReservedComboItem[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [paymentMethod, setPaymentMethod] = useState<string>('vnpay');
+  const [paymentMethod, setPaymentMethod] = useState<string>('zalopay');
 
   // Coupon States
   const [couponCodeInput, setCouponCodeInput] = useState<string>('');
@@ -359,11 +367,26 @@ export default function CheckoutPage() {
         window.sessionStorage.removeItem('lumi_combo_reservation');
       }
 
-      showToast('Đang chuyển hướng đến cổng thanh toán VNPay...', 'info');
+      const redirectTarget =
+        paymentData.order_url ||
+        paymentData.payment_url ||
+        paymentData.vnpay_url;
 
-      if (paymentData.vnpay_url) {
+      if (redirectTarget) {
+        const isZaloPay = paymentMethod === 'zalopay';
+        showToast(
+          isZaloPay
+            ? 'Đang chuyển hướng đến cổng thanh toán ZaloPay Sandbox...'
+            : 'Đang chuyển hướng đến cổng thanh toán...',
+          'info'
+        );
+
         setTimeout(() => {
-          router.push(paymentData.vnpay_url);
+          if (redirectTarget.startsWith('http://') || redirectTarget.startsWith('https://')) {
+            window.location.href = redirectTarget;
+          } else {
+            router.push(redirectTarget);
+          }
         }, 500);
       } else {
         setIsPaymentSuccess(true);
@@ -394,16 +417,12 @@ export default function CheckoutPage() {
 
           {/* QR Code Vé */}
           <div className="bg-[#1E1E1E] border border-[#404040] rounded-xl p-6 mb-6">
-            <div className="w-36 h-36 bg-white rounded-lg mx-auto mb-3 flex items-center justify-center p-2 shadow-inner">
-              <div className="grid grid-cols-5 gap-1 w-full h-full">
-                {Array.from({ length: 25 }, (_, i) => (
-                  <div
-                    key={i}
-                    className="rounded-[2px]"
-                    style={{ background: (i % 3 === 0 || i % 7 === 0 || i === 0 || i === 24) ? '#111' : '#f0f0f0' }}
-                  />
-                ))}
-              </div>
+            <div className="w-40 h-40 bg-white rounded-xl mx-auto mb-3 flex items-center justify-center p-3 shadow-inner">
+              <QRCodeSVG
+                value={orderCode ? `LUMI-TICKET-${orderCode}` : 'LUMI-CINEMA'}
+                size={136}
+                level="M"
+              />
             </div>
             <p className="text-[#B3B3B3] text-xs uppercase tracking-wider mb-1">Mã Vé Điện Tử</p>
             <p className="text-[#FFB703] font-mono font-bold text-xl tracking-wider">{orderCode}</p>
@@ -632,7 +651,14 @@ export default function CheckoutPage() {
                         </div>
                         <span className="text-2xl flex-shrink-0">{m.icon}</span>
                         <div className="flex-1 min-w-0">
-                          <p className="text-white font-bold text-sm">{m.label}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-white font-bold text-sm">{m.label}</p>
+                            {m.badge && (
+                              <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-[#0068FF]/20 text-[#0068FF] border border-[#0068FF]/30">
+                                {m.badge}
+                              </span>
+                            )}
+                          </div>
                           <p className="text-[#B3B3B3] text-xs mt-0.5">{m.description}</p>
                         </div>
                       </label>

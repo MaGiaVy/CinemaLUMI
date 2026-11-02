@@ -20,6 +20,17 @@ interface DisplayMovie {
 
 export const dynamic = 'force-dynamic';
 
+function isVideoUrl(url?: string | null): boolean {
+  if (!url) return false;
+  const lower = url.toLowerCase();
+  return (
+    lower.includes('youtube.com') ||
+    lower.includes('youtu.be') ||
+    lower.includes('.mp4') ||
+    lower.includes('.webm')
+  );
+}
+
 const DEFAULT_HERO_MOVIE: DisplayMovie = {
   id: '',
   title: 'Lumi Cinema - Trải Nghiệm Điện Ảnh Đỉnh Cao',
@@ -54,19 +65,22 @@ export default async function HomePage() {
     });
 
     if (rawDbMovies.length > 0) {
-      allMovies = rawDbMovies.map((m) => ({
-        id: m.id,
-        title: m.title,
-        poster: m.poster,
-        banner: m.trailer || m.poster,
-        trailer: m.trailer,
-        genre: m.genre,
-        duration: m.duration,
-        rating: Number(m.rating) || 4.5,
-        ageRating: m.ageRating || 'P',
-        ticketPrice: Number(m.ticketPrice) || 120000,
-        description: m.description,
-      }));
+      allMovies = rawDbMovies.map((m) => {
+        const validBanner = m.trailer && !isVideoUrl(m.trailer) ? m.trailer : m.poster;
+        return {
+          id: m.id,
+          title: m.title,
+          poster: m.poster,
+          banner: validBanner,
+          trailer: m.trailer,
+          genre: m.genre,
+          duration: m.duration,
+          rating: Number(m.rating) || 4.5,
+          ageRating: m.ageRating || 'P',
+          ticketPrice: Number(m.ticketPrice) || 120000,
+          description: m.description,
+        };
+      });
     }
   } catch (err) {
     console.error('[HomePage] Error loading movies from DB:', err);
@@ -76,9 +90,9 @@ export default async function HomePage() {
     allMovies.find((m) => m.title.toLowerCase().includes('spider-man')) || allMovies[0] || DEFAULT_HERO_MOVIE;
 
   const heroBanner =
-    heroMovie?.trailer?.startsWith('http')
+    heroMovie?.trailer && !isVideoUrl(heroMovie.trailer) && heroMovie.trailer.startsWith('http')
       ? heroMovie.trailer
-      : heroMovie?.banner ||
+      : (!isVideoUrl(heroMovie?.banner) && heroMovie?.banner) ||
         heroMovie?.poster ||
         DEFAULT_HERO_MOVIE.banner!;
 

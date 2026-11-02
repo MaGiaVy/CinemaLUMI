@@ -124,14 +124,25 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // 3.2. Trừ tồn kho và tạo OrderCombo (Bán trực tiếp tại quầy: giao ngay tại chỗ FR-POS-03)
+      // 3.2. Trừ tồn kho có điều kiện nguyên tử (stock >= quantity) để ngăn chặn triệt để nguy cơ âm kho khi nhiều nhân viên cùng bán combo cuối cùng
       for (const item of itemDetails) {
-        await tx.combo.update({
-          where: { id: item.combo_id },
+        const updateResult = await tx.combo.updateMany({
+          where: {
+            id: item.combo_id,
+            stock: { gte: item.quantity },
+          },
           data: {
             stock: { decrement: item.quantity },
           },
         });
+
+        if (updateResult.count === 0) {
+          throw new AppError(
+            400,
+            `Combo "${item.name}" trong kho không còn đủ ${item.quantity} phần để bán (có thể vừa được nhân viên khác bán). Vui lòng kiểm tra lại.`,
+            'OUT_OF_STOCK'
+          );
+        }
       }
 
       const deliveredAt = new Date();

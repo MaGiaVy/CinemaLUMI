@@ -6,6 +6,7 @@ import { authOptions } from '@/lib/auth';
 import { AppError, handleError } from '@/lib/error';
 import { apiResponse } from '@/lib/api-response';
 import { calculateTicketPrice } from '@/lib/pricing';
+import { createZaloPayOrder, generateZaloPayTransId } from '@/lib/zalopay';
 import { PaymentMethod, PaymentStatus, SeatStatus, Prisma } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
@@ -49,6 +50,14 @@ export interface InitiatePaymentResult {
   status: PaymentStatus;
   payment_method: PaymentMethod;
   paymentMethod: PaymentMethod;
+  payment_url?: string;
+  paymentUrl?: string;
+  order_url?: string;
+  orderUrl?: string;
+  zp_trans_token?: string;
+  zpTransToken?: string;
+  qr_code?: string;
+  qrCode?: string;
   vnpay_url: string;
   vnpayUrl: string;
   breakdown: {
@@ -134,12 +143,14 @@ const initiatePaymentSchema = z
  * Hàm phân loại phương thức thanh toán an toàn
  */
 function resolvePaymentMethod(rawMethod?: string): PaymentMethod {
-  if (!rawMethod) return PaymentMethod.VNPay;
+  if (!rawMethod) return PaymentMethod.ZaloPay;
   const normalized = rawMethod.trim().toLowerCase();
+  if (normalized === 'zalopay' || normalized === 'zalo') return PaymentMethod.ZaloPay;
+  if (normalized === 'vnpay') return PaymentMethod.VNPay;
   if (normalized === 'momo') return PaymentMethod.Momo;
   if (normalized === 'cash' || normalized === 'tien_mat') return PaymentMethod.Cash;
   if (normalized === 'bankcard' || normalized === 'banking' || normalized === 'bank') return PaymentMethod.BankCard;
-  return PaymentMethod.VNPay;
+  return PaymentMethod.ZaloPay;
 }
 
 /**
@@ -497,7 +508,10 @@ export async function POST(request: NextRequest) {
     const HOLD_MINUTES = 10;
     const nowTime = new Date();
     const reservedUntil = new Date(nowTime.getTime() + HOLD_MINUTES * 60 * 1000);
-    const transactionCode = `LMC_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
+    const transactionCode =
+      paymentMethodEnum === PaymentMethod.ZaloPay
+        ? generateZaloPayTransId()
+        : `LMC_${Date.now()}_${Math.floor(1000 + Math.random() * 9000)}`;
 
     const { payment } = await prisma.$transaction(async (tx) => {
       // 7.1. Tạo Payment record với status = Pending kèm order context
@@ -543,7 +557,31 @@ export async function POST(request: NextRequest) {
       return { payment: createdPayment };
     });
 
-    // 8. TẠO MOCK VNPAY URL VỚI ĐẦY ĐỦ THAM SỐ ĐỂ KIỂM THỬ
+    // 8. TẠO THÔNG TIN CỔNG THANH TOÁN (ZaloPay Sandbox & Mock VNPay)
+    let paymentUrl = '';
+    let orderUrl = '';
+    let zpTransToken = '';
+    let qrCode = '';
+
+    if (paymentMethodEnum === PaymentMethod.ZaloPay) {
+      const zaloPayOrder = await createZaloPayOrder({
+        app_trans_id: transactionCode,
+        app_user: String(effectiveUserId),
+        amount: finalAmount,
+        description: `Thanh toan don hang Lumi Cinema #${payment.id} - ${screening.movie.title}`,
+        item: ticketBreakdown.map(t => ({ name: t.type, quantity: t.quantity, price: t.unit_price })),
+        embed_data: {
+          payment_id: payment.id,
+          redirecturl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/payments/zalopay-return`,
+        },
+      });
+
+      orderUrl = zaloPayOrder.order_url || '';
+      zpTransToken = zaloPayOrder.zp_trans_token || '';
+      qrCode = zaloPayOrder.qr_code || orderUrl;
+      paymentUrl = orderUrl;
+    }
+
     const orderInfo = `Thanh toan don hang Lumi Cinema #${payment.id} - ${screening.movie.title}`;
     const vnpayQuery = new URLSearchParams({
       payment_id: String(payment.id),
@@ -560,6 +598,10 @@ export async function POST(request: NextRequest) {
     });
 
     const mockVnpayUrl = `/payments/vnpay-mock?${vnpayQuery.toString()}`;
+    if (!paymentUrl) {
+      paymentUrl = mockVnpayUrl;
+      orderUrl = mockVnpayUrl;
+    }
 
     // 9. TRẢ VỀ DỮ LIỆU KẾT QUẢ CHUẨN
     const resultData: InitiatePaymentResult = {
@@ -573,8 +615,16 @@ export async function POST(request: NextRequest) {
       discount_amount: discountAmount,
       discountAmount: discountAmount,
       status: payment.status,
-      payment_method: payment.paymentMethod ?? PaymentMethod.VNPay,
-      paymentMethod: payment.paymentMethod ?? PaymentMethod.VNPay,
+      payment_method: payment.paymentMethod ?? PaymentMethod.ZaloPay,
+      paymentMethod: payment.paymentMethod ?? PaymentMethod.ZaloPay,
+      payment_url: paymentUrl,
+      paymentUrl: paymentUrl,
+      order_url: orderUrl,
+      orderUrl: orderUrl,
+      zp_trans_token: zpTransToken,
+      zpTransToken: zpTransToken,
+      qr_code: qrCode,
+      qrCode: qrCode,
       vnpay_url: mockVnpayUrl,
       vnpayUrl: mockVnpayUrl,
       breakdown: {

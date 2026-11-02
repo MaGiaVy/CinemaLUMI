@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server';
 import { cloudinary } from '@/lib/cloudinary';
 import { apiResponse } from '@/lib/api-response';
 import { handleError } from '@/lib/error';
+import { requireAuth } from '@/lib/auth-helpers';
 
 // Bắt buộc xử lý dynamic cho upload file
 export const dynamic = 'force-dynamic';
@@ -18,6 +19,9 @@ export const dynamic = 'force-dynamic';
  */
 export async function POST(request: NextRequest) {
   try {
+    // 0. Bắt buộc xác thực: chỉ ADMIN hoặc STAFF mới được upload ảnh lên Cloudinary
+    await requireAuth(['ADMIN', 'STAFF']);
+
     // 1. Kiểm tra cấu hình Cloudinary trong biến môi trường
     const cloudName =
       process.env.CLOUDINARY_CLOUD_NAME ||

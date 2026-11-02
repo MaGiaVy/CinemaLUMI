@@ -121,6 +121,7 @@ export async function POST(request: NextRequest) {
           number: true,
           type: true,
           status: true,
+          reservedUntil: true,
         },
       });
 
@@ -135,13 +136,55 @@ export async function POST(request: NextRequest) {
         );
       }
 
-      // 2.4 KIỂM TRA ĐIỀU KIỆN CỐT LÕI: Nếu có bất kỳ ghế nào đã bị đặt (khác 'EMPTY') -> throw AppError 400
+      // 2.4 Kiểm tra vé hợp lệ đã tồn tại (Chống Double Booking ở tầng vé)
+      const activeTickets = await tx.ticket.findMany({
+        where: {
+          screeningId: screening_id,
+          seatId: { in: seat_ids },
+          status: { not: 'Cancelled' },
+        },
+        include: { seat: true },
+      });
+
+      if (activeTickets.length > 0) {
+        const conflictCodes = activeTickets.map(t => t.seat?.code || `ID:${t.seatId}`).join(', ');
+        throw new AppError(
+          400,
+          `[E-03] Ghế [${conflictCodes}] đã được mua vé thành công. Vui lòng chọn ghế khác.`,
+          'SEAT_ALREADY_RESERVED'
+        );
+      }
+
+      // 2.5 KIỂM TRA ĐIỀU KIỆN CỐT LÕI:
+      // Ghế không được là OCCUPIED và không được là RESERVED còn hạn giữ chỗ
+      const occupiedSeats = seats.filter(s => s.status === 'OCCUPIED');
+      if (occupiedSeats.length > 0) {
+        const conflictCodes = occupiedSeats.map(s => s.code).join(', ');
+        throw new AppError(
+          400,
+          `[E-03] Ghế [${conflictCodes}] đã có người mua và thanh toán. Vui lòng chọn ghế khác.`,
+          'SEAT_ALREADY_RESERVED'
+        );
+      }
+
+      const activeReservedSeats = seats.filter(
+        s => s.status === 'RESERVED' && s.reservedUntil && s.reservedUntil >= now
+      );
+      if (activeReservedSeats.length > 0) {
+        const conflictCodes = activeReservedSeats.map(s => s.code).join(', ');
+        throw new AppError(
+          400,
+          `[E-03] Ghế [${conflictCodes}] hiện đang có người khác giữ chỗ. Vui lòng chọn ghế khác.`,
+          'SEAT_ALREADY_RESERVED'
+        );
+      }
+
       const unavailableSeats = seats.filter(s => s.status !== 'EMPTY');
       if (unavailableSeats.length > 0) {
         const conflictCodes = unavailableSeats.map(s => s.code).join(', ');
         throw new AppError(
           400,
-          `[E-03] Ghế [${conflictCodes}] hiện đã có người giữ chỗ hoặc đã được thanh toán. Vui lòng chọn ghế khác.`,
+          `[E-03] Ghế [${conflictCodes}] hiện không khả dụng để giữ chỗ. Vui lòng chọn ghế khác.`,
           'SEAT_ALREADY_RESERVED'
         );
       }

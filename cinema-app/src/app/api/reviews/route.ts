@@ -201,36 +201,29 @@ export async function GET(request: NextRequest) {
  */
 export async function POST(request: NextRequest) {
   try {
+    // 1. Kiểm tra xác thực phiên đăng nhập qua NextAuth session
     const session = await getServerSession(authOptions);
-    const searchParams = request.nextUrl.searchParams;
-
-    // 1. Phân tích request body
-    const body = await request.json().catch(() => null);
-    if (!body || typeof body !== 'object') {
-      throw new AppError(400, 'Payload không hợp lệ (yêu cầu định dạng JSON)', 'INVALID_JSON');
-    }
-
-    // 2. Xác định User đang yêu cầu
-    let currentUserId: number | null = session?.user?.id ? Number(session.user.id) : null;
-
-    // Fallback cho môi trường kiểm thử tự động
-    if (!currentUserId) {
-      if (body.user_id && typeof body.user_id === 'number') {
-        currentUserId = body.user_id;
-      } else if (searchParams.get('user_id')) {
-        const parsedUserId = parseInt(searchParams.get('user_id')!, 10);
-        if (!isNaN(parsedUserId) && parsedUserId > 0) {
-          currentUserId = parsedUserId;
-        }
-      }
-    }
-
-    if (!currentUserId) {
+    if (!session?.user?.id) {
       throw new AppError(
         401,
         'Vui lòng đăng nhập để gửi đánh giá phim',
         'UNAUTHENTICATED'
       );
+    }
+
+    const currentUserId = Number(session.user.id);
+    if (isNaN(currentUserId) || currentUserId <= 0) {
+      throw new AppError(
+        401,
+        'Phiên đăng nhập không hợp lệ',
+        'UNAUTHENTICATED'
+      );
+    }
+
+    // 2. Phân tích request body
+    const body = await request.json().catch(() => null);
+    if (!body || typeof body !== 'object') {
+      throw new AppError(400, 'Payload không hợp lệ (yêu cầu định dạng JSON)', 'INVALID_JSON');
     }
 
     // 3. Validate dữ liệu đầu vào bằng Zod

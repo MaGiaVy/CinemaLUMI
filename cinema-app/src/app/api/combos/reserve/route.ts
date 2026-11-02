@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { AppError, handleError } from '@/lib/error';
 import { apiResponse } from '@/lib/api-response';
+import { getSessionUser } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -90,6 +91,9 @@ export async function POST(request: NextRequest) {
     const now = new Date();
     const reservedUntil = new Date(now.getTime() + HOLD_MINUTES * 60 * 1000);
 
+    // Lấy thông tin user nếu đã đăng nhập (hỗ trợ liên kết userId vào combo reservation)
+    const sessionUser = await getSessionUser();
+
     // Thực thi giao dịch nguyên tử (Atomic Transaction)
     const result = await prisma.$transaction(async (tx) => {
       // 1. LAZY RELEASE: Tự động hoàn trả tồn kho các reservation của các combo này đã hết hạn (> 10 phút)
@@ -165,19 +169,39 @@ export async function POST(request: NextRequest) {
         const unitPrice = Number(combo.price);
         const itemTotalPrice = unitPrice * qty;
 
-        // Trừ tồn kho trong bảng Combo
-        const updatedCombo = await tx.combo.update({
-          where: { id: combo.id },
+        // Trừ tồn kho có điều kiện nguyên tử (stock >= qty) trong bảng Combo
+        const updateResult = await tx.combo.updateMany({
+          where: {
+            id: combo.id,
+            stock: { gte: qty },
+            status: 'ACTIVE',
+          },
           data: {
             stock: { decrement: qty },
             reservedUntil: reservedUntil,
           },
         });
 
-        // Tạo bản ghi trạng thái RESERVED kèm reserved_until = NOW + 10 phút
+        if (updateResult.count === 0) {
+          throw new AppError(
+            400,
+            `Combo "${combo.name}" hiện không đủ tồn kho để giữ chỗ (${qty} phần). Vui lòng chọn số lượng ít hơn.`,
+            'INSUFFICIENT_STOCK'
+          );
+        }
+
+        const refreshedCombo = await tx.combo.findUnique({
+          where: { id: combo.id },
+          select: { stock: true },
+        });
+
+        const remainingStock = refreshedCombo?.stock ?? (combo.stock - qty);
+
+        // Tạo bản ghi trạng thái RESERVED kèm reserved_until = NOW + 10 phút và userId (nếu có)
         const newReservation = await tx.comboReservation.create({
           data: {
             comboId: combo.id,
+            userId: sessionUser?.id || null,
             quantity: qty,
             status: 'RESERVED',
             reservedUntil: reservedUntil,
@@ -198,8 +222,8 @@ export async function POST(request: NextRequest) {
           unitPrice: unitPrice,
           total_price: itemTotalPrice,
           totalPrice: itemTotalPrice,
-          remaining_stock: updatedCombo.stock,
-          remainingStock: updatedCombo.stock,
+          remaining_stock: remainingStock,
+          remainingStock: remainingStock,
           status: newReservation.status,
           reserved_until: reservedUntil.toISOString(),
           reservedUntil: reservedUntil.toISOString(),

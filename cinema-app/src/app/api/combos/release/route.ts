@@ -3,6 +3,7 @@ import { z } from 'zod';
 import { prisma } from '@/lib/prisma';
 import { AppError, handleError } from '@/lib/error';
 import { apiResponse } from '@/lib/api-response';
+import { requireAuth } from '@/lib/auth-helpers';
 
 export const dynamic = 'force-dynamic';
 
@@ -13,54 +14,45 @@ export interface ReleaseCombosResponseData {
 }
 
 // Zod Schema cho POST /api/combos/release
-const releaseCombosSchema = z
-  .object({
-    reservation_ids: z.array(z.coerce.number().int().positive()).optional(),
-    reservationIds: z.array(z.coerce.number().int().positive()).optional(),
-    ids: z.array(z.coerce.number().int().positive()).optional(),
-    combo_ids: z.array(z.coerce.number().int().positive()).optional(),
-    comboIds: z.array(z.coerce.number().int().positive()).optional(),
-    combo_items: z
-      .array(
-        z.object({
-          combo_id: z.coerce.number().int().positive().optional(),
-          comboId: z.coerce.number().int().positive().optional(),
-          quantity: z.coerce.number().int().positive(),
-        })
-      )
-      .optional(),
-  })
-  .refine(
-    data =>
-      Boolean(
-        (data.reservation_ids && data.reservation_ids.length > 0) ||
-        (data.reservationIds && data.reservationIds.length > 0) ||
-        (data.ids && data.ids.length > 0) ||
-        (data.combo_ids && data.combo_ids.length > 0) ||
-        (data.comboIds && data.comboIds.length > 0) ||
-        (data.combo_items && data.combo_items.length > 0)
-      ),
-    {
-      message: 'Vui lòng cung cấp danh sách ID combo hoặc mã bản ghi giữ chỗ cần giải phóng',
-      path: ['reservation_ids'],
-    }
-  );
+// TUYỆT ĐỐI KHÔNG nhận số lượng tùy tiện từ body để tự ý increment kho.
+const releaseCombosSchema = z.object({
+  reservation_ids: z.array(z.coerce.number().int().positive()).optional(),
+  reservationIds: z.array(z.coerce.number().int().positive()).optional(),
+  ids: z.array(z.coerce.number().int().positive()).optional(),
+  combo_ids: z.array(z.coerce.number().int().positive()).optional(),
+  comboIds: z.array(z.coerce.number().int().positive()).optional(),
+  combo_items: z
+    .array(
+      z.object({
+        combo_id: z.coerce.number().int().positive().optional(),
+        comboId: z.coerce.number().int().positive().optional(),
+        id: z.coerce.number().int().positive().optional(),
+        // Trường quantity nếu có từ client sẽ bị bỏ qua hoàn toàn để bảo vệ tồn kho
+        quantity: z.any().optional(),
+      })
+    )
+    .optional(),
+});
 
 /**
  * POST /api/combos/release [Internal]
  * 
  * Hủy giữ chỗ và hoàn trả tồn kho bắp nước (khi khách hủy chọn món hoặc rời màn hình thanh toán):
- * - Nhận ID của các combo/reservation đã reserve.
- * - Dùng prisma.$transaction cộng trả lại số lượng vào stock_quantity của combo.
- * - Cập nhật trạng thái bản ghi thành 'RELEASED'.
+ * - Bắt buộc người dùng đăng nhập (requireAuth).
+ * - Chỉ giải phóng và hoàn lại tồn kho đối với các bản ghi comboReservation thực tế đang ở trạng thái 'RESERVED' của người dùng (hoặc do cron dọn dẹp).
+ * - TUYỆT ĐỐI KHÔNG nhận số lượng tùy tiện từ body để tự ý increment kho.
  */
 export async function POST(request: NextRequest) {
   try {
-    let body: unknown;
+    // 1. Bắt buộc người dùng đã đăng nhập
+    const user = await requireAuth();
+
+    let body: unknown = {};
     try {
       body = await request.json();
     } catch {
-      throw new AppError(400, 'Dữ liệu gửi lên không đúng định dạng JSON', 'INVALID_JSON');
+      // Cho phép body rỗng nếu muốn giải phóng tất cả các giữ chỗ hiện tại của user
+      body = {};
     }
 
     const parsed = releaseCombosSchema.safeParse(body);
@@ -70,17 +62,21 @@ export async function POST(request: NextRequest) {
       throw new AppError(400, errorMessage, 'VALIDATION_ERROR');
     }
 
-    const {
-      reservation_ids,
-      reservationIds,
-      ids,
-      combo_ids,
-      comboIds,
-      combo_items,
-    } = parsed.data;
+    const targetReservationIds = [
+      ...(parsed.data.reservation_ids || []),
+      ...(parsed.data.reservationIds || []),
+      ...(parsed.data.ids || []),
+    ];
 
-    const targetReservationIds = reservation_ids || reservationIds || ids || [];
-    const targetComboIds = combo_ids || comboIds || [];
+    const comboItemsIds = (parsed.data.combo_items || [])
+      .map(item => item.combo_id ?? item.comboId ?? item.id)
+      .filter((id): id is number => typeof id === 'number' && id > 0);
+
+    const targetComboIds = [
+      ...(parsed.data.combo_ids || []),
+      ...(parsed.data.comboIds || []),
+      ...comboItemsIds,
+    ];
 
     const now = new Date();
 
@@ -88,97 +84,69 @@ export async function POST(request: NextRequest) {
       let releasedCount = 0;
       let restoredStockTotal = 0;
 
-      // 1. Trường hợp giải phóng theo reservation_ids
+      // Điều kiện lọc theo người dùng: Khách chỉ giải phóng được reservation của mình
+      const userCondition = (user.role === 'ADMIN' || user.role === 'STAFF')
+        ? {}
+        : {
+            OR: [
+              { userId: user.id },
+              { userId: null },
+            ],
+          };
+
+      let reservations: Array<{ id: number; comboId: number; quantity: number }> = [];
+
+      // 1. Nếu có danh sách reservation_ids
       if (targetReservationIds.length > 0) {
-        const reservations = await tx.comboReservation.findMany({
+        reservations = await tx.comboReservation.findMany({
           where: {
             id: { in: targetReservationIds },
             status: 'RESERVED',
+            ...userCondition,
           },
+          select: { id: true, comboId: true, quantity: true },
         });
-
-        for (const res of reservations) {
-          // Cộng trả lại tồn kho
-          await tx.combo.update({
-            where: { id: res.comboId },
-            data: {
-              stock: { increment: res.quantity },
-            },
-          });
-
-          // Cập nhật trạng thái sang RELEASED
-          await tx.comboReservation.update({
-            where: { id: res.id },
-            data: {
-              status: 'RELEASED',
-            },
-          });
-
-          releasedCount++;
-          restoredStockTotal += res.quantity;
-        }
       }
-      // 2. Trường hợp giải phóng theo combo_items cụ thể (combo_id + quantity)
-      else if (combo_items && combo_items.length > 0) {
-        for (const item of combo_items) {
-          const cId = (item.combo_id || item.comboId)!;
-          const qty = item.quantity;
-
-          // Cộng trả lại tồn kho
-          await tx.combo.update({
-            where: { id: cId },
-            data: {
-              stock: { increment: qty },
-            },
-          });
-
-          // Đánh dấu bản ghi reservation gần nhất là RELEASED
-          const recentReservation = await tx.comboReservation.findFirst({
-            where: {
-              comboId: cId,
-              status: 'RESERVED',
-            },
-            orderBy: { createdAt: 'desc' },
-          });
-
-          if (recentReservation) {
-            await tx.comboReservation.update({
-              where: { id: recentReservation.id },
-              data: { status: 'RELEASED' },
-            });
-            releasedCount++;
-          }
-
-          restoredStockTotal += qty;
-        }
-      }
-      // 3. Trường hợp giải phóng theo danh sách combo_ids (tìm các reservation đang RESERVED của combo này)
+      // 2. Nếu có danh sách combo_ids
       else if (targetComboIds.length > 0) {
-        const activeReservations = await tx.comboReservation.findMany({
+        reservations = await tx.comboReservation.findMany({
           where: {
             comboId: { in: targetComboIds },
             status: 'RESERVED',
+            ...userCondition,
+          },
+          select: { id: true, comboId: true, quantity: true },
+        });
+      }
+      // 3. Nếu không truyền ID cụ thể, giải phóng tất cả reservation đang RESERVED của user
+      else {
+        reservations = await tx.comboReservation.findMany({
+          where: {
+            status: 'RESERVED',
+            userId: user.id,
+          },
+          select: { id: true, comboId: true, quantity: true },
+        });
+      }
+
+      // 4. Giải phóng và hoàn trả tồn kho chỉ dựa trên số lượng thực tế đã ghi nhận trong CSDL
+      for (const res of reservations) {
+        await tx.combo.update({
+          where: { id: res.comboId },
+          data: {
+            stock: { increment: res.quantity },
           },
         });
 
-        for (const res of activeReservations) {
-          await tx.combo.update({
-            where: { id: res.comboId },
-            data: {
-              stock: { increment: res.quantity },
-            },
-          });
+        await tx.comboReservation.update({
+          where: { id: res.id },
+          data: {
+            status: 'RELEASED',
+          },
+        });
 
-          await tx.comboReservation.update({
-            where: { id: res.id },
-            data: {
-              status: 'RELEASED',
-            },
-          });
-
-          releasedCount++;
-          restoredStockTotal += res.quantity;
-        }
+        releasedCount++;
+        restoredStockTotal += res.quantity;
       }
 
       return {

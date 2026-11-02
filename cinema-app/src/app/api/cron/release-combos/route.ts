@@ -21,11 +21,11 @@ export interface ReleaseCombosCronResponseData {
  */
 export async function GET(request: NextRequest) {
   try {
-    // Tùy chọn bảo mật: Nếu hệ thống có cấu hình CRON_SECRET thì kiểm tra Authorization header
+    // Bảo mật: Bắt buộc cấu hình CRON_SECRET và kiểm tra Authorization header
     const cronSecret = process.env.CRON_SECRET;
     const authHeader = request.headers.get('authorization');
 
-    if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+    if (!cronSecret || authHeader !== `Bearer ${cronSecret}`) {
       return apiResponse(
         false,
         undefined,

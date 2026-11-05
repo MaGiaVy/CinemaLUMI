@@ -1,0 +1,55 @@
+@startuml 10_khach_huy_ve
+title SƠ ĐỒ HOẠT ĐỘNG: KHÁCH HỦY VÉ VÀ CẤP VOUCHER 50% (CUSTOMER TICKET CANCELLATION - BR-03 & FR-CAN-01)
+skinparam conditionStyle insideDiamond
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam monochrome true
+skinparam wrapWidth 180
+
+|Khách hàng|
+|Hệ thống|
+|Khách hàng|
+start
+:Đăng nhập tài khoản và mở mục Lịch sử vé (/profile);
+:Chọn vé cần hủy và bấm "Hủy vé";
+:Gửi yêu cầu POST /api/tickets/[id]/cancel;
+
+|Hệ thống|
+:Xác thực phiên đăng nhập và quyền sở hữu vé (ticket.userId)\ncùng trạng thái vé hiện tại;
+if (Vé Valid?) then (Có)
+else (Không)
+  :Từ chối hủy vé và thông báo lý do;
+  stop
+endif
+
+|Hệ thống|
+:Tính thời gian còn lại đến giờ bắt đầu suất chiếu (startTime - NOW());
+if (Trước >= 2 giờ?) then (Có - BR-03)
+else (Không)
+  :Từ chối hủy vé (chỉ cho phép hủy trước giờ chiếu >= 2 giờ);
+  stop
+endif
+
+|Hệ thống|
+:Hiển thị cảnh báo xác nhận (BR-03 & FR-CAN-01):\nChỉ cấp Voucher giảm 50% giá trị vé,\nkhông hoàn tiền mặt hoặc chuyển khoản;
+
+|Khách hàng|
+if (Đồng ý?) then (Có)
+else (Không)
+  :Giữ nguyên vé và kết thúc yêu cầu;
+  stop
+endif
+
+|Hệ thống|
+:Chuyển vé sang Cancelled (refundStatus = 'NONE')\n(chỉ hủy vé được chọn, các vé khác trong đơn giữ nguyên);
+:Giải phóng ghế về trạng thái EMPTY;
+:Giữ nguyên hiệu lực các Combo bắp nước đi kèm trong đơn;
+:Sinh mã Voucher bồi hoàn COMP50_[TicketID]_[Random]\n(giảm 50%, hạn dùng 30 ngày, gắn trực tiếp với userId);
+:Ghi nhận nhật ký kiểm toán (AuditLog);
+:Gửi Email thông báo xác nhận hủy vé kèm mã Voucher cho khách;
+
+|Khách hàng|
+:Nhận thông báo hủy vé thành công và mã Voucher 50% qua Email / Hồ sơ cá nhân;
+
+stop
+@enduml

@@ -1,0 +1,52 @@
+@startuml 33_ngung_su_dung_voucher
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: XÓA / VÔ HIỆU HÓA VOUCHER (FR-VOU-01)
+
+actor "Quản trị viên\n(Admin)" as A
+boundary "Frontend Next.js\n(/admin/coupons)" as UI
+control "Next.js API\n(/api/coupons)" as C
+entity "Docker PostgreSQL\n(Prisma)" as DB
+
+activate A
+A -> UI: Chọn voucher và bấm "Xóa / Vô hiệu hóa"
+activate UI
+UI --> A: Hiển thị hộp thoại xác nhận thu hồi / xóa chiến dịch voucher
+deactivate UI
+
+alt Quản trị viên hủy thao tác
+    A -> UI: Bấm "Hủy bỏ"
+    activate UI
+    UI --> A: Đóng hộp thoại, giữ nguyên hiệu lực voucher
+    deactivate UI
+else Quản trị viên xác nhận xóa / vô hiệu hóa voucher
+    A -> UI: Bấm "Xác nhận"
+    activate UI
+    UI -> C: DELETE /api/coupons/[id]\n(kèm JWT ADMIN)
+    activate C
+    C -> C: Xác thực quyền hạn requireAuth(['ADMIN']) (FR-AUTH-03)
+    C -> DB: Kiểm tra sự tồn tại của voucher:\nprisma.coupon.findUnique({ where: { id: couponId } })
+    activate DB
+    DB --> C: Bản ghi coupon (code, expiryDate, usedCount, maxUsage, userId) hoặc null
+    deactivate DB
+    
+    alt Không tìm thấy voucher -> 404 Not Found
+        C --> UI: 404 Not Found ("Không tìm thấy mã giảm giá cần xóa")
+        UI --> A: Hiển thị thông báo lỗi không tìm thấy voucher
+    else Tìm thấy voucher trong hệ thống
+        C -> DB: Xóa bản ghi voucher khỏi bảng coupons:\nprisma.coupon.delete({ where: { id: couponId } })\n(Hoặc vô hiệu hóa bằng cách đặt expiryDate = NOW() / maxUsage = usedCount)
+        activate DB
+        DB --> C: Xác nhận xóa / thu hồi voucher thành công
+        deactivate DB
+        C --> UI: 200 OK\n{ success: true, message: "Đã xóa mã giảm giá thành công" }
+        UI --> A: Hiển thị Toast thành công & loại bỏ/cập nhật trên danh sách
+    end
+    deactivate C
+    deactivate UI
+end
+deactivate A
+@enduml

@@ -1,0 +1,56 @@
+@startuml
+hide footbox
+autonumber
+skinparam style strictuml
+
+actor "Admin" as AD
+boundary "Giao diện Báo cáo doanh thu" as UI
+control "BaoCaoController\n(NestJS)" as API
+control "BaoCaoService\n(Xử lý nghiệp vụ)" as SVC
+entity "Database\n(Prisma)" as DB
+
+activate AD
+AD -> UI : Mở trang Báo cáo doanh thu
+activate UI
+AD -> UI : Chọn bộ lọc (khoảng thời gian ngày/tháng/năm,\nphim, suất chiếu, kênh bán vé) và áp dụng
+UI -> API : GET /api/admin/bao-cao/doanh-thu?tuNgay=...&denNgay=...&phim=...&kenh=...
+activate API
+API -> SVC : layBaoCaoDoanhThu(bộ lọc)
+activate SVC
+alt Ngày tháng năm không hợp lệ
+  SVC --> API : Lỗi bộ lọc không hợp lệ
+  API --> UI : 400 - Ngày tháng không hợp lệ
+  UI --> AD : Thông báo ngày tháng năm không hợp lệ
+else Bộ lọc hợp lệ
+  SVC -> DB : Tổng hợp doanh thu vé, doanh thu combo, số vé đã bán, số vé đã hủy,\nsố tiền đã thu, khoản chờ hoàn và số tiền thực tế đã hoàn theo bộ lọc
+  activate DB
+  DB --> SVC : Dữ liệu tổng hợp
+  deactivate DB
+  alt Không có dữ liệu
+    SVC --> API : Báo cáo rỗng
+    API --> UI : 200 - Không có dữ liệu
+    UI --> AD : Thông báo không có dữ liệu
+  else Có dữ liệu
+    SVC --> API : Báo cáo doanh thu
+    API --> UI : 200 - Báo cáo doanh thu
+    UI --> AD : Hiển thị báo cáo, tổng hợp doanh thu vé và combo
+    opt Admin xuất báo cáo
+      AD -> UI : Chọn xuất báo cáo (PDF hoặc Excel)
+      UI -> API : GET /api/admin/bao-cao/xuat?dinhDang=...&bộ lọc
+      API -> SVC : xuatBaoCao(định dạng, bộ lọc)
+      SVC -> DB : Lấy dữ liệu báo cáo theo bộ lọc
+      activate DB
+      DB --> SVC : Dữ liệu báo cáo
+      deactivate DB
+      SVC -> SVC : Tạo tệp báo cáo theo định dạng đã chọn
+      SVC --> API : Tệp báo cáo
+      API --> UI : 200 - Tệp báo cáo
+      UI --> AD : Tải tệp báo cáo xuống máy
+    end
+  end
+end
+deactivate SVC
+deactivate API
+deactivate UI
+deactivate AD
+@enduml

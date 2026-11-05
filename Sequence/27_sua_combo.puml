@@ -5,54 +5,49 @@ skinparam style strictuml
 skinparam monochrome true
 skinparam defaultTextAlignment center
 skinparam shadowing false
-title SƠ ĐỒ TUẦN TỰ: CHỈNH SỬA THÔNG TIN COMBO
+title SƠ ĐỒ TUẦN TỰ: CHỈNH SỬA THÔNG TIN COMBO (UC-17)
 
-actor "Quản trị viên (Admin)" as A
-boundary "Giao diện quản lý combo" as UI
-control "Điều khiển combo" as C
-entity "Dữ liệu hệ thống" as DB
+actor "Quản trị viên\n(Admin)" as A
+boundary "Frontend Next.js\n(/admin/combos)" as UI
+control "Next.js API\n(/api/combos)" as C
+entity "Docker PostgreSQL\n(Prisma)" as DB
 
 activate A
 A -> UI: Chọn combo cần chỉnh sửa và bấm "Sửa"
 activate UI
-UI -> C: Yêu cầu thông tin chi tiết combo theo ID
+UI -> C: GET /api/combos/[id]
 activate C
-C -> DB: Tra cứu combo trong CSDL
+C -> DB: prisma.combo.findUnique({ where: { id: comboId } })
 activate DB
 DB --> C: Thông tin combo hoặc null
 deactivate DB
 
 alt Không tìm thấy combo
-    C --> UI: Báo 404 Not Found (Không tìm thấy combo)
-    activate UI
+    C --> UI: 404 Not Found ("Không tìm thấy combo")
     UI --> A: Hiển thị thông báo lỗi
-    deactivate UI
 else Tìm thấy combo
-    C --> UI: Dữ liệu combo hiện tại
+    C --> UI: 200 OK (Dữ liệu combo hiện tại)
     deactivate C
-    UI --> A: Hiển thị form chỉnh sửa với dữ liệu cũ
+    UI --> A: Hiển thị form chỉnh sửa với dữ liệu cũ\n(name, price, description, stock, status: ACTIVE | INACTIVE)
     deactivate UI
     
     A -> UI: Nhập thông tin chỉnh sửa và bấm "Lưu thay đổi"
     activate UI
-    UI -> C: Gửi dữ liệu cập nhật combo
+    UI -> C: PUT /api/combos/[id]\n(kèm JWT ADMIN & dữ liệu cập nhật)
     activate C
-    C -> C: Kiểm tra dữ liệu hợp lệ (Đơn giá > 0)
+    C -> C: Xác thực quyền hạn requireAuth(['ADMIN']) (FR-AUTH-03)
+    C -> C: Kiểm tra dữ liệu hợp lệ Zod (updateComboSchema):\nname <= 100 ký tự, price > 0, stock >= 0, status IN ('ACTIVE', 'INACTIVE')
     
     alt Dữ liệu không hợp lệ
-        C --> UI: Báo 400 Bad Request (Lỗi định dạng giá)
-        activate UI
+        C --> UI: 400 Bad Request (Lỗi định dạng giá / số lượng tồn)
         UI --> A: Hiển thị cảnh báo lỗi trên form
-        deactivate UI
     else Dữ liệu hợp lệ
-        C -> DB: Cập nhật thông tin combo vào CSDL
+        C -> DB: prisma.combo.update({\n  where: { id: comboId },\n  data: { name, description, price, stock, imageUrl, status }\n})
         activate DB
         DB --> C: Bản ghi combo đã cập nhật
         deactivate DB
-        C --> UI: Báo 200 OK (Cập nhật thành công)
-        activate UI
+        C --> UI: 200 OK (Cập nhật combo thành công)
         UI --> A: Hiển thị Toast thông báo thành công & cập nhật bảng
-        deactivate UI
     end
     deactivate C
     deactivate UI

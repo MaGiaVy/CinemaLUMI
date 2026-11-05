@@ -1,0 +1,52 @@
+@startuml 22_them_phim
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: THÊM PHIM MỚI (FR-ADM-01, BR-02)
+
+actor "Quản trị viên\n(Admin)" as A
+boundary "Frontend Next.js\n(/admin/movies)" as UI
+control "Next.js API\n(/api/movies)" as C
+entity "Docker PostgreSQL\n(Prisma)" as DB
+
+activate A
+A -> UI: Bấm chọn "Thêm phim mới"
+activate UI
+UI --> A: Hiển thị biểu mẫu nhập thông tin phim\n(title, genre, duration, ageRating: P | C13 | T18, status: UPCOMING | SHOWING)
+deactivate UI
+
+A -> UI: Nhập đầy đủ thông tin phim và bấm "Lưu phim"
+activate UI
+UI -> C: POST /api/movies\n(payload: { title, duration, ageRating, releaseDate, status... })
+activate C
+C -> C: Xác thực quyền hạn requireAuth(['ADMIN']) (FR-AUTH-03)
+C -> C: Kiểm tra tính hợp lệ dữ liệu Zod\n(duration > 0, title không trống, ageRating IN ('P', 'C13', 'T18') theo BR-02)
+
+alt Dữ liệu thiếu hoặc không hợp lệ
+    C --> UI: 400 Bad Request (Dữ liệu đầu vào không hợp lệ)
+    UI --> A: Hiển thị cảnh báo lỗi dữ liệu trên form
+else Dữ liệu hợp lệ
+    C -> DB: Kiểm tra trùng tiêu đề phim:\nprisma.movie.findFirst({ where: { title: { equals: title.trim(), mode: 'insensitive' }, isDeleted: false } })
+    activate DB
+    DB --> C: Kết quả kiểm tra trùng tên phim
+    deactivate DB
+
+    alt Tiêu đề phim đã tồn tại
+        C --> UI: 409 Conflict ("Phim với tiêu đề này đã tồn tại trong hệ thống")
+        UI --> A: Hiển thị cảnh báo trùng tên phim
+    else Tiêu đề phim hợp lệ (Chưa tồn tại)
+        C -> DB: Lưu phim mới vào CSDL:\nprisma.movie.create({\n  data: { ..., status: 'UPCOMING' | 'SHOWING', isDeleted: false, ticketPrice: 120000 }\n})
+        activate DB
+        DB --> C: Xác nhận tạo bản ghi phim mới thành công
+        deactivate DB
+        C --> UI: 201 Created (Thêm phim thành công)
+        UI --> A: Hiển thị Toast thông báo thành công & làm mới danh sách
+    end
+end
+deactivate C
+deactivate UI
+deactivate A
+@enduml

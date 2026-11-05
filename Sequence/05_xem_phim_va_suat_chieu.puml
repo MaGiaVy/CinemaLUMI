@@ -15,35 +15,35 @@ entity "Dữ liệu hệ thống" as DB
 activate A
 A -> UI: Mở danh sách phim
 activate UI
-UI -> C: Yêu cầu phim đang có suất chiếu
+UI -> C: GET /api/movies (Lấy danh sách phim đang chiếu / sắp chiếu)
 activate C
-C -> DB: Lấy danh sách phim có suất chiếu
+C -> DB: prisma.movie.findMany() kèm danh sách suất chiếu
 activate DB
-DB --> C: Danh sách phim
+DB --> C: Danh sách phim (kèm nhãn độ tuổi P, C13, T18)
 deactivate DB
-C --> UI: Danh sách phim
+C --> UI: 200 OK (Danh sách phim)
 deactivate C
 UI --> A: Hiển thị danh sách phim
 deactivate UI
 
-A -> UI: Chọn phim
+A -> UI: Chọn phim và ngày xem
 activate UI
-UI -> C: Yêu cầu thông tin phim và suất chiếu
+UI -> C: GET /api/screenings?movieId=[id]&date=[date]
 activate C
-C -> DB: Lấy thông tin phim, suất chiếu và tình trạng chỗ
+C -> DB: Lấy thông tin phim và các suất chiếu khả dụng (status = 'ACTIVE')
 activate DB
-DB --> C: Thông tin phim và các suất chiếu
+DB --> C: Thông tin phim và danh sách suất chiếu
 deactivate DB
 
 alt Không có suất khả dụng
-    C --> UI: Thông báo không có suất chiếu phù hợp
+    C --> UI: 200 OK (Danh sách rỗng)
     activate UI
-    UI --> A: Hiển thị thông báo không có suất chiếu
+    UI --> A: Hiển thị thông báo không có suất chiếu phù hợp
     deactivate UI
 else Có suất khả dụng
-    C --> UI: Danh sách suất chiếu khả dụng
+    C --> UI: 200 OK (Danh sách suất chiếu khả dụng)
     activate UI
-    UI --> A: Hiển thị thông tin phim và các suất chiếu
+    UI --> A: Hiển thị thông tin phim và các khung giờ chiếu
     deactivate UI
 end
 deactivate C
@@ -51,21 +51,21 @@ deactivate UI
 
 A -> UI: Chọn suất chiếu mong muốn
 activate UI
-UI -> C: Kiểm tra suất chiếu đã chọn
+UI -> C: GET /api/screenings/[id] & GET /api/seats?screening_id=[id]
 activate C
-C -> DB: Kiểm tra số lượng chỗ còn lại
+C -> DB: Lấy chi tiết suất chiếu và sơ đồ 50 ghế (A1..E10)
 activate DB
-DB --> C: Kết quả kiểm tra (Số chỗ trống)
+DB --> C: Chi tiết suất chiếu & danh sách 50 ghế (EMPTY, RESERVED, OCCUPIED)
 deactivate DB
 
-alt Hết chỗ
-    C --> UI: Yêu cầu chọn suất chiếu khác
+alt Hết chỗ (Tất cả 50 ghế đều RESERVED hoặc OCCUPIED)
+    C --> UI: Báo suất chiếu đã hết ghế trống
     activate UI
-    UI --> A: Hiển thị thông báo suất chiếu đã hết vé
+    UI --> A: Hiển thị thông báo suất chiếu đã hết vé, yêu cầu chọn suất khác
     deactivate UI
-else Còn chỗ trống
+else Còn chỗ trống (Có ghế EMPTY)
     C -> C: Ghi nhận phim và suất chiếu vào phiên đặt vé
-    C --> UI: Cho phép chọn ghế
+    C --> UI: 200 OK (Sơ đồ 50 ghế A1..E10 và thông tin suất chiếu)
     activate UI
     UI --> A: Chuyển hướng sang màn hình sơ đồ chọn ghế
     deactivate UI

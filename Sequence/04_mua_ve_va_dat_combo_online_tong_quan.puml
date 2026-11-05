@@ -11,12 +11,12 @@ actor "Khách hàng" as A
 boundary "Giao diện mua vé" as UI
 control "Điều khiển mua vé" as C
 entity "Dữ liệu hệ thống" as DB
-participant "VNPay / MoMo" as PAY
+participant "ZaloPay Sandbox v2" as PAY
 
 activate A
 A -> UI: Chọn mua vé và đặt combo online
 activate UI
-UI -> C: Bắt đầu giao dịch
+UI -> C: Bắt đầu giao dịch (GET /api/movies, GET /api/screenings)
 activate C
 C -> DB: Lấy phim và suất chiếu khả dụng
 activate DB
@@ -29,74 +29,83 @@ deactivate UI
 
 A -> UI: Chọn phim và suất chiếu
 activate UI
-UI -> C: Ghi nhận lựa chọn
+UI -> C: Ghi nhận lựa chọn (GET /api/seats?screening_id=[id])
 activate C
-C -> DB: Lấy ghế và trạng thái
+C -> DB: Lấy sơ đồ 50 ghế (A1..E10) và trạng thái
 activate DB
-DB --> C: Sơ đồ ghế
+DB --> C: Sơ đồ ghế (EMPTY, RESERVED, OCCUPIED)
 deactivate DB
 C --> UI: Hiển thị ghế và loại vé
 deactivate C
 UI --> A: Hiển thị sơ đồ ghế & bảng giá
 deactivate UI
 
-A -> UI: Chọn ghế và loại vé
+A -> UI: Chọn ghế (tối đa 8 ghế) và loại vé
 activate UI
-UI -> C: Gửi lựa chọn
+UI -> C: Gửi lựa chọn giữ chỗ (POST /api/seats/reserve)
 activate C
-C -> DB: Kiểm tra trạng thái ghế và giá vé
+C -> DB: Kiểm tra trạng thái ghế & Atomic khóa ghế 10 phút (RESERVED)
 activate DB
-DB --> C: Kết quả kiểm tra
+DB --> C: Kết quả giữ ghế
 deactivate DB
 
 alt Ghế không khả dụng
-    C --> UI: Yêu cầu chọn ghế khác
+    C --> UI: Yêu cầu chọn ghế khác (409 Conflict)
     activate UI
-    UI --> A: Báo ghế đã có người đặt
+    UI --> A: Báo ghế đã có người giữ hoặc đặt
     deactivate UI
-else Ghế hợp lệ
-    opt Có nhu cầu chọn combo
-        C -> C: Thêm combo vào đơn hàng
+else Ghế hợp lệ (Đã giữ chỗ 10 phút)
+    opt Có nhu cầu chọn combo bắp nước
+        UI -> C: Giữ chỗ combo 10 phút (POST /api/combos/reserve)
+        C -> DB: Trừ tạm Combo.stock & tạo ComboReservation (RESERVED, 10 phút)
+        activate DB
+        DB --> C: Xác nhận giữ combo tạm thời
+        deactivate DB
     end
     opt Có mã giảm giá
-        C -> C: Kiểm tra và áp dụng voucher
+        UI -> C: Kiểm tra và áp dụng voucher (POST /api/coupons/validate)
+        C -> C: Giảm giá trên tổng tiền vé (BR-03)
     end
-    C --> UI: Đơn hàng và tổng tiền
+    C --> UI: Đơn hàng và tổng tiền thanh toán
     activate UI
-    UI --> A: Hiển thị đơn hàng & thông tin thanh toán
+    UI --> A: Hiển thị đơn hàng & bộ đếm ngược 10 phút
     deactivate UI
 end
 deactivate C
 deactivate UI
 
-A -> UI: Chọn phương thức thanh toán online
+A -> UI: Xác nhận thanh toán qua ZaloPay Sandbox v2
 activate UI
-UI -> C: Yêu cầu thanh toán
+UI -> C: Yêu cầu khởi tạo thanh toán (POST /api/payments/initiate)
 activate C
-C -> PAY: Gửi yêu cầu đến VNPay / MoMo
+C -> PAY: POST https://sb-openapi.zalopay.vn/v2/create (app_id=2553, HMAC-SHA256)
 activate PAY
-PAY --> A: Hiển thị giao diện cổng thanh toán
+PAY --> C: Trả về order_url
+C --> UI: Điều hướng tới order_url
+UI --> A: Hiển thị giao diện cổng ZaloPay Sandbox v2
 deactivate PAY
 deactivate C
 deactivate UI
 
-A -> PAY: Xác nhận thanh toán
+A -> PAY: Quét QR / Xác nhận thanh toán trên ZaloPay
 activate PAY
-PAY --> C: Webhook/IPN trả kết quả giao dịch
+PAY --> C: Webhook IPN (POST /api/payments/zalopay-ipn) & Return URL (GET /api/payments/zalopay-return)
 activate C
-alt Giao dịch thành công
-    C -> DB: Cập nhật trạng thái Vé (Valid), Đơn hàng (PAID)
+alt Giao dịch thành công (return_code = 1 / status = 1)
+    C -> DB: Cập nhật Payment (status = 'Success'), Ticket (status = 'Valid'),\nSeat (status = 'OCCUPIED'), ComboReservation ('COMPLETED'), tạo OrderCombo
     activate DB
-    DB --> C: Xác nhận cập nhật
+    DB --> C: Xác nhận hoàn tất Transaction
     deactivate DB
-    C --> UI: Xác nhận mua vé & gửi vé điện tử (QR)
+    C -> C: Ký số payload vé bằng HMAC-SHA256
+    C --> UI: Xác nhận mua vé thành công & trả dữ liệu vé điện tử
     activate UI
-    UI --> A: Hiển thị vé và mã QR nhận vé/combo
+    UI -> UI: Render mã QR bằng component <QRCodeSVG />
+    UI --> A: Hiển thị vé điện tử và mã QR nhận vé/combo
     deactivate UI
-else Giao dịch thất bại hoặc hủy
-    C -> DB: Giải phóng ghế (EMPTY), hủy đơn hàng
+else Giao dịch thất bại hoặc quá hạn 10 phút
+    C -> DB: Giải phóng ghế về EMPTY, hoàn lại Combo.stock, hủy đơn (Payment.status = 'Failed')
     activate DB
-    DB --> C: Xác nhận giải phóng ghế
+    DB --> C: Xác nhận giải phóng tài nguyên
     deactivate DB
     C --> UI: Báo giao dịch chưa hoàn tất
     activate UI

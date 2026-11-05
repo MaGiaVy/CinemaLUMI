@@ -1,4 +1,4 @@
-﻿@startuml 05_dat_ve_combo_online
+@startuml 05_dat_ve_combo_online
 title SƠ ĐỒ HOẠT ĐỘNG: ĐẶT VÉ VÀ MUA COMBO ONLINE (ONLINE TICKET & COMBO BOOKING)
 skinparam conditionStyle insideDiamond
 skinparam defaultTextAlignment center
@@ -8,7 +8,7 @@ skinparam wrapWidth 180
 
 |Khách hàng|
 |Hệ thống|
-|Cổng thanh toán VNPay|
+|Cổng ZaloPay Sandbox v2|
 |Khách hàng|
 start
 :Chọn phim đang chiếu;
@@ -24,10 +24,10 @@ start
 :Hiển thị sơ đồ 50 ghế (A1-E10)\nvà trạng thái từng ghế;
 
 |Khách hàng|
-:Chọn ghế (tối đa số ghế quy định);
+:Chọn ghế trên sơ đồ A1-E10\n(tối đa 08 ghế/giao dịch - MAX_SEATS = 8);
 
 |Hệ thống|
-:Kiểm tra trạng thái ghế;
+:Kiểm tra trạng thái ghế và giới hạn MAX_SEATS = 8;
 while (Ghế trống?) is (Không)
   :Thông báo và yêu cầu chọn ghế khác;
   |Khách hàng|
@@ -38,12 +38,12 @@ endwhile (Có)
 :Chuyển ghế sang RESERVED\nđặt reservedUntil = NOW() + 10 phút;
 
 |Khách hàng|
-:Chọn loại vé cho từng ghế\n(Thường hoặc Trẻ em);
+:Chọn loại vé cho từng ghế\n(Thường 100% hoặc Trẻ em 50%);
 
 |Hệ thống|
-if (Hợp lệ?) then (Có)
+if (Phim T18?) then (Có - BR-02)
+  :Khóa lựa chọn vé Trẻ em (50%)\nvà bắt buộc dùng vé Thường (100%);
 else (Không)
-  :Khóa lựa chọn vé trẻ em\nvà chuyển về vé Thường;
 endif
 :Tính giá vé (Thường 100%, Trẻ em 50%);
 
@@ -52,7 +52,7 @@ if (Thêm combo?) then (Có)
   :Chọn combo và số lượng;
   |Hệ thống|
   if (Còn hàng?) then (Có)
-    :Giữ tồn kho combo tạm thời 10 phút\nvà thêm combo vào đơn hàng;
+    :Giữ tồn kho combo tạm thời 10 phút (ComboReservation)\nvà thêm combo vào đơn hàng;
   else (Không)
     :Thông báo combo không đủ tồn kho;
   endif
@@ -76,38 +76,40 @@ endif
 :Hiển thị thông tin đơn hàng và số tiền cần thanh toán;
 
 |Khách hàng|
-:Chọn thanh toán online qua VNPay;
+:Chọn thanh toán trực tuyến qua ZaloPay Sandbox v2;
 
 |Hệ thống|
-:Tạo đơn hàng trạng thái Pending\nvà sinh đường dẫn thanh toán VNPay;
+:Tạo đơn hàng Payment (status = 'Pending')\nvà vé tạm (bảo vệ bởi Partial Unique Index unique_active_ticket);
+:Gọi API tạo đơn ZaloPay Sandbox v2\n(app_id: 2553, ký HMAC-SHA256 bằng ZALOPAY_KEY1);
 
-|Cổng thanh toán VNPay|
-:Tiếp nhận yêu cầu thanh toán;
+|Cổng ZaloPay Sandbox v2|
+:Tiếp nhận yêu cầu tạo đơn\nvà trả về order_url;
 
 |Khách hàng|
-:Thực hiện thanh toán trên cổng VNPay;
+:Thực hiện thanh toán trên cổng ZaloPay Sandbox v2;
 
-|Cổng thanh toán VNPay|
-:Xử lý giao dịch và gửi kết quả IPN về hệ thống;
+|Cổng ZaloPay Sandbox v2|
+:Xử lý giao dịch, gửi Webhook IPN (/api/payments/zalopay/callback)\nvà điều hướng về Return URL (/api/payments/zalopay/return);
 
 |Hệ thống|
-:Xác thực chữ ký (checksum) của kết quả IPN;
+:Xác thực chữ ký HMAC-SHA256 (ZALOPAY_KEY2)\ncủa Callback IPN & Return URL (return_code == 1);
 if (Thành công?) then (Có)
-  :Chuyển các vé sang Valid;
+  :Cập nhật Payment.status = 'Success';
+  :Chuyển các vé sang Valid\n(ràng buộc chống bán trùng unique_active_ticket);
   :Chuyển các ghế sang OCCUPIED;
-  :Trừ kho combo chính thức\nvà đặt trạng thái combo là Chưa nhận;
-  :Sinh chữ ký HMAC-SHA256 trên mã vé\nđể tạo mã QR Code;
+  :Chuyển ComboReservation sang COMPLETED\nvà tạo OrderCombo (isDelivered = false);
+  :Tăng lượt dùng voucher (Coupon.usedCount + 1);
+  :Sinh chữ ký HMAC-SHA256 trên mã vé\nvà hiển thị mã QR bằng <QRCodeSVG />;
   :Gửi email xác nhận kèm vé điện tử;
   |Khách hàng|
-  :Nhận vé điện tử có mã QR;
+  :Nhận vé điện tử có mã QR (<QRCodeSVG />);
   stop
 else (Không)
   |Hệ thống|
-  :Hủy đơn hàng, giải phóng ghế về EMPTY;
-  :Hoàn lại tồn kho combo\nvà hoàn lượt dùng voucher;
+  :Cập nhật Payment.status = 'Failed', hủy vé tạm\nvà giải phóng ghế về EMPTY;
+  :Giải phóng ComboReservation (RELEASED) hoàn tồn kho combo\nvà bảo toàn lượt dùng voucher;
   |Khách hàng|
   :Nhận thông báo giao dịch chưa hoàn tất;
   stop
 endif
 @enduml
-

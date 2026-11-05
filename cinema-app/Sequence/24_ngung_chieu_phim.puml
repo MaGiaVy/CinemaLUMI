@@ -1,0 +1,73 @@
+@startuml 24_ngung_chieu_phim
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: NGỪNG CHIẾU / XÓA MỀM PHIM (FR-ADM-02, BR-07)
+
+actor "Quản trị viên\n(Admin)" as A
+boundary "Frontend Next.js\n(/admin/movies)" as UI
+control "Next.js API\n(/api/movies)" as C
+entity "Docker PostgreSQL\n(Prisma)" as DB
+
+activate A
+A -> UI: Chọn phim và bấm nút "Ngừng chiếu / Xóa"
+activate UI
+UI --> A: Hiển thị hộp thoại cảnh báo xác nhận ngừng chiếu phim
+deactivate UI
+
+alt Quản trị viên hủy thao tác
+    A -> UI: Bấm nút "Hủy bỏ"
+    activate UI
+    UI --> A: Đóng hộp thoại, giữ nguyên trạng thái phim
+    deactivate UI
+else Quản trị viên xác nhận ngừng chiếu / xóa phim
+    A -> UI: Bấm nút "Xác nhận ngừng chiếu"
+    activate UI
+    UI -> C: DELETE /api/movies/[id]\n(kèm JWT ADMIN)
+    activate C
+    C -> C: Xác thực quyền hạn requireAuth(['ADMIN']) (FR-AUTH-03)
+    C -> DB: Tra cứu phim theo ID:\nprisma.movie.findUnique({ where: { id: movieId } })
+    activate DB
+    DB --> C: Bản ghi phim hiện tại (status: SHOWING | UPCOMING | ENDED, isDeleted)
+    deactivate DB
+    
+    alt Không tìm thấy phim -> 404 Not Found
+        C --> UI: 404 Not Found ("Không tìm thấy phim")
+        UI --> A: Hiển thị thông báo lỗi không tìm thấy phim
+    else Phim đang có suất chiếu hoạt động (UPCOMING hoặc SHOWING)
+        C -> DB: Kiểm tra suất chiếu hoạt động:\nprisma.screening.findFirst({ where: { movieId, status: { in: ['UPCOMING', 'SHOWING'] } } })
+        activate DB
+        DB --> C: Tồn tại suất chiếu đang UPCOMING / SHOWING
+        deactivate DB
+        C --> UI: 400 Bad Request\n("Không thể xóa/ngừng chiếu phim vì đang có suất chiếu ở trạng thái UPCOMING hoặc SHOWING")
+        UI --> A: Hiển thị cảnh báo yêu cầu kết thúc hoặc hủy suất chiếu trước
+    else Không còn suất chiếu UPCOMING / SHOWING (Hợp lệ để xử lý theo BR-07)
+        C -> DB: Kiểm tra lịch sử vé đã bán:\nprisma.ticket.findFirst({ where: { screening: { movieId } } })
+        activate DB
+        DB --> C: Kết quả kiểm tra lịch sử vé (hasTickets)
+        deactivate DB
+
+        alt Đã phát sinh vé lịch sử (Thực hiện Soft Delete theo FR-ADM-02, BR-07)
+            C -> DB: prisma.movie.update({\n  where: { id: movieId },\n  data: { status: 'ENDED', isDeleted: true }\n})
+            activate DB
+            DB --> C: Xác nhận Soft Delete thành công (status = 'ENDED', isDeleted = true)
+            deactivate DB
+            C --> UI: 200 OK (Đã chuyển phim sang trạng thái ENDED & ẩn khỏi trang chủ để bảo toàn doanh thu)
+            UI --> A: Hiển thị Toast thành công & cập nhật trạng thái ENDED trên bảng
+        else Chưa từng phát sinh vé (Cho phép xóa hoặc chuyển ENDED)
+            C -> DB: prisma.movie.update({ where: { id: movieId }, data: { status: 'ENDED', isDeleted: true } })
+            activate DB
+            DB --> C: Xác nhận ngừng chiếu thành công
+            deactivate DB
+            C --> UI: 200 OK (Ngừng chiếu phim thành công)
+            UI --> A: Hiển thị Toast thành công & làm mới danh sách phim
+        end
+    end
+    deactivate C
+    deactivate UI
+end
+deactivate A
+@enduml

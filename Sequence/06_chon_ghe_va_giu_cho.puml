@@ -15,56 +15,64 @@ entity "Dữ liệu hệ thống" as DB
 activate A
 A -> UI: Mở màn hình chọn ghế của suất chiếu đã chọn
 activate UI
-UI -> C: Yêu cầu sơ đồ ghế của suất chiếu đã chọn
+UI -> C: GET /api/seats?screening_id=[id]
 activate C
-C -> DB: Lấy sơ đồ phòng chiếu và trạng thái ghế
+C -> DB: Lazy Release: Giải phóng các ghế RESERVED đã quá hạn 10 phút\n(updateMany WHERE status='RESERVED' AND reservedUntil < NOW() -> status='EMPTY')
 activate DB
-DB --> C: Sơ đồ ghế và trạng thái (EMPTY, RESERVED, BOOKED)
+DB --> C: Đã giải phóng các ghế hết hạn giữ chỗ
 deactivate DB
-C --> UI: Dữ liệu sơ đồ ghế
+C -> DB: Lấy sơ đồ 50 ghế (A1..E10) và trạng thái hiện tại
+activate DB
+DB --> C: Sơ đồ ghế và trạng thái (EMPTY, RESERVED, OCCUPIED)
+deactivate DB
+C --> UI: 200 OK (Dữ liệu sơ đồ 50 ghế)
 deactivate C
 UI --> A: Hiển thị sơ đồ ghế và trạng thái trực quan
 deactivate UI
 
-A -> UI: Chọn một hoặc nhiều ghế
+A -> UI: Chọn một hoặc nhiều ghế và bấm Tiếp tục
 activate UI
-UI -> C: Gửi danh sách ghế được chọn
+UI -> C: POST /api/seats/reserve\n{ screening_id, seat_ids: [...] }
 activate C
-C -> DB: Kiểm tra trạng thái các ghế được chọn
-activate DB
-DB --> C: Kết quả kiểm tra trạng thái ghế
-deactivate DB
+C -> C: Kiểm tra số lượng ghế chọn <= 8 ghế/lần (MAX_SEATS = 8)
 
-alt Có ghế không khả dụng (đã có người giữ hoặc đặt)
-    C --> UI: Báo ghế không khả dụng, yêu cầu chọn ghế khác
+alt Chọn vượt quá 8 ghế (seat_ids.length > MAX_SEATS)
+    C --> UI: 400 Bad Request (Tối đa 8 ghế mỗi giao dịch)
     activate UI
-    UI --> A: Hiển thị thông báo ghế đã bị trùng
+    UI --> A: Hiển thị cảnh báo chỉ được chọn tối đa 8 ghế/lần
     deactivate UI
-else Tất cả ghế khả dụng
-    C -> DB: Khóa giữ chỗ tạm 10 phút (RESERVED) (BR-01)
+else Số lượng ghế hợp lệ (1..8 ghế)
+    C -> DB: Lazy Release ghế quá hạn 10 phút &\nAtomic updateMany WHERE id IN seat_ids AND status = 'EMPTY'\nSET status = 'RESERVED', reservedBy = userId, reservedUntil = NOW() + 10 phút (BR-01)
     activate DB
-    DB --> C: Xác nhận giữ chỗ thành công
+    DB --> C: Trả về số bản ghi cập nhật (count)
     deactivate DB
-    C -> C: Ghi nhận ghế vào giao dịch hiện tại
-    C --> UI: Danh sách ghế đã chọn & bộ đếm ngược 10 phút
-    activate UI
-    UI --> A: Hiển thị ghế đã chọn & thời gian giữ chỗ
-    deactivate UI
+
+    alt Có ghế không khả dụng (count < seat_ids.length -> Đã RESERVED hoặc OCCUPIED)
+        C --> UI: 409 Conflict (Ghế không khả dụng, yêu cầu chọn ghế khác)
+        activate UI
+        UI --> A: Hiển thị thông báo ghế đã có người giữ hoặc đặt
+        deactivate UI
+    else Tất cả ghế khả dụng (count == seat_ids.length)
+        C -> C: Ghi nhận ghế vào phiên giao dịch hiện tại
+        C --> UI: 200 OK (Danh sách ghế đã giữ & reservedUntil = NOW() + 10 phút)
+        activate UI
+        UI --> A: Hiển thị ghế đã chọn & bộ đếm ngược 10 phút
+        deactivate UI
+    end
 end
 deactivate C
 deactivate UI
 
-opt Khách hàng muốn đổi ý bỏ chọn ghế
-    A -> UI: Bỏ chọn ghế trên sơ đồ
+opt Khách hàng đổi ý bỏ chọn ghế hoặc quay lại bước trước
+    A -> UI: Bỏ chọn ghế hoặc hủy phiên giữ ghế
     activate UI
-    UI -> C: Yêu cầu giải phóng ghế đã bỏ
+    UI -> C: POST /api/seats/release\n{ screening_id, seat_ids: [...] }
     activate C
-    C -> DB: Giải phóng ghế về trạng thái trống (EMPTY)
+    C -> DB: Giải phóng ghế về trạng thái trống:\nupdateMany WHERE id IN seat_ids AND reservedBy = userId\nSET status = 'EMPTY', reservedBy = null, reservedUntil = null
     activate DB
-    DB --> C: Xác nhận giải phóng
+    DB --> C: Xác nhận giải phóng ghế
     deactivate DB
-    C -> C: Cập nhật lại danh sách ghế trong giao dịch
-    C --> UI: Danh sách ghế mới sau khi bỏ
+    C --> UI: 200 OK (Danh sách ghế mới sau khi giải phóng)
     activate UI
     UI --> A: Hiển thị sơ đồ ghế cập nhật
     deactivate UI

@@ -1,0 +1,55 @@
+@startuml 16_tra_cuu_quan_ly_ve
+hide footbox
+title SƠ ĐỒ TUẦN TỰ: TRA CỨU & QUẢN LÝ VÉ KHÁCH HÀNG (TICKET LOOKUP & MANAGEMENT)
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultTextAlignment center
+
+actor "Nhân viên / Admin\n(Staff / Admin)" as A
+boundary "Giao diện Tra cứu vé\n(Frontend Next.js)" as UI
+control "API Tra cứu & Quản lý vé\n(Next.js App Router)" as API
+entity "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
+
+activate A
+A -> UI : Truy cập mục Tra cứu & Quản lý vé (/staff/lookup)
+activate UI
+
+A -> UI : Nhập từ khóa tra cứu (Mã vé #LMC-..., Email, SĐT, Tên khách)
+A -> UI : Bấm nút "Tìm kiếm"
+
+UI -> API : GET /api/staff/tickets/search?q={keyword}
+activate API
+
+API -> DB : prisma.ticket.findMany({\n  where: { OR: [maVe, user.email, user.phone, user.name] },\n  include: { user: true, screening: { include: { movie: true } }, seat: true }\n})
+activate DB
+DB --> API : Trả về danh sách các bản ghi vé khớp điều kiện
+deactivate DB
+
+alt Không tìm thấy bản ghi nào khớp
+    API --> UI : 200 OK\n{ success: true, count: 0, data: [] }
+    UI --> A : Hiển thị thông báo "Không tìm thấy vé nào phù hợp"
+else Tìm thấy kết quả
+    API --> UI : 200 OK\n{ success: true, count: N, data: [...] }
+    UI --> A : Hiển thị bảng danh sách các vé tìm thấy
+
+    A -> UI : Bấm chọn 1 vé để xem hồ sơ chi tiết
+    UI -> API : GET /api/tickets/{id}
+    activate API
+
+    API -> DB : prisma.ticket.findUnique({\n  where: { id },\n  include: { payment: true, screening: true, seat: true }\n})
+    activate DB
+    DB --> API : Trả về chi tiết vé, lịch sử giao dịch & công nợ hoàn tiền
+    deactivate DB
+
+    API --> UI : 200 OK\n{\n  ticketCode, customerName, movieTitle, room, seatCode,\n  ticketType, price, status (Valid/Used/Cancelled),\n  cancellationReason, refundStatus, refundAmount\n}
+    deactivate API
+
+    UI --> A : Hiển thị chi tiết hồ sơ vé điện tử kèm các nút thao tác\n(Soát vé, Hủy vé sự cố, Xác nhận hoàn tiền mặt nếu có)
+end
+
+deactivate API
+deactivate UI
+deactivate A
+@enduml

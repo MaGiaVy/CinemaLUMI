@@ -1,0 +1,81 @@
+@startuml
+title Sequence Diagram - Huy ve do su co rap & Hoan tien mat 100% (Phase 1)
+autonumber
+skinparam maxMessageSize 230
+
+actor "Admin" as AD
+actor "Nhan vien / Admin\n(Staff / Admin)" as NV
+actor "Khach hang" as KH
+boundary "Giao dien POS / Admin\n(UI)" as UI
+control "Incident & Refund Controller\n(Backend API)" as BE
+database "Co so du lieu\n(PostgreSQL)" as DB
+actor "Dich vu Email/SMS" as TB
+
+== Giai doan 1: Xu ly su co & Ghi nhan cong no Cho hoan tien ==
+
+alt Huy tung ve le gap su co (Nhan vien hoac Admin)
+    NV -> UI : Tra cuu ma ve, chon "Huy do su co rap" & nhap ly do
+    UI -> BE : Gui yeu cau huy ve su co (ticketId, reason)
+    BE -> DB : Truy van trang thai ve
+    DB --> BE : Tra thong tin ve
+    BE -> BE : Kiem tra Ticket.status == 'Valid'\n(Khong ap dung dieu kien >= 2 tieng - FR-CAN-03)
+
+    alt Ve da su dung ('Used') hoac da huy ('Cancelled')
+        BE --> UI : Tu choi huy (Ve da su dung tuyet doi khong hoan tien)
+        UI --> NV : Hien thi thong bao loi
+    else Ve hop le ('Valid')
+        BE -> DB : Transaction:\n- Ticket.status = 'Cancelled', cancellationReason = reason\n- Ghi cong no: refundStatus = 'PENDING_CASH_REFUND', refundAmount = 100%\n- Giai phong ghe: Seat.status = 'EMPTY'\n- Ghi Audit Log su co
+        DB --> BE : Xac nhan cap nhat thanh cong
+        BE --> UI : Thong bao huy thanh cong (Chuyen sang Cho hoan tien)
+        UI --> NV : Hien thi ket qua
+    end
+
+else Huy khan cap toan bo suat chieu (Chi Admin - FR-ADM-04)
+    AD -> UI : Chon suat chieu, kich hoat "Huy suat chieu khan cap" & nhap ly do
+    UI -> BE : Gui yeu cau huy suat chieu (screeningId, reason)
+    BE -> DB : Cap nhat Screening.status = 'CANCELLED' (Ngung ban ve)
+
+    loop Moi ve co status = 'Valid' trong suat chieu
+        BE -> DB : - Cap nhat Ticket.status = 'Cancelled'\n- refundStatus = 'PENDING_CASH_REFUND', refundAmount = 100%\n- Giai phong ghe nhung khoa khong cho dat lai
+    end
+
+    loop Moi don hang co Combo di kem suat chieu bi huy (Muc 4.6)
+        alt Combo co trang thai 'Chua nhan'
+            BE -> DB : - Chuyen OrderCombos.status = 'Da huy'\n- Cong lai ton kho (Combos.stock)\n- Cong 100% tien combo vao khoan Cho hoan tien
+        else Combo co trang thai 'Da nhan'
+            note right of BE : Giữ nguyen, khong hoan tien\nva khong hoan kho
+        end
+    end
+
+    BE -> DB : Ghi Audit Log huy suat chieu khan cap
+    DB --> BE : Xac nhan hoan tat Transaction
+    BE --> UI : Thong bao huy suat chieu thanh cong
+    UI --> AD : Hien thi ket qua
+end
+
+BE -> TB : Gui thong bao su co cho khach hang\n(Khach online co 30 ngay den rap nhan tien mat)
+
+== Giai doan 2: Doi soat & Chi quy hoan tien mat tai quay (FR-CAN-02) ==
+
+KH -> NV : Den rap xuat trinh ma ve (#LMC-XXXXXX)
+NV -> UI : Nhap ma ve tra cuu khoan cho hoan
+UI -> BE : Yeu cau thong tin hoan tien (ticketCode)
+BE -> DB : Truy van thong tin ve & cong no hoan tien
+DB --> BE : Tra refundStatus, refundAmount, thoi gian thong bao
+BE -> BE : Kiem tra dieu kien hoan tien:\n1. refundStatus == 'PENDING_CASH_REFUND'\n2. Thoi gian <= 30 ngay ke tu ngay thong bao su co
+
+alt Khong hop le (Da hoan tien hoac qua han 30 ngay)
+    BE --> UI : Canh bao tu choi hoan tien (Da hoan / Qua han 30 ngay)
+    UI --> NV : Hien thi thong bao tu choi
+else Hop le
+    BE --> UI : Hien thi chi tiet so tien mat can hoan (100% thuc tra)
+    UI --> NV : Hien thi so tien & nut "Xac nhan da hoan tien mat"
+    NV -> UI : Bam "Xac nhan da hoan tien mat"
+    UI -> BE : Gui yeu cau xac nhan chi quy (ticketId, staffId)
+    BE -> DB : Transaction:\n- Cap nhat refundStatus = 'REFUNDED_CASH', refundedAt = NOW()\n- Luu Audit Log chung tu ke toan (staffId, so tien, timestamp)
+    DB --> BE : Xac nhan luu chung tu thanh cong
+    BE --> UI : Hoan tat chung tu doi soat hoan tien
+    UI --> NV : Thong bao hoan tat tren he thong
+    NV -> KH : Xuat quy trao 100% tien mat cho khach hang
+end
+@enduml

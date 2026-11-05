@@ -1,4 +1,4 @@
-﻿# BỘ SƠ ĐỒ HOẠT ĐỘNG (ACTIVITY DIAGRAMS) - HỆ THỐNG LUMI CINEMA
+# BỘ SƠ ĐỒ HOẠT ĐỘNG (ACTIVITY DIAGRAMS) - HỆ THỐNG LUMI CINEMA
 
 Tài liệu này tổng hợp và giải thích 17 sơ đồ hoạt động (Activity Diagrams) chuẩn UML cho Hệ thống Quản lý Bán vé và Vận hành Rạp phim Lumi Cinema, được thiết kế theo đúng đặc tả yêu cầu phần mềm (**SRS**) và đặc tả kiến trúc kỹ thuật (**tech_spec.md**).
 
@@ -34,12 +34,12 @@ Tổng cộng **17 sơ đồ**, sắp xếp theo thứ tự phân hệ trong SRS
 | 2 | [`02_dang_ky.puml`](./02_dang_ky.puml) | Đăng ký tài khoản khách hàng | 4 làn kiến trúc | `FR-AUTH-01`, `FR-AUTH-04` |
 | 3 | [`03_dang_xuat.puml`](./03_dang_xuat.puml) | Đăng xuất hệ thống | 4 làn kiến trúc | `FR-AUTH-02`, `NFR-INT-02` |
 | 4 | [`04_danh_gia_phim.puml`](./04_danh_gia_phim.puml) | Đánh giá phim | Khách hàng, Admin, Hệ thống | `FR-REV-01/02/03`, `BR-06` |
-| 5 | [`05_dat_ve_combo_online.puml`](./05_dat_ve_combo_online.puml) | Đặt vé và mua combo online (VNPay) | Khách hàng, Hệ thống, Cổng VNPay | `FR-BOK-01..05`, `FR-VOU-02/03` |
+| 5 | [`05_dat_ve_combo_online.puml`](./05_dat_ve_combo_online.puml) | Đặt vé và mua combo online (ZaloPay Sandbox v2) | Khách hàng, Hệ thống, Cổng ZaloPay Sandbox v2 | `FR-BOK-01..05`, `FR-VOU-02/03` |
 | 6 | [`06_ban_ve_tai_quay.puml`](./06_ban_ve_tai_quay.puml) | Bán vé tại quầy | Nhân viên, Hệ thống | `FR-POS-01/02/04` |
 | 7 | [`07_ban_combo_tai_quay.puml`](./07_ban_combo_tai_quay.puml) | Bán combo tại quầy | Nhân viên, Hệ thống | `FR-POS-03/04` |
 | 8 | [`08_soat_ve.puml`](./08_soat_ve.puml) | Soát vé vào rạp | Nhân viên, Hệ thống | `FR-CHK-01`, `BR-09` |
 | 9 | [`09_giao_nhan_combo.puml`](./09_giao_nhan_combo.puml) | Giao nhận combo đã đặt online | Nhân viên, Hệ thống | `FR-CHK-02`, `BR-05` |
-| 10 | [`10_khach_huy_ve.puml`](./10_khach_huy_ve.puml) | Khách hủy vé, cấp voucher 50% | Khách hàng, Nhân viên, Hệ thống | `FR-CAN-01`, `BR-03` |
+| 10 | [`10_khach_huy_ve.puml`](./10_khach_huy_ve.puml) | Khách hủy vé, cấp voucher 50% | Khách hàng, Hệ thống | `FR-CAN-01`, `BR-03` |
 | 11 | [`11_rap_huy_ve_hoan_tien.puml`](./11_rap_huy_ve_hoan_tien.puml) | Rạp hủy vé do sự cố, hoàn tiền mặt | Khách hàng, Nhân viên, Hệ thống | `FR-CAN-02/03`, `BR-04` |
 | 12 | [`12_quan_ly_voucher.puml`](./12_quan_ly_voucher.puml) | Quản lý voucher khuyến mãi | Admin, Hệ thống | `FR-VOU-01/02` |
 | 13 | [`13_quan_ly_phim.puml`](./13_quan_ly_phim.puml) | Quản lý danh mục phim | Admin, Hệ thống | `FR-ADM-01/02`, `BR-07` |
@@ -57,7 +57,7 @@ Tổng cộng **17 sơ đồ**, sắp xếp theo thứ tự phân hệ trong SRS
 - **Server Authentication:** NextAuth `CredentialsProvider` -> Prisma `findUnique` -> `bcryptjs.compare(password, hash)`.
 - **Session:** Cấp JWT phiên 24h, HttpOnly Secure Cookie `next-auth.session-token`.
 - **Phân quyền điều hướng (RBAC Routing):**
-  - `ADMIN` -> `/admin/dashboard`.
+  - `ADMIN` -> `/admin` (Admin Dashboard).
   - `STAFF` -> `/staff`.
   - `CUSTOMER` -> `/` hoặc quay lại `callbackUrl` nếu đang dở phiên đặt vé/giữ ghế.
 

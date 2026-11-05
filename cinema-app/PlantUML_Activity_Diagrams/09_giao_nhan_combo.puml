@@ -1,0 +1,52 @@
+﻿@startuml 09_giao_nhan_combo
+title SƠ ĐỒ HOẠT ĐỘNG: GIAO NHẬN COMBO ĐÃ ĐẶT ONLINE (COMBO FULFILLMENT)
+skinparam conditionStyle insideDiamond
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam monochrome true
+skinparam wrapWidth 180
+
+|Nhân viên|
+|Hệ thống|
+|Nhân viên|
+start
+:Chọn chức năng giao nhận combo tại quầy bắp nước;
+:Khách xuất trình mã đơn hàng (Order Code);
+:Nhập mã đơn hàng;
+
+|Hệ thống|
+:Tìm đơn hàng theo mã đơn;
+if (Hợp lệ?) then (Có)
+else (Không)
+  :Thông báo đơn hàng không hợp lệ;
+  |Nhân viên|
+  :Từ chối giao combo;
+  stop
+endif
+
+|Hệ thống|
+:Hiển thị chi tiết các gói combo\nvà trạng thái từng gói;
+if (Còn combo?) then (Có)
+else (Không)
+  :Thông báo combo đã được nhận\n(chặn nhận trùng);
+  |Nhân viên|
+  :Từ chối giao lại combo;
+  stop
+endif
+
+|Nhân viên|
+:Chuẩn bị combo theo đơn hàng;
+:Giao combo cho khách;
+:Bấm Xác nhận đã giao combo;
+
+|Hệ thống|
+:Chuyển trạng thái combo từ Chưa nhận sang Đã nhận;
+:Lưu nhân viên giao và thời gian giao;
+:Thông báo giao combo thành công;
+
+|Nhân viên|
+:Hoàn tất giao nhận\n(độc lập với việc soát vé vào phòng chiếu);
+
+stop
+@enduml
+

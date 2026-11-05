@@ -24,12 +24,12 @@ if (Hợp lệ?) then (Không:\nSai regex hoặc pass < 6 ký tự)
 else (Có)
   |Giao diện (Frontend Next.js)|
   :Hiển thị trạng thái Loading;
-  :Gửi request POST /api/auth/register;
+  :Gửi request POST /api/auth/signup;
 
   |Máy chủ xử lý (Backend API / NextAuth)|
   :Tiếp nhận request tại Route Handler;
   :Xác thực cấu trúc dữ liệu Zod;
-  :Chuẩn hóa email (lowercase, trim);
+  :Chuẩn hóa email.toLowerCase().trim();
   :Khởi tạo truy vấn kiểm tra email;
 
   |Cơ sở dữ liệu (PostgreSQL)|

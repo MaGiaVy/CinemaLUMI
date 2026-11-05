@@ -1,0 +1,66 @@
+@startuml 15_giao_nhan_combo_online
+hide footbox
+title SƠ ĐỒ TUẦN TỰ: GIAO NHẬN COMBO ĐÃ ĐẶT ONLINE (COMBO FULFILLMENT)
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultTextAlignment center
+
+actor "Khách hàng\n(Customer)" as KH
+actor "Nhân viên quầy\n(Staff)" as NV
+boundary "Giao diện Soát bắp nước\n(Frontend Next.js)" as UI
+control "API Soát bắp nước\n(Next.js App Router)" as API
+entity "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
+
+activate KH
+KH -> NV : Xuất trình Mã giao dịch / Mã vé hoặc mã QR đơn hàng
+deactivate KH
+
+activate NV
+NV -> UI : Mở màn hình Giao nhận combo (/staff/combos)
+activate UI
+NV -> UI : Nhập mã tìm kiếm hoặc quét mã QR đơn hàng
+
+UI -> API : GET /api/staff/combos/orders?q={searchQuery}
+activate API
+
+API -> DB : prisma.payment.findMany({\n  where: { status: 'Success', ... },\n  include: { orderCombos: { include: { combo: true } }, user: true }\n})
+activate DB
+DB --> API : Trả về danh sách đơn thanh toán (Payment) kèm các bản ghi OrderCombo
+deactivate DB
+
+alt Không tìm thấy đơn hàng bắp nước hợp lệ
+    API --> UI : 404 Not Found { message: "Không tìm thấy đơn hàng bắp nước!" }
+    UI --> NV : Hiển thị Toast lỗi màu đỏ, từ chối giao hàng
+    NV -> KH : Thông báo mã đơn không hợp lệ, yêu cầu kiểm tra lại
+else Toàn bộ OrderCombo trong đơn đã được giao trước đó (isDelivered == true) (BR-05)
+    API --> UI : 200 OK (Trạng thái: isDelivered = true, kèm deliveredAt)
+    UI --> NV : Cảnh báo: "Combo đã được giao lúc [deliveredAt]!" (Nút giao hàng bị khóa)
+    NV -> KH : Từ chối giao hàng lần hai (Chặn nhận trùng theo quy định BR-05)
+else Đơn hàng có combo chưa nhận (OrderCombo.isDelivered == false)
+    API --> UI : 200 OK (Chi tiết danh sách OrderCombo có isDelivered = false)
+    deactivate API
+    UI --> NV : Hiển thị chi tiết: Tên combo, số lượng và trạng thái "Chưa nhận"
+    
+    NV -> NV : Chuẩn bị bắp nước và đóng gói theo đơn
+    NV -> KH : Bàn giao bắp nước cho khách
+    NV -> UI : Bấm nút "Xác nhận đã giao combo"
+    
+    UI -> API : POST /api/staff/combos/deliver\n{ orderComboId (hoặc paymentId) }
+    activate API
+    
+    API -> DB : prisma.orderCombo.update({\n  where: { id: orderComboId, isDelivered: false },\n  data: { isDelivered: true, deliveredAt: NOW() }\n})
+    activate DB
+    DB --> API : Xác nhận cập nhật isDelivered = true, deliveredAt = NOW()
+    deactivate DB
+    
+    API --> UI : 200 OK { message: "Xác nhận giao combo thành công!", isDelivered: true, deliveredAt }
+    deactivate API
+    
+    UI --> NV : Hiển thị Toast xanh "Hoàn tất giao nhận combo", cập nhật trạng thái Đã giao
+    deactivate UI
+    deactivate NV
+end
+
+@enduml

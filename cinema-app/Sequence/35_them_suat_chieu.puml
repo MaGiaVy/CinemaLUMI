@@ -1,0 +1,63 @@
+@startuml 35_them_suat_chieu
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: THÊM MỚI SUẤT CHIẾU (FR-ADM-03, BR-01, BR-08)
+
+actor "Quản trị viên\n(Admin)" as A
+boundary "Frontend Next.js\n(/admin/screenings)" as UI
+control "Next.js API\n(/api/screenings)" as C
+entity "Docker PostgreSQL\n(Prisma)" as DB
+
+activate A
+A -> UI: Bấm chọn "Thêm suất chiếu mới"
+activate UI
+UI --> A: Hiển thị biểu mẫu tạo suất chiếu\n(Chọn Phim, Phòng chiếu 1..5, Thời gian bắt đầu startTime)
+deactivate UI
+
+A -> UI: Chọn Phim, Phòng chiếu (1-5), Giờ chiếu và bấm "Xác nhận tạo"
+activate UI
+UI -> C: POST /api/screenings\n(kèm JWT ADMIN & payload: { movieId, room, startTime })
+activate C
+C -> C: Xác thực quyền hạn requireAuth(['ADMIN']) (FR-AUTH-03)
+C -> C: Kiểm tra dữ liệu đầu vào Zod\n(Phòng chiếu 1..5 hợp lệ, startTime trong tương lai)
+
+alt Dữ liệu đầu vào không hợp lệ
+    C --> UI: 400 Bad Request (Lỗi dữ liệu đầu vào)
+    UI --> A: Hiển thị cảnh báo lỗi dữ liệu
+else Dữ liệu đầu vào hợp lệ
+    C -> DB: Truy vấn thông tin phim:\nprisma.movie.findUnique({ where: { id: movieId } })
+    activate DB
+    DB --> C: Thông tin phim (duration, status, isDeleted) hoặc null
+    deactivate DB
+
+    alt Không tìm thấy phim hoặc phim đã ngừng chiếu (ENDED / isDeleted)
+        C --> UI: 404 Not Found / 400 Bad Request ("Phim không tồn tại hoặc đã kết thúc chiếu")
+        UI --> A: Hiển thị cảnh báo lỗi chọn phim
+    else Phim hợp lệ
+        C -> C: Tính thời gian kết thúc bao gồm 15 phút dọn vệ sinh phòng chiếu (BR-08):\nendTime = startTime + movie.duration + 15 phút
+        C -> DB: Tra cứu các suất chiếu cùng phòng giao thoa khung giờ (BR-08):\nprisma.screening.findFirst({\n  where: { room, status: { not: 'CANCELLED' }, startTime: { lt: endTime }, endTime: { gt: startTime } }\n})
+        activate DB
+        DB --> C: Suất chiếu bị trùng lịch (nếu có)
+        deactivate DB
+        
+        alt Bị trùng lịch hoặc không đủ 15 phút dọn dẹp phòng (Vi phạm BR-08)
+            C --> UI: 400 Bad Request ("Trùng lịch phòng chiếu! Cần cách suất chiếu khác tối thiểu 15 phút dọn phòng theo BR-08")
+            UI --> A: Hiển thị cảnh báo xung đột lịch chiếu & yêu cầu chọn giờ khác
+        else Phòng chiếu trống & đạt yêu cầu (BR-08)
+            C -> DB: Thực thi prisma.$transaction nguyên tử (FR-ADM-03, BR-01):\n1. tx.screening.create({ data: { movieId, room, startTime, endTime, status: 'UPCOMING' } })\n2. tx.seat.createMany({\n     data: 50 ghế chuẩn A1..E10 (5 hàng A-E x 10 cột 1-10),\n     type = 'STANDARD', status = 'EMPTY', reservedUntil = null\n   })
+            activate DB
+            DB --> C: Bản ghi suất chiếu mới kèm 50 ghế phòng chiếu (STANDARD, EMPTY)
+            deactivate DB
+            C --> UI: 201 Created (Tạo suất chiếu & khởi tạo 50 ghế thành công)
+            UI --> A: Hiển thị Toast thành công & cập nhật lịch chiếu trên timeline
+        end
+    end
+end
+deactivate C
+deactivate UI
+deactivate A
+@enduml

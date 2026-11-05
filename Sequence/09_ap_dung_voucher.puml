@@ -13,41 +13,43 @@ control "Điều khiển mua vé" as C
 entity "Dữ liệu hệ thống" as DB
 
 activate A
-A -> UI: Bấm chọn áp dụng voucher khuyến mãi
+A -> UI: Bấm chọn áp dụng voucher khuyến mãi (FR-VOU-01)
 activate UI
-UI --> A: Hiển thị ô nhập mã voucher hoặc danh sách voucher
+UI --> A: Hiển thị ô nhập mã voucher
 deactivate UI
 
-A -> UI: Nhập mã voucher và bấm Áp dụng
+A -> UI: Nhập mã voucher và bấm "Áp dụng"
 activate UI
-UI -> C: Yêu cầu kiểm tra & áp dụng voucher
+UI -> C: POST /api/coupons/validate\n{ code, movieId, ticketTotal }
 activate C
-C -> DB: Tra cứu thông tin mã voucher trong cơ sở dữ liệu
+C -> DB: prisma.coupon.findUnique({ where: { code: code.trim().toUpperCase() } })
 activate DB
-DB --> C: Thông tin voucher (Hạn sử dụng, điều kiện, trạng thái)
+DB --> C: Trả về bản ghi Coupon (expiryDate, maxUsage, usedCount, userId, movieId, discountPercent/discountAmount)
 deactivate DB
 
-alt Voucher không tồn tại trong hệ thống
-    C --> UI: Báo mã voucher không tồn tại
+C -> C: Kiểm tra 5 điều kiện Guard (FR-VOU-02):\n1. Mã code có tồn tại trong bảng Coupon\n2. Hạn sử dụng: expiryDate >= NOW()\n3. Lượt sử dụng: usedCount < maxUsage\n4. Quyền sở hữu: Nếu có userId (voucher đền bù cá nhân COMP50_), phải khớp session.user.id\n5. Phạm vi phim: Nếu có movieId, phải khớp movieId của suất chiếu đang đặt
+
+alt Guard 1 thất bại: Mã voucher không tồn tại
+    C --> UI: 404 Not Found { message: "Mã voucher không tồn tại!" }
     activate UI
     UI --> A: Hiển thị thông báo mã giảm giá không hợp lệ
     deactivate UI
-else Voucher đã hết hạn hoặc đã ngừng sử dụng (INACTIVE)
-    C --> UI: Báo voucher đã hết hạn hoặc bị thu hồi
+else Guard 2 hoặc 3 thất bại: Quá hạn (expiryDate < NOW()) hoặc hết lượt (usedCount >= maxUsage)
+    C --> UI: 400 Bad Request { message: "Voucher đã hết hạn hoặc hết lượt sử dụng!" }
     activate UI
     UI --> A: Hiển thị thông báo voucher không còn hiệu lực
     deactivate UI
-else Đơn hàng không đủ điều kiện (Chưa đạt giá trị tối thiểu / sai loại phim)
-    C --> UI: Báo đơn hàng không đủ điều kiện áp dụng
+else Guard 4 hoặc 5 thất bại: Sai tài khoản sở hữu (COMP50_) hoặc không áp dụng cho phim này (movieId)
+    C --> UI: 403 / 400 { message: "Voucher thuộc tài khoản khác hoặc không áp dụng cho phim này!" }
     activate UI
     UI --> A: Hiển thị lý do từ chối áp dụng voucher
     deactivate UI
-else Voucher hợp lệ & đủ điều kiện
-    C -> C: Ghi nhận voucher vào giao dịch (Tối đa 1 voucher/đơn) (BR-07)
-    C -> C: Tính lại số tiền (Chỉ giảm giá trên tiền vé, không giảm tiền combo) (BR-08)
-    C --> UI: Chi tiết giảm giá và tổng tiền thanh toán mới
+else Thỏa mãn cả 5 điều kiện Guard (Hợp lệ)
+    C -> C: Ghi nhận tối đa 1 voucher/đơn hàng (FR-VOU-01)
+    C -> C: Tính số tiền giảm giá chỉ áp dụng trên tổng tiền vé,\nkhông giảm trên tiền combo bắp nước (BR-03)
+    C --> UI: 200 OK { valid: true, discountAmount, newTotal }
     activate UI
-    UI --> A: Hiển thị đơn hàng đã giảm giá thành công
+    UI --> A: Hiển thị số tiền được giảm & tổng tiền thanh toán mới
     deactivate UI
 end
 deactivate C

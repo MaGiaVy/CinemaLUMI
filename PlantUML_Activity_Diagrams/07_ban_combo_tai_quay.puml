@@ -1,4 +1,4 @@
-﻿@startuml 07_ban_combo_tai_quay
+@startuml 07_ban_combo_tai_quay
 title SƠ ĐỒ HOẠT ĐỘNG: BÁN COMBO BẮP NƯỚC TẠI QUẦY (POS COMBO SALES)
 skinparam conditionStyle insideDiamond
 skinparam defaultTextAlignment center
@@ -44,8 +44,9 @@ endif
 :Thu tiền từ khách;
 if (Đã thu?) then (Có)
   |Hệ thống|
-  :Trừ kho combo chính thức;
-  :Ghi nhận đơn combo và in phiếu mua hàng;
+  :Ghi nhận thanh toán POS thành công (Payment.status = 'Success');
+  :Trừ kho combo chính thức (Combo.stock);
+  :Tạo bản ghi OrderCombo thiết lập isDelivered = true (Đã nhận)\nvà deliveredAt = NOW() ngay lập tức, in phiếu mua hàng;
   |Nhân viên|
   :Giao combo bắp nước cho khách;
   stop
@@ -57,4 +58,3 @@ else (Không)
   stop
 endif
 @enduml
-

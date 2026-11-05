@@ -14,16 +14,25 @@ control "API Soát vé\n(Next.js App Router)" as API
 entity "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
 
 activate KH
-KH -> NV : Xuất trình vé điện tử (Mã QR) hoặc cuống vé giấy
+KH -> NV : Xuất trình vé điện tử (Mã QR) hoặc đọc mã vé
 activate NV
 
-NV -> UI : Quét mã QR hoặc nhập mã vé (#LMC-XXXXXX)
+NV -> UI : Quét mã QR hoặc nhập mã vé để tra cứu
 activate UI
+UI -> API : GET /api/staff/tickets/search?q={code_or_qr}
+activate API
+API -> DB : Tra cứu thông tin vé, suất chiếu (startTime, endTime), phòng chiếu và ghế
+activate DB
+DB --> API : Kết quả tra cứu vé
+deactivate DB
+API --> UI : Hiển thị thông tin vé trên màn hình đối soát
+deactivate API
 
-UI -> API : PATCH /api/tickets/{id}/mark-used\n{ qrPayload, signature, staffId }
+NV -> UI : Bấm xác nhận soát vé (hoặc tự động gửi khi quét QR)
+UI -> API : PATCH /api/tickets/[id]/mark-used\n{ qrPayload, signature }
 activate API
 
-API -> API : Giải mã và xác thực chữ ký số HMAC-SHA256 (NFR-SEC-02)\nsử dụng khóa bí mật NEXTAUTH_SECRET
+API -> API : Giải mã và xác thực chữ ký số HMAC-SHA256 (NFR-SEC-02)
 
 alt Chữ ký HMAC không khớp (Vé bị chỉnh sửa / làm giả)
     API --> UI : 400 Bad Request\n{ message: "Cảnh báo: Vé giả mạo hoặc mã QR không hợp lệ!" }
@@ -32,28 +41,34 @@ alt Chữ ký HMAC không khớp (Vé bị chỉnh sửa / làm giả)
 else Chữ ký hợp lệ
     API -> DB : prisma.ticket.findUnique({ where: { id }, include: { screening: true } })
     activate DB
-    DB --> API : Trả về thông tin chi tiết vé và suất chiếu
+    DB --> API : Trả về bản ghi Ticket và Screening (hoặc null)
     deactivate DB
 
-    API -> API : Kiểm tra điều kiện vào rạp:\n- Trạng thái vé (status)\n- Khung giờ chiếu (hiện tại trong [Giờ chiếu - 30p, Giờ kết thúc])
-
-    alt Vé đã được sử dụng trước đó (status == 'Used')
+    alt Không tìm thấy vé trong CSDL (ticket == null)
+        API --> UI : 404 Not Found\n{ message: "Không tìm thấy vé trong hệ thống!" }
+        UI --> NV : Báo lỗi không tìm thấy vé (404)
+        NV -> KH : Thông báo mã vé không tồn tại
+    else Vé đã được sử dụng trước đó (status == 'Used')
         API --> UI : 409 Conflict\n{ message: "Vé này đã được quét check-in trước đó!" }
         UI --> NV : Cảnh báo: Vé đã sử dụng, từ chối quét lại
         NV -> KH : Từ chối cho khách vào rạp
-    else Vé đã bị hủy (status == 'Cancelled')
-        API --> UI : 400 Bad Request\n{ message: "Vé này đã bị hủy hoặc đền bù!" }
+    else Vé không ở trạng thái hợp lệ (status == 'Cancelled' hoặc 'Pending')
+        API --> UI : 400 Bad Request\n{ message: "Vé đã bị hủy hoặc chưa thanh toán!" }
         UI --> NV : Cảnh báo: Vé không còn hiệu lực
-        NV -> KH : Thông báo vé đã bị hủy
-    else Vé hợp lệ ('Valid') và đúng khung giờ chiếu
+        NV -> KH : Thông báo vé không hợp lệ
+    else Sai khung giờ soát vé (NOW < startTime - 30 phút HOẶC NOW > endTime)
+        API --> UI : 400 Bad Request\n{ code: "OUTSIDE_CHECKIN_WINDOW", message: "Chưa đến giờ hoặc đã hết giờ soát vé!" }
+        UI --> NV : Cảnh báo sai khung giờ cho phép check-in ([startTime - 30p, endTime])
+        NV -> KH : Hướng dẫn khách chờ đến trước giờ chiếu 30 phút hoặc liên hệ quầy
+    else Vé hợp lệ (status == 'Valid') và nằm trong khung giờ [startTime - 30p, endTime]
         API -> DB : prisma.ticket.update({\n  where: { id },\n  data: { status: 'Used', usedAt: NOW(), checkedBy: staffId }\n})
         activate DB
-        DB --> API : Xác nhận cập nhật trạng thái vé thành công
+        DB --> API : Xác nhận cập nhật Ticket.status = 'Used' thành công
         deactivate DB
 
-        API --> UI : 200 OK\n{ success: true, movieTitle, room, seatCode }
+        API --> UI : 200 OK\n{ success: true, status: 'Used', movieTitle, room, seatCode }
         UI --> NV : Hiển thị màn hình Xanh: "HỢP LỆ - Cho phép vào rạp"\nkèm thông tin Phim, Phòng chiếu, Ghế ngồi
-        NV -> KH : Mời khách vào phòng chiếu và chúc xem phim vui vẻ
+        NV -> KH : Mời khách vào phòng chiếu
     end
 end
 

@@ -1,0 +1,52 @@
+@startuml state_ticket
+skinparam monochrome true
+skinparam style strictuml
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam roundCorner 8
+skinparam state {
+    BorderThickness 1.5
+    ArrowThickness 1.2
+}
+
+title SƠ ĐỒ TRẠNG THÁI VÉ XEM PHIM & HOÀN TIỀN (TICKET & REFUND STATE MACHINE) - LUMI CINEMA
+
+[*] --> PENDING_PAYMENT : Khách chọn ghế & đặt vé\n/ Khóa ghế tạm thời 10 phút & tạo đơn chờ thanh toán
+
+PENDING_PAYMENT --> Cancelled : Hết 10 phút giữ chỗ không thanh toán\nhoặc Khách chủ động hủy phiên giao dịch\n/ Giải phóng ghế giữ chỗ về EMPTY
+
+PENDING_PAYMENT --> Valid : Thanh toán thành công (ZaloPay Sandbox v2 / Tiền mặt POS)\n[Vượt qua Partial Unique Index unique_active_ticket]\n/ Kích hoạt vé Valid (refundStatus = NONE), tạo QR Code ký số HMAC-SHA256 (BR-09)
+
+state Valid {
+    [*] --> ReadyForCheckIn
+    ReadyForCheckIn : Vé hợp lệ chờ soát vé (refundStatus = NONE)
+}
+
+Valid --> Used : Nhân viên quét mã QR tại cổng kiểm soát (POST /api/staff/checkin)\n[Chữ ký HMAC-SHA256 hợp lệ && startTime - 30p <= NOW() <= endTime]\n/ Đóng dấu vé đã sử dụng (FR-CHK-01, refundStatus = NONE)
+
+Valid --> ClientCancelled : [Khách yêu cầu hủy TRƯỚC giờ chiếu >= 2 tiếng (POST /api/tickets/[id]/cancel)]\n/ Giải phóng ghế EMPTY, sinh Voucher COMP50_ giảm 50% hạn 30 ngày (BR-03)\n[refundStatus = NONE - Không hoàn tiền mặt]
+
+Valid --> PendingRefund : [Rạp gặp sự cố kỹ thuật / Hủy suất chiếu khẩn cấp (FR-ADM-04, BR-04)]\n[Không giới hạn 2 tiếng trước giờ chiếu]\n/ Giải phóng ghế EMPTY, hoàn kho Combo chưa nhận, ghi AuditLog\n& thiết lập refundStatus = PENDING_CASH_REFUND
+
+state "Cancelled (status = Cancelled)" as Cancelled {
+    state "NONE\n(Đã cấp Voucher COMP50_ 50%)" as ClientCancelled
+    state "PENDING_CASH_REFUND\n(Chờ hoàn tiền mặt 100%)" as PendingRefund
+    state "REFUNDED_CASH\n(Đã hoàn tiền mặt 100% trong 30 ngày & lưu AuditLog)" as RefundedCash
+
+    PendingRefund --> RefundedCash : Khách xuất trình mã vé tại quầy rạp\n[Trong vòng 30 ngày kể từ ngày hủy sự cố (FR-CAN-02)]\n/ Thu ngân chi trả 100% tiền mặt, cập nhật Payment = Refunded & lưu AuditLog (BR-10)
+}
+
+note right of Used
+  <b>RÀNG BUỘC BẤT BIẾN (FR-CAN-03 & BR-09):</b>
+  - Khung giờ soát vé hợp lệ:
+    <b>[startTime - 30p <= NOW() <= endTime]</b>.
+  - Vé ở trạng thái <b>Used</b> tuyệt đối
+    <b>KHÔNG ĐƯỢC PHÉP</b> hủy hay hoàn tiền
+    dưới bất kỳ hình thức nào.
+end note
+
+Used --> [*] : Suất chiếu hoàn tất
+RefundedCash --> [*] : Tất toán hoàn tất công nợ tiền mặt
+ClientCancelled --> [*] : Kết thúc quy trình hủy do khách (Đã đền bù Voucher 50%)
+
+@enduml

@@ -1,0 +1,81 @@
+@startuml 01_dang_nhap
+title SƠ ĐỒ HOẠT ĐỘNG: ĐĂNG NHẬP & PHÂN QUYỀN ĐIỀU HƯỚNG (LOGIN & RBAC ROUTING)
+skinparam conditionStyle insideDiamond
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam monochrome true
+skinparam wrapWidth 180
+
+|Người dùng (Actor)|
+start
+:Truy cập trang Đăng nhập (/login);
+:Nhập Email và Mật khẩu;
+:Bấm nút "Đăng nhập";
+
+|Giao diện (Frontend Next.js)|
+:Thu nhận thông tin form;
+if (Hợp lệ?) then (Không:\nTrống hoặc sai email)
+  :Hiển thị thông báo lỗi tại ô input;
+  |Người dùng (Actor)|
+  :Kiểm tra và sửa lại thông tin;
+  stop
+else (Có)
+  |Giao diện (Frontend Next.js)|
+  :Gọi NextAuth signIn("credentials");
+  :Gửi request POST /api/auth/[...nextauth];
+
+  |Máy chủ xử lý (Backend API / NextAuth)|
+  :Tiếp nhận request qua CredentialsProvider;
+  :Chuẩn hóa email (lowercase, trim);
+  :Khởi tạo truy vấn Prisma tìm user;
+
+  |Cơ sở dữ liệu (PostgreSQL)|
+  :Thực thi prisma.user.findUnique;
+  :Trả về bản ghi User\n(kèm password hash & role);
+
+  |Máy chủ xử lý (Backend API / NextAuth)|
+  if (Tồn tại?) then (Không:\nEmail chưa đăng ký)
+    :Sinh phản hồi lỗi 401;
+    |Giao diện (Frontend Next.js)|
+    :Hiển thị Toast lỗi màu đỏ;
+    |Người dùng (Actor)|
+    :Kiểm tra lại tài khoản;
+    stop
+  else (Có)
+    |Máy chủ xử lý (Backend API / NextAuth)|
+    :So khớp bcryptjs.compare;
+    if (Khớp pass?) then (Không:\nSai mật khẩu)
+      :Sinh phản hồi lỗi 401;
+      |Giao diện (Frontend Next.js)|
+      :Hiển thị Toast lỗi màu đỏ;
+      |Người dùng (Actor)|
+      :Nhập lại mật khẩu;
+      stop
+    else (Có)
+      |Máy chủ xử lý (Backend API / NextAuth)|
+      :Tạo JWT Token { id, email, role };
+      :Ký số JWT (24h) & thiết lập cookie;
+      :Trả về phản hồi đăng nhập 200 OK;
+
+      |Giao diện (Frontend Next.js)|
+      :Cập nhật Session tại SessionProvider;
+      :Hiển thị Toast "Đăng nhập thành công!";
+      if (Role?) then (ADMIN)
+        :Điều hướng sang /admin (Admin Dashboard);
+      else if (Role == STAFF?) then (STAFF)
+        :Điều hướng sang /staff;
+      else (CUSTOMER)
+        if (callbackUrl?) then (Có)
+          :Điều hướng về trang đang dở dang;
+        else (Không)
+          :Điều hướng về Trang chủ (/);
+        endif
+      endif
+
+      |Người dùng (Actor)|
+      :Truy cập không gian làm việc tương ứng;
+      stop
+    endif
+  endif
+endif
+@enduml

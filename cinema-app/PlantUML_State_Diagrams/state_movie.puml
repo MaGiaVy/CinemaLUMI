@@ -1,0 +1,35 @@
+@startuml state_movie
+skinparam monochrome true
+skinparam style strictuml
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam roundCorner 8
+skinparam state {
+    BorderThickness 1.5
+    ArrowThickness 1.2
+}
+
+title SƠ ĐỒ TRẠNG THÁI VÒNG ĐỜI PHIM (MOVIE STATE MACHINE)
+
+[*] --> UPCOMING : Admin thêm phim mới vào hệ thống (POST /api/admin/movies - FR-ADM-01)\n/ Thiết lập nhãn độ tuổi (P, C13, T18 - BR-02), isDeleted = false & hiển thị mục "Sắp chiếu"
+
+UPCOMING --> SHOWING : Đến ngày khởi chiếu [TODAY >= releaseDate] hoặc Admin mở bán suất chiếu\n/ Cập nhật status = SHOWING [isDeleted = false], hiển thị mục "Đang chiếu" & mở đặt vé online
+
+SHOWING --> ENDED : Hết thời gian công chiếu [TODAY > endDate]\nhoặc Admin thực hiện Ngừng chiếu / Soft Delete (FR-ADM-02, BR-07) [isDeleted = true]\n/ Ẩn khỏi danh sách đặt vé, ngừng xếp suất chiếu mới
+
+UPCOMING --> ENDED : Phim bị hủy lịch phát hành / Admin thực hiện Soft Delete (FR-ADM-02, BR-07)\n[isDeleted = true]\n/ Ẩn khỏi danh sách sắp chiếu
+
+ENDED --> SHOWING : Admin mở chiếu lại phim (Re-release) [isDeleted = false]\n/ Cập nhật status = SHOWING, isDeleted = false & mở bán suất chiếu mới
+
+ENDED --> [*] : Lưu trữ dữ liệu lịch sử phim trong hệ thống (Không Hard Delete)
+
+note right of ENDED
+  <b>QUY TẮC XÓA MỀM & TÁI CHIẾU (FR-ADM-02, BR-07):</b>
+  - Hệ thống sử dụng cờ <b>isDeleted = true</b> kết hợp <b>status = ENDED</b>
+    chứ không xóa vật lý (Hard Delete) khi phim đã có lịch sử suất chiếu/vé,
+    nhằm bảo toàn tính toàn vẹn dữ liệu cho báo cáo doanh thu.
+  - Khi tái phát hành (<b>Re-release</b>), Admin chuyển trạng thái
+    <b>ENDED --> SHOWING</b> và đặt lại <b>[isDeleted = false]</b>.
+end note
+
+@enduml

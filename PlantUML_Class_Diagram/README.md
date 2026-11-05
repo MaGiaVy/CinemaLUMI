@@ -10,13 +10,14 @@
    - 1.1. Sơ đồ lớp tổng thể (Embedded Visual Diagram)
    - 1.2. Triết lý thiết kế: Rich Domain Model vs. Anemic Domain Model
    - 1.3. Nguyên tắc thiết kế Hướng đối tượng (SOLID & DDD)
-2. [Đặc Tả Chi Tiết Các Lớp Thực Thể & Enums (Entity Specifications)](#2-đặc-tả-chi-tiết-các-lớp-thực-thể--enums-entity-specifications)
+2. [Đặc Tả Chi Tiết Các Lớp Thực Thể, Dịch Vụ & Enums (Entity & Service Specifications)](#2-đặc-tả-chi-tiết-các-lớp-thực-thể--enums-entity-specifications)
    - 2.1. Phân hệ Người dùng & Phân quyền RBAC (`User`, `Customer`, `Staff`, `Admin`)
    - 2.2. Phân hệ Phim, Suất chiếu & Bảng giá vé (`Movie`, `Screening`, `Seat`, `Pricing`)
    - 2.3. Phân hệ Vé, Thanh toán & Mã ưu đãi (`Ticket`, `Payment`, `Coupon`)
-   - 2.4. Phân hệ Bắp nước (Concession) & Đánh giá (`Combo`, `OrderCombo`, `ComboReservation`, `Review`)
-   - 2.5. Hệ thống 10 Kiểu liệt kê chuẩn hóa (`Enums & Types`)
-   - 2.6. Ma trận truy vết nghiệp vụ (Traceability Matrix: Class - Sequence - BR - DB)
+   - 2.4. Phân hệ Bắp nước (Concession), Đánh giá & Kiểm toán (`Combo`, `OrderCombo`, `ComboReservation`, `Review`, `AuditLog`)
+   - 2.5. Phân hệ Dịch vụ Hạ tầng & Bảo mật (`ZaloPayService`, `QRSignatureService`, `SeatExpirationService`)
+   - 2.6. Hệ thống 10 Kiểu liệt kê chuẩn hóa (`Enums & Types`)
+   - 2.7. Ma trận truy vết nghiệp vụ (Traceability Matrix: Class - Sequence - BR - DB)
 3. [Phân Tích Chuyên Sâu Các Mối Quan Hệ Hướng Đối Tượng (OOP Relationships Analysis)](#3-phân-tích-chuyên-sâu-các-mối-quan-hệ-hướng-đối-tượng-oop-relationships-analysis)
    - 3.1. Quan hệ Kế thừa (Generalization) & Mẫu Single Table Inheritance
    - 3.2. Quan hệ Hợp thành (Composition) & Ràng buộc vòng đời sinh tử (Lifecycle Coupling)
@@ -79,7 +80,7 @@ Kiến trúc Sơ đồ lớp LumiCinema được thiết kế dựa trên các n
 
 ## 2. ĐẶC TẢ CHI TIẾT CÁC LỚP THỰC THỂ & ENUMS (ENTITY SPECIFICATIONS)
 
-Hệ thống bao gồm **12 Lớp Thực thể cốt lõi**, **3 Lớp con chuyên biệt hóa**, và **10 Kiểu liệt kê chuẩn hóa (Enums)**, được phân chia theo 4 phân hệ chức năng hoàn chỉnh.
+Hệ thống bao gồm **13 Lớp Thực thể cốt lõi** (bao gồm `AuditLog`), **3 Lớp con chuyên biệt hóa**, **3 Lớp Dịch vụ hạ tầng (`ZaloPayService`, `QRSignatureService`, `SeatExpirationService`)**, và **10 Kiểu liệt kê chuẩn hóa (Enums)**, được phân chia theo các phân hệ chức năng hoàn chỉnh.
 
 ### 2.1. Phân hệ Người dùng & Phân quyền RBAC
 
@@ -143,17 +144,21 @@ Phân hệ quản lý nội dung điện ảnh, điều phối lịch chiếu th
   * `- duration: Int`: Thời lượng phim (tính theo phút).
   * `- releaseDate: Date`: Ngày khởi chiếu chính thức.
   * `- endDate: Date`: Ngày kết thúc công chiếu dự kiến.
-  * `- ageRating: String`: Nhãn phân loại độ tuổi (`P`, `K`, `T13`, `T16`, `T18`, `C`).
+  * `- ageRating: String`: Nhãn phân loại độ tuổi (`P`, `C13`, `T18` theo `BR-02`).
   * `- poster: String`: Đường dẫn hình ảnh áp-phích quảng bá.
   * `- trailer: String`: Đường dẫn video trailer chính thức.
   * `- genre: String`: Thể loại phim (Hành động, Tâm lý, Hoạt hình,...).
+  * `- director: String`: Đạo diễn bộ phim.
+  * `- cast: String`: Danh sách diễn viên chính.
   * `- rating: Decimal`: Điểm đánh giá trung bình của khán giả (Thang điểm 1.0 - 5.0).
   * `- status: MovieStatus`: Trạng thái phát hành (`SHOWING`, `UPCOMING`, `ENDED`).
   * `- ticketPrice: Decimal`: Giá vé cơ sở định mức cho bộ phim (Mặc định 120,000 VNĐ).
+  * `- isDeleted: Boolean`: Cờ xóa mềm (`Soft Delete`, mặc định `false`) theo quy tắc `BR-07`.
 * **Đặc tả Phương thức Nghiệp vụ:**
   * `+ getActiveScreenings(): List<Screening>`: Lấy danh sách các suất chiếu đang mở bán của phim.
   * `+ calculateAverageRating(): Decimal`: Tính toán lại điểm số đánh giá trung bình từ danh sách `Review`.
-  * `+ updateStatus(newStatus: MovieStatus): Void`: Cập nhật trạng thái chiếu phim (Ngừng chiếu thay vì xóa vật lý theo `BR-07`).
+  * `+ updateStatus(newStatus: MovieStatus): Void`: Cập nhật trạng thái chiếu phim (Ngừng chiếu hoặc mở chiếu lại `Re-release`).
+  * `+ softDelete(): Void`: Thực hiện xóa mềm (`status = ENDED`, `isDeleted = true` theo `BR-07`) khi phim đã có lịch sử vé bán.
 
 #### 6. Lớp Thực thể `Screening` (`class Screening`)
 * **Vai trò & Trách nhiệm:** Đại diện cho một suất chiếu cụ thể của một bộ phim tại một phòng chiếu vào một khung giờ xác định.
@@ -179,9 +184,9 @@ Phân hệ quản lý nội dung điện ảnh, điều phối lịch chiếu th
   * `- row: String`: Ký tự hàng ghế ("A", "B", "C", "D", "E").
   * `- number: Int`: Số thứ tự ghế trong hàng (1 đến 10).
   * `- code: String`: Mã định danh hiển thị trên sơ đồ phòng (Ví dụ: "A1", "C5", "E10").
-  * `- type: SeatType`: Hạng ghế (`STANDARD`, `VIP`, `COUPLE`).
+  * `- type: SeatType`: Hạng ghế (`STANDARD`, `VIP`, `COUPLE` — mặc định khởi tạo 50 ghế `STANDARD` từ `A1` đến `E10` theo `BR-01`).
   * `- status: SeatStatus`: Trạng thái thời gian thực (`EMPTY`, `RESERVED`, `OCCUPIED`).
-  * `- reservedUntil: DateTime`: Mốc thời gian hết hạn giữ chỗ tạm thời (Mặc định 10 phút).
+  * `- reservedUntil: DateTime`: Mốc thời gian hết hạn giữ chỗ tạm thời (Mặc định 10 phút, tối đa 8 ghế/lần theo `FR-BOK-02`).
 * **Đặc tả Phương thức Nghiệp vụ:**
   * `+ holdSeat(durationMinutes: Int): Boolean`: Thực hiện giữ ghế tạm thời trong 10 phút (`BR-01`), chuyển trạng thái thành `RESERVED` và gán hạn `reservedUntil`.
   * `+ releaseSeat(): Void`: Giải phóng ghế về trạng thái `EMPTY` khi quá hạn giữ chỗ hoặc đơn hàng bị hủy bỏ.
@@ -206,7 +211,7 @@ Phân hệ quản lý nội dung điện ảnh, điều phối lịch chiếu th
 Phân hệ đảm nhiệm khâu giao dịch tài chính, phát hành vé điện tử có chữ ký bảo mật và áp dụng khuyến mãi.
 
 #### 9. Lớp Thực thể `Ticket` (`class Ticket`)
-* **Vai trò & Trách nhiệm:** Đại diện cho chiếc vé xem phim điện tử hợp pháp cấp phát cho khách hàng.
+* **Vai trò & Trách nhiệm:** Đại diện cho chiếc vé xem phim điện tử hợp pháp cấp phát cho khách hàng. Được bảo vệ chống đặt trùng vé trên cùng ghế của cùng suất chiếu ở tầng PostgreSQL bằng ràng buộc **Partial Unique Index `unique_active_ticket`** (`CREATE UNIQUE INDEX unique_active_ticket ON tickets(screening_id, seat_id) WHERE status != 'Cancelled'`).
 * **Đặc tả Thuộc tính:**
   * `- id: Int`: Định danh duy nhất của vé xem phim.
   * `- ticketType: String`: Loại vé đã chọn ("Normal", "Child",...).
@@ -214,26 +219,30 @@ Phân hệ đảm nhiệm khâu giao dịch tài chính, phát hành vé điện
   * `- purchaseDate: DateTime`: Thời điểm mua vé thành công.
   * `- status: TicketStatus`: Trạng thái vòng đời của vé (`Valid`, `Used`, `Cancelled`).
   * `- cancellationReason: String`: Lý do hủy vé (Khách hủy nhận voucher hoặc Rạp hủy do sự cố).
+  * `- refundStatus: String`: Trạng thái hoàn tiền (`NONE`, `PENDING_CASH_REFUND`, `REFUNDED_CASH`).
 * **Đặc tả Phương thức Nghiệp vụ:**
-  * `+ generateQRCode(): String`: Tạo chuỗi dữ liệu mã QR tích hợp thông tin vé và chữ ký số HMAC-SHA256 bí mật (`BR-09`).
+  * `+ generateQRCode(): String`: Tạo chuỗi dữ liệu mã QR tích hợp thông tin vé và chữ ký số HMAC-SHA256 bí mật qua `QRSignatureService` (`BR-09`).
   * `+ verifyQRCode(signature: String): Boolean`: So khớp chữ ký số HMAC-SHA256 nhằm ngăn chặn tuyệt đối tình trạng vé giả mạo.
-  * `+ checkIn(): Boolean`: Ghi nhận soát vé vào rạp, chuyển trạng thái từ `Valid` sang `Used`; ngăn chặn check-in lặp lại (Tính Idempotent).
+  * `+ checkIn(): Boolean`: Ghi nhận soát vé vào rạp trong khung giờ `[startTime - 30p <= NOW() <= endTime]`, chuyển trạng thái từ `Valid` sang `Used`; ngăn chặn check-in lặp lại (Tính Idempotent).
   * `+ cancelTicket(reason: String): Boolean`: Hủy vé theo quy chế `BR-03` hoặc `BR-04`, cập nhật trạng thái `Cancelled`.
+  * `+ cancelByCustomer(): Coupon`: Khách chủ động hủy vé trước `>= 2 giờ`, giải phóng ghế về `EMPTY` và sinh mã Voucher bồi hoàn `COMP50_` giảm 50% hạn 30 ngày (`refundStatus = NONE`).
+  * `+ cancelByIncident(reason: String): Void`: Hủy vé do sự cố rạp, thiết lập công nợ `PENDING_CASH_REFUND` (chờ hoàn 100% tiền mặt) và lưu `AuditLog`.
+  * `+ confirmCashRefund(staffId: Int): Void`: Xác nhận đã chi trả 100% tiền mặt tại quầy trong vòng 30 ngày, chuyển sang `REFUNDED_CASH` và lưu `AuditLog` (`BR-04`, `BR-10`).
 
 #### 10. Lớp Thực thể `Payment` (`class Payment`)
-* **Vai trò & Trách nhiệm:** Đại diện cho hóa đơn thanh toán hợp nhất, tích hợp cổng thanh toán trực tuyến và ghi nhận dòng tiền.
+* **Vai trò & Trách nhiệm:** Đại diện cho hóa đơn thanh toán hợp nhất, tích hợp cổng thanh toán trực tuyến **ZaloPay Sandbox v2 (`app_id: 2553`)** và ghi nhận dòng tiền.
 * **Đặc tả Thuộc tính:**
   * `- id: Int`: Định danh duy nhất của hóa đơn thanh toán.
   * `- amount: Decimal`: Tổng giá trị tiền tệ thực thanh toán sau khi trừ khuyến mãi.
-  * `- paymentMethod: PaymentMethod`: Phương thức thanh toán (`VNPay`, `Momo`, `Cash`, `BankCard`).
-  * `- transactionCode: String`: Mã giao dịch duy nhất đối soát từ cổng thanh toán (Transaction ID).
+  * `- paymentMethod: PaymentMethod`: Phương thức thanh toán (`ZaloPay`, `Cash`, `VNPay`, `Momo`, `BankCard` — trong đó `ZaloPay` là cổng thanh toán trực tuyến mặc định).
+  * `- transactionCode: String`: Mã giao dịch duy nhất đối soát từ cổng thanh toán (`app_trans_id` theo định dạng `YYMMDD_xxxx`).
   * `- status: PaymentStatus`: Trạng thái xử lý (`Pending`, `Success`, `Failed`, `Refunded`).
   * `- createdAt: DateTime`: Thời điểm phát sinh yêu cầu thanh toán.
 * **Đặc tả Phương thức Nghiệp vụ:**
   * `+ calculateTotal(tickets: List<Ticket>, combos: List<OrderCombo>, coupon: Coupon): Decimal`: Tính tổng tiền hợp nhất gồm: $\text{Tổng vé} + \text{Tổng bắp nước} - \text{Khuyến mãi voucher}$.
-  * `+ createPaymentUrl(gateway: PaymentMethod): String`: Khởi tạo liên kết chuyển hướng thanh toán bảo mật sang cổng VNPay hoặc MoMo Sandbox.
-  * `+ processIPNCallback(data: Map<String, String>): Boolean`: Xử lý Webhook/IPN phản hồi từ cổng thanh toán, kiểm tra mã Secure Hash (Checksum SHA512).
-  * `+ issueRefund(amount: Decimal, method: PaymentMethod): Boolean`: Xử lý nghiệp vụ hoàn tiền trong trường hợp suất chiếu bị hủy (`BR-04`, `BR-10`).
+  * `+ createPaymentUrl(gateway: PaymentMethod): String`: Khởi tạo đơn hàng chuyển hướng/QR thanh toán bảo mật sang cổng **ZaloPay Sandbox v2 (`app_id: 2553`)**, ký chữ ký số **HMAC-SHA256 (`ZALOPAY_KEY1`)**.
+  * `+ processIPNCallback(data: Map<String, String>): Boolean`: Xử lý Webhook IPN Callback & Return URL từ ZaloPay Sandbox v2, kiểm tra `return_code == 1` và xác thực chữ ký **HMAC-SHA256 (`ZALOPAY_KEY2`)** bằng `crypto.timingSafeEqual` (đảm bảo tính Idempotency).
+  * `+ issueRefund(amount: Decimal, method: PaymentMethod): Boolean`: Xử lý nghiệp vụ hoàn tiền mặt 100% tại quầy trong trường hợp vé/suất chiếu bị hủy do sự cố (`BR-04`, `BR-10`).
 
 #### 11. Lớp Thực thể `Coupon` (`class Coupon`)
 * **Vai trò & Trách nhiệm:** Quản lý mã ưu đãi giảm giá và voucher bồi hoàn tài chính cho khách hàng.
@@ -253,9 +262,9 @@ Phân hệ đảm nhiệm khâu giao dịch tài chính, phát hành vé điện
 
 ---
 
-### 2.4. Phân hệ Bắp nước (Concession) & Đánh giá
+### 2.4. Phân hệ Bắp nước (Concession), Đánh giá & Kiểm toán
 
-Phân hệ mở rộng giá trị gia tăng, quản lý chuỗi cung ứng đồ ăn nhẹ và tiếp nhận phản hồi trải nghiệm từ khách hàng.
+Phân hệ mở rộng giá trị gia tăng, quản lý chuỗi cung ứng đồ ăn nhẹ, tiếp nhận phản hồi trải nghiệm từ khách hàng và lưu vết kiểm toán hệ thống.
 
 #### 12. Lớp Thực thể `Combo` (`class Combo`)
 * **Vai trò & Trách nhiệm:** Danh mục sản phẩm bắp rang, nước ngọt và các gói đồ ăn kèm bán tại rạp.
@@ -267,10 +276,11 @@ Phân hệ mở rộng giá trị gia tăng, quản lý chuỗi cung ứng đồ
   * `- stock: Int`: Số lượng tồn kho thực tế tại quầy rạp.
   * `- status: ComboStatus`: Trạng thái kinh doanh (`ACTIVE`, `INACTIVE`).
   * `- image: String`: Đường dẫn hình ảnh minh họa sản phẩm.
+  * `- reservedUntil: DateTime`: Thời điểm khóa tạm tồn kho phục vụ đồng bộ giao dịch.
 * **Đặc tả Phương thức Nghiệp vụ:**
   * `+ checkStockAvailability(quantity: Int): Boolean`: Kiểm tra xem số lượng tồn kho có đáp ứng đủ đơn hàng hay không.
-  * `+ deductStock(quantity: Int): Void`: Khấu trừ số lượng tồn kho trong giao dịch thanh toán thành công.
-  * `+ restock(quantity: Int): Void`: Nhập thêm số lượng tồn kho phục vụ ca làm việc mới.
+  * `+ deductStock(quantity: Int): Void`: Khấu trừ số lượng tồn kho trong giao dịch giữ chỗ/thanh toán thành công.
+  * `+ restock(quantity: Int): Void`: Nhập thêm hoặc hoàn trả số lượng tồn kho khi hết hạn giữ chỗ 10 phút / hủy sự cố rạp.
 
 #### 13. Lớp Thực thể `OrderCombo` (`class OrderCombo`)
 * **Vai trò & Trách nhiệm:** Đại diện cho chi tiết một dòng sản phẩm combo bắp nước được đặt theo hóa đơn thanh toán.
@@ -278,10 +288,10 @@ Phân hệ mở rộng giá trị gia tăng, quản lý chuỗi cung ứng đồ
   * `- id: Int`: Định danh duy nhất dòng đặt combo.
   * `- quantity: Int`: Số lượng combo khách đặt mua.
   * `- price: Decimal`: Đơn giá cố định tại thời điểm lập hóa đơn.
-  * `- isDelivered: Boolean`: Cờ trạng thái đã nhận hàng tại quầy hay chưa (`true`/`false`).
+  * `- isDelivered: Boolean`: Cờ trạng thái đã nhận hàng tại quầy hay chưa (`false` = Chưa nhận / `PENDING_PICKUP`, `true` = Đã nhận / `PICKED_UP`).
   * `- deliveredAt: DateTime`: Thời điểm nhân viên quầy bàn giao combo cho khách.
 * **Đặc tả Phương thức Nghiệp vụ:**
-  * `+ markAsDelivered(): Void`: Xác nhận bàn giao bắp nước cho khách tại quầy, cập nhật `isDelivered = true` nhằm chống nhận trùng (`BR-05`).
+  * `+ markAsDelivered(): Void`: Xác nhận bàn giao bắp nước cho khách tại quầy (`isDelivered = true`, `deliveredAt = NOW()`) nhằm chống nhận trùng (`BR-05`).
   * `+ getSubtotal(): Decimal`: Tính thành tiền bằng công thức: $\text{quantity} \times \text{price}$.
 
 #### 14. Lớp Thực thể `ComboReservation` (`class ComboReservation`)
@@ -289,11 +299,11 @@ Phân hệ mở rộng giá trị gia tăng, quản lý chuỗi cung ứng đồ
 * **Đặc tả Thuộc tính:**
   * `- id: Int`: Định danh bản ghi giữ chỗ combo.
   * `- quantity: Int`: Số lượng combo đang bị khóa giữ chỗ.
-  * `- status: String`: Trạng thái giữ chỗ ('RESERVED', 'RELEASED', 'COMPLETED').
-  * `- reservedUntil: DateTime`: Thời điểm hết hạn tạm giữ tồn kho.
+  * `- status: String`: Trạng thái giữ chỗ (`RESERVED`, `RELEASED`, `COMPLETED`).
+  * `- reservedUntil: DateTime`: Thời điểm hết hạn tạm giữ tồn kho (`NOW() + 10 phút`).
 * **Đặc tả Phương thức Nghiệp vụ:**
-  * `+ checkExpiry(): Boolean`: Kiểm tra xem hạn giữ chỗ đã trôi qua so với thời gian máy chủ hiện tại hay chưa.
-  * `+ release(): Void`: Hoàn trả lại số lượng tạm giữ vào kho chính `Combo.stock` nếu khách hàng hủy thanh toán hoặc quá hạn.
+  * `+ checkExpiry(): Boolean`: Kiểm tra xem hạn giữ chỗ 10 phút đã trôi qua so với thời gian máy chủ hiện tại hay chưa.
+  * `+ release(): Void`: Hoàn trả lại số lượng tạm giữ vào kho chính `Combo.stock` nếu khách hàng hủy thanh toán hoặc quá hạn 10 phút.
 
 #### 15. Lớp Thực thể `Review` (`class Review`)
 * **Vai trò & Trách nhiệm:** Lưu trữ và quản lý phản hồi, bình luận và đánh giá số sao của khán giả cho từng bộ phim.
@@ -303,12 +313,42 @@ Phân hệ mở rộng giá trị gia tăng, quản lý chuỗi cung ứng đồ
   * `- comment: String`: Nội dung nhận xét, cảm nhận chi tiết của khán giả.
   * `- createdAt: DateTime`: Thời điểm đăng bài nhận xét.
 * **Đặc tả Phương thức Nghiệp vụ:**
-  * `+ createReview(userId: Int, movieId: Int, rating: Int, comment: String): Boolean`: Tạo mới đánh giá phim sau khi xác thực danh tính khách hàng (`BR-06`).
-  * `+ hideReview(): Void`: Kiểm duyệt ẩn đánh giá có nội dung vi phạm tiêu chuẩn cộng đồng.
+  * `+ createReview(userId: Int, movieId: Int, rating: Int, comment: String): Boolean`: Tạo mới hoặc cập nhật đánh giá phim (Idempotent Upsert) sau khi xác thực danh tính khách hàng (`BR-06`).
+  * `+ hideReview(): Void`: Kiểm duyệt ẩn/xóa đánh giá có nội dung vi phạm tiêu chuẩn cộng đồng.
+
+#### 16. Lớp Thực thể `AuditLog` (`class AuditLog`)
+* **Vai trò & Trách nhiệm:** Lưu trữ nhật ký kiểm toán bất biến cho các sự kiện nhạy cảm (hủy vé sự cố rạp, hủy suất chiếu khẩn cấp, xác nhận hoàn tiền mặt 100% tại quầy, thay đổi cấu hình giá vé) theo đúng المục 6.5 & 6.7 của SRS (`NFR-INT-02`).
+* **Đặc tả Thuộc tính:**
+  * `- id: Int`: Định danh bản ghi nhật ký kiểm toán.
+  * `- actorId: Int`: Định danh Nhân viên / Admin thực hiện thao tác.
+  * `- action: String`: Mã hành động (`INCIDENT_CANCEL_TICKET`, `CONFIRM_CASH_REFUND`, `EMERGENCY_SCREENING_CANCEL`).
+  * `- targetEntity: String`: Thực thể bị tác động (`TICKET`, `SCREENING`, `PAYMENT`, `PRICING`).
+  * `- targetId: Int`: Khóa chính của bản ghi bị tác động.
+  * `- metadata: String`: Chi tiết số tiền hoàn, lý do sự cố và thời điểm xác nhận.
+  * `- createdAt: DateTime`: Thời điểm ghi nhận sự kiện.
+* **Đặc tả Phương thức Nghiệp vụ:**
+  * `+ recordLog(actorId: Int, action: String, targetEntity: String, targetId: Int, metadata: String): Void`: Ghi nhận bản ghi kiểm toán vào hệ thống.
 
 ---
 
-### 2.5. Hệ thống 10 Kiểu liệt kê chuẩn hóa (`Enums & Types`)
+### 2.5. Phân hệ Dịch vụ Hạ tầng & Bảo mật (`Infrastructure & Domain Services` - Mục 6.7 SRS)
+
+1. **Lớp Dịch vụ `ZaloPayService` (`<<service>>`):**
+   * **Thuộc tính:** `- appId: String ("2553")`, `- key1: String (ZALOPAY_KEY1)`, `- key2: String (ZALOPAY_KEY2)`, `- endpoint: String`.
+   * **Phương thức:** `+ createSandboxOrder(payment: Payment)`, `+ generateHmacSHA256(data: String, key: String)`, `+ verifyIPNCallback(data: String, receivedMac: String)`, `+ verifyReturnChecksum(queryParams: Map)`.
+   * **Trách nhiệm:** Tích hợp cổng thanh toán **ZaloPay Sandbox v2 (`app_id: 2553`)**, ký tạo đơn bằng `HMAC-SHA256 (ZALOPAY_KEY1)` và đối soát chữ ký Webhook IPN / Return URL bằng `HMAC-SHA256 (ZALOPAY_KEY2)` với `crypto.timingSafeEqual`.
+2. **Lớp Dịch vụ `QRSignatureService` (`<<service>>`):**
+   * **Thuộc tính:** `- secretKey: String (QR_SECRET)`, `- algorithm: String ("sha256")`.
+   * **Phương thức:** `+ signTicketPayload(ticketId: Int, screeningId: Int, seatCode: String): String`, `+ verifyTicketQR(qrPayload: String, signature: String): Boolean`.
+   * **Trách nhiệm:** Sinh và xác thực chữ ký số `HMAC-SHA256` trên mã QR vé điện tử (`BR-09`), chống tuyệt đối hành vi giả mạo vé.
+3. **Lớp Dịch vụ `SeatExpirationService` (`<<service>>`):**
+   * **Thuộc tính:** `- holdDurationMinutes: Int (10)`.
+   * **Phương thức:** `+ releaseExpiredSeatsAndCombos(screeningId: Int): Int`, `+ reserveSeatsAtomic(screeningId: Int, seatIds: List<Int>): Boolean`.
+   * **Trách nhiệm:** Quản lý khóa ghế nguyên tử (tối đa 8 ghế/lần trong 10 phút) và cơ chế Lazy Release tự động giải phóng các ghế `RESERVED` / `ComboReservation` đã quá hạn 10 phút về lại trạng thái khả dụng (`BR-01`).
+
+---
+
+### 2.6. Hệ thống 10 Kiểu liệt kê chuẩn hóa (`Enums & Types`)
 
 Các Enum được chuẩn hóa để đảm bảo toàn vẹn dữ liệu từ tầng Mô hình UML đến tầng Lưu trữ CSDL PostgreSQL:
 
@@ -321,33 +361,37 @@ Các Enum được chuẩn hóa để đảm bảo toàn vẹn dữ liệu từ 
 | **5** | `SeatStatus` | `EMPTY`, `RESERVED`, `OCCUPIED` | Trạng thái thời gian thực của ghế ngồi (`BR-01`). |
 | **6** | `TicketStatus` | `Valid`, `Used`, `Cancelled` | Vòng đời của vé điện tử từ khi mua đến khi soát vé/hủy vé. |
 | **7** | `ComboStatus` | `ACTIVE`, `INACTIVE` | Trạng thái kinh doanh của gói combo bắp nước. |
-| **8** | `PaymentMethod` | `VNPay`, `Momo`, `Cash`, `BankCard` | Phương thức thanh toán được hệ thống hỗ trợ. |
+| **8** | `PaymentMethod` | `ZaloPay`, `Cash`, `VNPay`, `Momo`, `BankCard` | Phương thức thanh toán được hệ thống hỗ trợ (mặc định Online qua `ZaloPay`). |
 | **9** | `PaymentStatus` | `Pending`, `Success`, `Failed`, `Refunded` | Trạng thái tiến trình thanh toán qua cổng hoặc quầy. |
 | **10** | `DiscountType` | `Percentage`, `FixedAmount` | Hình thức khấu trừ giá trị khuyến mãi của voucher. |
 
 ---
 
-### 2.6. Ma trận truy vết nghiệp vụ (Traceability Matrix)
+### 2.7. Ma trận truy vết nghiệp vụ (Traceability Matrix)
 
 Bảng đối sánh minh chứng sự nhất quán chặt chẽ giữa Sơ đồ Lớp (Class Diagram), 38 Sơ đồ Tuần tự (Sequence Diagrams), 10 Quy tắc nghiệp vụ (`BR-01` $\rightarrow$ `BR-10`) và Cơ sở dữ liệu Prisma (`schema.prisma`):
 
-| Lớp Thực thể (Class) | Sequence Diagrams tương ứng | Business Rules | Bảng CSDL (Prisma Schema) |
+| Lớp Thực thể / Dịch vụ | Sequence Diagrams tương ứng | Business Rules | Bảng CSDL / Module |
 | :--- | :--- | :---: | :--- |
 | `User` (Base) | `01_dang_ky`, `02_dang_nhap`, `03_dang_xuat` | - | `users` (`role = Role`) |
 | `Customer` | `04` $\rightarrow$ `11`, `17_khach_huy_ve`, `19_danh_gia` | `BR-01`, `BR-03`, `BR-06` | `users` |
 | `Staff` | `12_ban_ve_pos`, `13_ban_combo`, `14_soat_ve`, `15_giao_combo` | `BR-05`, `BR-09` | `users` |
 | `Admin` | `20` $\rightarrow$ `38_bao_cao_doanh_thu` | `BR-07`, `BR-08`, `BR-10` | `users` |
-| `Movie` | `05_xem_phim`, `21` $\rightarrow$ `24_ngung_chieu_phim` | `BR-07` | `movies` |
-| `Screening` | `05_xem_suat_chieu`, `34` $\rightarrow$ `37_sua_suat_chieu` | `BR-04`, `BR-08` | `screenings` |
+| `Movie` | `05_xem_phim`, `21` $\rightarrow$ `24_xoa_phim` | `BR-02`, `BR-07` | `movies` |
+| `Screening` | `05_xem_suat_chieu`, `34` $\rightarrow$ `37_cap_nhat_suat_chieu` | `BR-04`, `BR-08` | `screenings` |
 | `Seat` | `06_chon_ghe_va_giu_cho` | `BR-01` | `seats` |
-| `Pricing` | `07_chon_loai_ve` | `BR-02` | `pricing` |
-| `Ticket` | `10`, `11`, `14_soat_ve`, `17_khach_huy`, `18_rap_huy` | `BR-03`, `BR-04`, `BR-09` | `tickets` |
-| `Payment` | `10_thanh_toan_online`, `11_vnpay_momo`, `38_bao_cao` | `BR-08`, `BR-10` | `payments` |
-| `Coupon` | `09_ap_dung_voucher`, `17_khach_huy_ve`, `30` $\rightarrow$ `33` | `BR-03`, `BR-07` | `coupons` |
-| `Combo` | `08_them_combo`, `13_ban_combo`, `25` $\rightarrow$ `29_ton_kho` | `BR-05` | `combos` |
+| `Pricing` | `07_chon_loai_ve`, `25_quan_ly_gia_ve` | `BR-02` | `pricing` |
+| `Ticket` | `10`, `11`, `14_soat_ve`, `17_khach_huy`, `18_rap_huy` | `BR-03`, `BR-04`, `BR-09` | `tickets` (`unique_active_ticket`) |
+| `Payment` | `10_thanh_toan_online`, `11_thanh_toan_vnpay_momo` (ZaloPay v2), `38_bao_cao` | `BR-09`, `BR-10` | `payments` |
+| `Coupon` | `09_ap_dung_voucher`, `17_khach_huy_ve`, `30` $\rightarrow$ `33` | `BR-03` | `coupons` |
+| `Combo` | `08_them_combo`, `13_ban_combo`, `26` $\rightarrow$ `29` | `BR-05` | `combos` |
 | `OrderCombo` | `08_them_combo`, `13_ban_combo_pos`, `15_giao_nhan` | `BR-05` | `order_combos` |
 | `ComboReservation`| `08_them_combo_vao_don_hang` | `BR-01` | `combo_reservations` |
 | `Review` | `19_khach_danh_gia_phim`, `20_admin_quan_ly` | `BR-06` | `reviews` |
+| `AuditLog` | `15_huy_suat_chieu`, `18_huy_ve_su_co`, `25_gia_ve` | `BR-04`, `BR-10` | `audit_logs` |
+| `ZaloPayService` | `10_thanh_toan_online`, `11_thanh_toan_vnpay_momo` | `BR-09` | `src/lib/zalopay.ts` |
+| `QRSignatureService` | `10`, `11`, `14_soat_ve_vao_rap` | `BR-09` | `src/lib/qr.ts` |
+| `SeatExpirationService` | `06_chon_ghe_va_giu_cho`, `08_them_combo` | `BR-01` | `seats/reserve` & `combos/reserve` |
 
 ---
 
@@ -498,7 +542,7 @@ Dưới đây là cẩm nang 10 câu hỏi vấn đáp chuyên sâu nhất mà H
 > **Trả lời mẫu xuất sắc:**  
 > *"Dạ thưa Thầy/Cô, hệ thống LumiCinema giải quyết triệt để bài toán Tranh chấp tài nguyên (Concurrency / Race Condition) bằng sự phối hợp giữa phương thức lớp và giao dịch cơ sở dữ liệu:*
 > 1. *Trong Class `Seat`: Thiết kế thuộc tính `reservedUntil: DateTime` và phương thức nghiệp vụ `holdSeat(durationMinutes: 10)` theo quy tắc `BR-01`. Khi khách click chọn ghế, ghế sẽ chuyển sang trạng thái `RESERVED` và khóa trong 10 phút.*
-> 2. *Dưới tầng Lưu trữ: Nghiệp vụ chọn ghế được bao bọc trong một **Giao dịch ACID nguyên tử (`prisma.$transaction`)** với điều kiện kiểm tra nghiêm ngặt: Ghế chỉ được phép chuyển sang `RESERVED` nếu trạng thái hiện tại là `EMPTY` HOẶC mốc thời gian giữ chỗ cũ đã quá hạn (`reservedUntil < NOW()`). Nhờ cơ chế Khóa hàng (Row-level Locking) của PostgreSQL, chỉ duy nhất yêu cầu đầu tiên đến thành công; yêu cầu đến sau dù chỉ vài mili-giây sẽ lập tức bị chặn và nhận thông báo lỗi, đảm bảo 100% không bao giờ xảy ra lỗi trùng ghế."*
+> 2. *Dưới tầng Lưu trữ: Nghiệp vụ chọn ghế được bao bọc trong một **Giao dịch ACID nguyên tử (`prisma.$transaction`)** với điều kiện kiểm tra nghiêm ngặt: Ghế chỉ được phép chuyển sang `RESERVED` nếu trạng thái hiện tại là `EMPTY` HOẶC mốc thời gian giữ chỗ cũ đã quá hạn (`reservedUntil < NOW()`). Đồng thời ở tầng PostgreSQL còn có ràng buộc **Partial Unique Index `unique_active_ticket`** (`ON tickets(screening_id, seat_id) WHERE status != 'Cancelled'`) chặn tuyệt đối khả năng phát sinh 2 vé hợp lệ cho cùng một ghế."*
 
 ---
 
@@ -535,7 +579,7 @@ Dưới đây là cẩm nang 10 câu hỏi vấn đáp chuyên sâu nhất mà H
 > **Trả lời mẫu xuất sắc:**  
 > *"Dạ thưa Thầy/Cô, hệ thống LumiCinema phân biệt rành mạch hai dòng tiền bồi hoàn hủy vé để bảo vệ tính toàn vẹn kế toán theo `BR-10`:*
 > 1. *Trường hợp Khách chủ động hủy vé trước giờ chiếu $\ge 2$ tiếng (`BR-03`): Hệ thống chuyển vé sang `Cancelled`, nhưng **hoàn toàn không xuất tiền mặt hay hoàn tiền cổng thanh toán** (`amount` trên `Payment` không đổi). Thay vào đó, lớp `Coupon` tự động sinh ra một voucher mới mang mã `COMP50-...` có giá trị 50% tiền vé để khách sử dụng lần sau. Do đó, doanh thu tiền mặt của rạp không bị suy giảm.*
-> 2. *Trường hợp Rạp hủy suất chiếu do sự cố kỹ thuật (`BR-04`): Hệ thống ghi nhận trạng thái chờ hoàn tiền mặt `PENDING_CASH_REFUND`. Khi khách đến quầy nhận lại 100% tiền mặt trong vòng 30 ngày, phương thức `issueRefund()` trong lớp `Payment` mới chính thức kích hoạt chuyển trạng thái thành `RefundedCash` và ghi giảm doanh thu thực thu, đảm bảo không bao giờ bị ghi giảm doanh thu hai lần."*
+> 2. *Trường hợp Rạp hủy suất chiếu do sự cố kỹ thuật (`BR-04`): Hệ thống ghi nhận trạng thái chờ hoàn tiền mặt `PENDING_CASH_REFUND`. Khi khách đến quầy nhận lại 100% tiền mặt trong vòng 30 ngày, phương thức `issueRefund()` / `confirmCashRefund()` mới chính thức kích hoạt chuyển trạng thái `Payment.status` thành `Refunded`, cập nhật `refundStatus = REFUNDED_CASH`, lưu vết `AuditLog` và ghi giảm doanh thu thực thu, đảm bảo không bao giờ bị ghi giảm doanh thu hai lần."*
 
 ---
 
@@ -553,7 +597,7 @@ Dưới đây là cẩm nang 10 câu hỏi vấn đáp chuyên sâu nhất mà H
 > **Trả lời mẫu xuất sắc:**  
 > *"Dạ thưa Thầy/Cô:*
 > 1. *Về thuật toán `checkRoomConflict()` theo quy chế `BR-08`: Khi Quản trị viên xếp một suất chiếu mới cho phòng chiếu $R$ trong khoảng thời gian $[T_{start}, T_{end}]$, hệ thống sẽ quét toàn bộ các suất chiếu đã tồn tại trong phòng $R$ và kiểm tra điều kiện giao cắt: $[T_{start}, T_{end} + 15\text{ phút}]$ không được trùng lặp với bất kỳ suất chiếu nào khác. Khoảng đệm **15 phút buffer** là bắt buộc để nhân viên rạp tiến hành dọn dẹp vệ sinh và chuẩn bị máy chiếu cho suất tiếp theo.*
-> 2. *Về lý do phim không có trạng thái `DELETED` theo quy chế `BR-07`: Một bộ phim khi đã mở bán vé sẽ phát sinh các bản ghi liên kết chặt chẽ đến `Screening`, `Ticket`, `Payment` và `Review`. Nếu xóa vật lý bản ghi phim khỏi CSDL, toàn bộ dữ liệu lịch sử tài chính, đối soát doanh thu của rạp sẽ bị phá vỡ toàn vẹn tham chiếu. Vì vậy, hệ thống áp dụng cơ chế **Xóa mềm (Soft Delete)**: Lớp `Movie` chỉ cập nhật `status = ENDED` (Ngừng chiếu) để ẩn khỏi danh mục mở bán mà vẫn bảo toàn 100% lịch sử giao dịch kế toán."*
+> 2. *Về lý do phim không có trạng thái `DELETED` theo quy chế `BR-07`: Một bộ phim khi đã mở bán vé sẽ phát sinh các bản ghi liên kết chặt chẽ đến `Screening`, `Ticket`, `Payment` và `Review`. Nếu xóa vật lý bản ghi phim khỏi CSDL, toàn bộ dữ liệu lịch sử tài chính, đối soát doanh thu của rạp sẽ bị phá vỡ toàn vẹn tham chiếu. Vì vậy, hệ thống áp dụng cơ chế **Xóa mềm (Soft Delete)**: Lớp `Movie` chỉ cập nhật `status = ENDED` (Ngừng chiếu) kết hợp bật cờ `isDeleted = true` để ẩn khỏi danh mục mở bán mà vẫn bảo toàn 100% lịch sử giao dịch kế toán."*
 
 ---
 

@@ -5,39 +5,39 @@ skinparam style strictuml
 skinparam monochrome true
 skinparam defaultTextAlignment center
 skinparam shadowing false
-title SƠ ĐỒ TUẦN TỰ: THÊM COMBO MỚI
+title SƠ ĐỒ TUẦN TỰ: THÊM COMBO MỚI (UC-17)
 
-actor "Quản trị viên (Admin)" as A
-boundary "Giao diện quản lý combo" as UI
-control "Điều khiển combo" as C
-entity "Dữ liệu hệ thống" as DB
+actor "Quản trị viên\n(Admin)" as A
+boundary "Frontend Next.js\n(/admin/combos)" as UI
+control "Next.js API\n(/api/combos)" as C
+entity "Docker PostgreSQL\n(Prisma)" as DB
 
 activate A
 A -> UI: Bấm nút "Thêm combo mới"
 activate UI
-UI --> A: Hiển thị biểu mẫu thông tin combo (Tên, Đơn giá, Mô tả, Tồn kho)
+UI --> A: Hiển thị biểu mẫu thông tin combo\n(name, price, description, stock, imageUrl, status: ACTIVE | INACTIVE)
 deactivate UI
 
 A -> UI: Nhập thông tin chi tiết và bấm "Lưu combo"
 activate UI
-UI -> C: Gửi dữ liệu combo mới
+UI -> C: POST /api/combos\n(kèm JWT ADMIN & payload: { name, price, description, stock, status })
 activate C
-C -> C: Kiểm tra dữ liệu (Đơn giá > 0, Tồn kho >= 0, Tên không trống)
+C -> C: Xác thực quyền hạn requireAuth(['ADMIN']) (FR-AUTH-03)
+C -> C: Kiểm tra dữ liệu bằng Zod (createComboSchema):\nname (1..100 ký tự), price > 0, stock >= 0, status IN ('ACTIVE', 'INACTIVE')
 
-alt Dữ liệu thiếu hoặc không hợp lệ
-    C --> UI: Báo lỗi 400 Bad Request (Lỗi dữ liệu đầu vào)
-    activate UI
+alt Không có quyền ADMIN
+    C --> UI: 403 Forbidden ("Bạn không có quyền thực hiện thao tác này")
+    UI --> A: Hiển thị cảnh báo từ chối truy cập
+else Dữ liệu thiếu hoặc không hợp lệ
+    C --> UI: 400 Bad Request (Lỗi dữ liệu đầu vào)
     UI --> A: Hiển thị cảnh báo lỗi cụ thể trên form
-    deactivate UI
 else Dữ liệu hợp lệ
-    C -> DB: Lưu combo mới vào CSDL (status = 'ACTIVE')
+    C -> DB: Lưu combo mới vào CSDL:\nprisma.combo.create({\n  data: { name, description, price, stock, imageUrl, status: 'ACTIVE' }\n})
     activate DB
-    DB --> C: Bản ghi combo mới (combo_id)
+    DB --> C: Bản ghi combo mới (id, status = 'ACTIVE')
     deactivate DB
-    C --> UI: Báo 201 Created (Thêm combo thành công)
-    activate UI
+    C --> UI: 201 Created (Thêm combo thành công)
     UI --> A: Hiển thị Toast thông báo thành công & làm mới danh mục
-    deactivate UI
 end
 deactivate C
 deactivate UI

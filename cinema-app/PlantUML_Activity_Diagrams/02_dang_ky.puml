@@ -1,0 +1,71 @@
+@startuml 02_dang_ky
+title SƠ ĐỒ HOẠT ĐỘNG: ĐĂNG KÝ TÀI KHOẢN KHÁCH HÀNG (CUSTOMER SIGN UP)
+skinparam conditionStyle insideDiamond
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam monochrome true
+skinparam wrapWidth 180
+
+|Người dùng (Khách hàng)|
+start
+:Truy cập trang Đăng ký (/register);
+:Nhập thông tin (Họ tên, Email,\nMật khẩu, Xác nhận, SĐT);
+:Bấm nút "Tạo tài khoản";
+
+|Giao diện (Frontend Next.js)|
+:Thu thập dữ liệu form;
+:Thực hiện Client-side Validation;
+
+if (Hợp lệ?) then (Không:\nSai regex hoặc pass < 6 ký tự)
+  :Hiển thị lỗi tại từng trường;
+  |Người dùng (Khách hàng)|
+  :Chỉnh sửa lại thông tin;
+  stop
+else (Có)
+  |Giao diện (Frontend Next.js)|
+  :Hiển thị trạng thái Loading;
+  :Gửi request POST /api/auth/signup;
+
+  |Máy chủ xử lý (Backend API / NextAuth)|
+  :Tiếp nhận request tại Route Handler;
+  :Xác thực cấu trúc dữ liệu Zod;
+  :Chuẩn hóa email.toLowerCase().trim();
+  :Khởi tạo truy vấn kiểm tra email;
+
+  |Cơ sở dữ liệu (PostgreSQL)|
+  :Thực thi prisma.user.findUnique;
+  :Trả về kết quả kiểm tra;
+
+  |Máy chủ xử lý (Backend API / NextAuth)|
+  if (Đã tồn tại?) then (Có:\nTrùng email trong DB)
+    :Sinh phản hồi lỗi HTTP 409 Conflict;
+    |Giao diện (Frontend Next.js)|
+    :Tắt Loading & hiển thị Toast lỗi;
+    |Người dùng (Khách hàng)|
+    :Đổi email khác hoặc sang Đăng nhập;
+    stop
+  else (Không)
+    |Máy chủ xử lý (Backend API / NextAuth)|
+    :Băm mật khẩu bcrypt (salt=12);
+    :Khởi tạo lệnh tạo user (role CUSTOMER);
+
+    |Cơ sở dữ liệu (PostgreSQL)|
+    :Thực thi prisma.user.create;
+    :Lưu bản ghi vào bảng users;
+    :Trả về bản ghi user mới;
+
+    |Máy chủ xử lý (Backend API / NextAuth)|
+    :Loại bỏ hash password khỏi payload;
+    :Đóng gói phản hồi HTTP 201 Created;
+
+    |Giao diện (Frontend Next.js)|
+    :Tắt trạng thái Loading;
+    :Hiển thị Toast "Đăng ký thành công!";
+    :Kích hoạt chuyển hướng về /login;
+
+    |Người dùng (Khách hàng)|
+    :Được chuyển hướng về trang Đăng nhập\nvà sẵn sàng sử dụng tài khoản mới;
+    stop
+  endif
+endif
+@enduml

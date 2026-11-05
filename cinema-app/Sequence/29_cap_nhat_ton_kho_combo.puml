@@ -1,0 +1,50 @@
+@startuml 29_cap_nhat_ton_kho_combo
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: CẬP NHẬT TỒN KHO COMBO (UC-17)
+
+actor "Quản trị viên\n(Admin)" as A
+boundary "Frontend Next.js\n(/admin/combos)" as UI
+control "Next.js API\n(/api/combos)" as C
+entity "Docker PostgreSQL\n(Prisma)" as DB
+
+activate A
+A -> UI: Chọn combo và bấm "Cập nhật tồn kho"
+activate UI
+UI -> C: GET /api/combos/[id]
+activate C
+C -> DB: prisma.combo.findUnique({ where: { id: comboId } })
+activate DB
+DB --> C: Bản ghi combo & số lượng tồn kho hiện tại (stock, status: ACTIVE | INACTIVE)
+deactivate DB
+C --> UI: 200 OK (Thông tin tồn kho hiện tại)
+deactivate C
+UI --> A: Hiển thị popup nhập số lượng tồn kho mới (newStock)
+deactivate UI
+
+A -> UI: Nhập số lượng tồn mới và bấm "Xác nhận cập nhật"
+activate UI
+UI -> C: PUT /api/combos/[id]\n(kèm JWT ADMIN & payload: { stock: newStock })
+activate C
+C -> C: Xác thực quyền hạn requireAuth(['ADMIN']) (FR-AUTH-03)
+C -> C: Kiểm tra tính hợp lệ bằng Zod (newStock >= 0 và là số nguyên)
+
+alt Số lượng tồn kho âm hoặc không hợp lệ
+    C --> UI: 400 Bad Request ("Số lượng tồn kho phải là số nguyên không âm")
+    UI --> A: Hiển thị cảnh báo lỗi dữ liệu
+else Số lượng hợp lệ (newStock >= 0)
+    C -> DB: prisma.combo.update({\n  where: { id: comboId },\n  data: { stock: newStock }\n})
+    activate DB
+    DB --> C: Bản ghi combo đã cập nhật tồn kho
+    deactivate DB
+    C --> UI: 200 OK (Cập nhật tồn kho thành công)
+    UI --> A: Hiển thị Toast thành công & làm mới số lượng trên bảng
+end
+deactivate C
+deactivate UI
+deactivate A
+@enduml

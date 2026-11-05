@@ -13,17 +13,17 @@ control "API Xác thực\n(Next.js App Router)" as API
 entity "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
 
 activate KH
-KH -> UI : Truy cập trang Đăng ký (/register)
+KH -> UI : Truy cập trang Đăng ký (/signup)
 activate UI
 UI --> KH : Hiển thị form đăng ký tài khoản
 
 KH -> UI : Nhập thông tin (Họ tên, Email, Mật khẩu, Xác nhận MK, SĐT)
 KH -> UI : Bấm nút "Tạo tài khoản"
 
-UI -> API : POST /api/auth/register\n{ name, email, password, phone }
+UI -> API : POST /api/auth/signup\n{ email, password, full_name, phone }
 activate API
 
-API -> API : Xác thực schema Zod (RFC 5322, MK >= 6 ký tự)
+API -> API : Chuẩn hóa email = email.toLowerCase().trim()\n& xác thực schema Zod (RFC 5322, MK >= 6 ký tự)
 
 alt Dữ liệu đầu vào không hợp lệ (MK < 6 ký tự hoặc không khớp)
     API --> UI : 400 Bad Request\n{ message: "Dữ liệu không hợp lệ" }
@@ -39,7 +39,7 @@ else Dữ liệu hợp lệ
         UI --> KH : Hiển thị Toast cảnh báo email đã tồn tại
     else Email chưa tồn tại (Hợp lệ để khởi tạo)
         API -> API : Băm mật khẩu bảo mật\nbcryptjs.hash(password, 12) (NFR-SEC-01)
-        API -> DB : prisma.user.create({\n  data: { email, password: hashedPassword, name, phone, role: 'CUSTOMER' }\n})
+        API -> DB : prisma.user.create({\n  data: { email, password: hashedPassword, name: full_name, phone, role: 'CUSTOMER' }\n})
         activate DB
         DB --> API : Trả về thông tin người dùng mới (user_id tự tăng)
         deactivate DB

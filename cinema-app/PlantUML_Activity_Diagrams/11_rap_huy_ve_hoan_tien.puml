@@ -1,0 +1,69 @@
+@startuml 11_rap_huy_ve_hoan_tien
+title SƠ ĐỒ HOẠT ĐỘNG: RẠP HỦY VÉ DO SỰ CỐ VÀ HOÀN TIỀN MẶT (INCIDENT CANCELLATION & CASH REFUND)
+skinparam conditionStyle insideDiamond
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam monochrome true
+skinparam wrapWidth 180
+
+|Nhân viên|
+|Hệ thống|
+|Khách hàng|
+
+|Nhân viên|
+start
+if (Quy trình?) then (Rạp hủy vé do sự cố)
+  :Ghi nhận sự cố rạp (mất điện, lỗi máy chiếu...);
+  :Tra cứu vé bị ảnh hưởng;
+  :Chọn hủy vé do lỗi rạp;
+
+  |Hệ thống|
+  :Kiểm tra trạng thái vé;
+  if (Vé Valid?) then (Có)
+  else (Không)
+    :Từ chối hủy vé và thông báo lý do\n(vé đã sử dụng không được hủy hay hoàn tiền);
+    stop
+  endif
+
+  |Hệ thống|
+  :Chuyển vé sang Cancelled\nvà ghi công nợ Chờ hoàn tiền 100%\n(sau khi trừ voucher đã áp dụng);
+  :Giải phóng ghế về EMPTY;
+  :Hoàn tiền 100% và cộng lại tồn kho\ncho combo trạng thái Chưa nhận;
+  :Giữ nguyên combo đã ở trạng thái Đã nhận\n(không hoàn tiền, không hoàn kho);
+  :Ghi nhận nhật ký kiểm toán;
+  :Gửi thông báo cho khách:\ncó 30 ngày để nhận hoàn tiền mặt tại rạp;
+
+  |Nhân viên|
+  :Hoàn tất xử lý sự cố và theo dõi bồi hoàn;
+  stop
+
+else (Khách nhận hoàn tiền mặt)
+  |Khách hàng|
+  :Đến quầy rạp xuất trình mã vé (trong 30 ngày);
+
+  |Nhân viên|
+  :Tra cứu mã vé trên hệ thống POS;
+
+  |Hệ thống|
+  :Kiểm tra công nợ hoàn tiền của vé;
+  if (Còn hạn?) then (Có)
+    |Nhân viên|
+    :Chi trả tiền mặt 100% số tiền thực trả;
+    :Bấm Xác nhận đã hoàn tiền mặt;
+    |Hệ thống|
+    :Chuyển trạng thái công nợ sang Đã hoàn tiền;
+    :Lưu Audit Log gồm ID nhân viên,\nthời gian và số tiền chi quỹ;
+    |Khách hàng|
+    :Nhận tiền hoàn;
+    stop
+  else (Không)
+    |Hệ thống|
+    :Vô hiệu hóa quyền nhận hoàn tiền;
+    |Nhân viên|
+    :Thông báo từ chối hoàn tiền;
+    |Khách hàng|
+    :Nhận thông báo từ chối;
+    stop
+  endif
+endif
+@enduml

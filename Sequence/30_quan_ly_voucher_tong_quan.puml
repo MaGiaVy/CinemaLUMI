@@ -5,61 +5,82 @@ skinparam style strictuml
 skinparam monochrome true
 skinparam defaultTextAlignment center
 skinparam shadowing false
-title SƠ ĐỒ TUẦN TỰ: QUẢN TRỊ VOUCHER KHUYẾN MÃI (TỔNG QUAN)
+title SƠ ĐỒ TUẦN TỰ: QUẢN TRỊ VOUCHER KHUYẾN MÃI (TỔNG QUAN - FR-VOU-01, BR-03)
 
-actor "Quản trị viên (Admin)" as A
-boundary "Giao diện quản lý voucher" as UI
-control "Điều khiển voucher" as C
-entity "Dữ liệu hệ thống" as DB
+actor "Quản trị viên\n(Admin)" as A
+boundary "Frontend Next.js\n(/admin/coupons)" as UI
+control "Next.js API\n(/api/coupons)" as C
+entity "Docker PostgreSQL\n(Prisma)" as DB
 
 activate A
-A -> UI: Truy cập trang Quản lý Voucher (/admin/vouchers)
+A -> UI: Truy cập trang Quản lý Voucher (/admin/coupons)
 activate UI
-UI -> C: Yêu cầu danh sách voucher hiện có
+UI -> C: GET /api/coupons\n(kèm JWT quyền ADMIN)
 activate C
-C -> DB: Truy vấn danh sách voucher (Mã, Mức giảm, HSD, Trạng thái)
+C -> C: Xác thực quyền hạn requireAuth(['ADMIN']) (FR-AUTH-03)
+C -> DB: prisma.coupon.findMany({\n  include: { applicableMovie: true, user: true },\n  orderBy: { createdAt: 'desc' }\n})
 activate DB
-DB --> C: Danh sách các bản ghi voucher
+DB --> C: Danh sách các bản ghi coupon\n(Phân biệt: Voucher chiến dịch Admin Campaign & Voucher bồi hoàn COMP50_ gắn userId)
 deactivate DB
-C --> UI: Danh sách voucher và các chức năng quản trị
+C -> C: Tính toán trạng thái khả dụng động từ:\nexpiryDate >= NOW() && usedCount < maxUsage
+C --> UI: 200 OK (Danh sách voucher và các chức năng quản trị)
 deactivate C
-UI --> A: Hiển thị bảng danh sách voucher & nút chức năng
+UI --> A: Hiển thị bảng danh sách voucher (code, discountType, discountValue, usedCount/maxUsage, expiryDate, userId)
 deactivate UI
 
-alt Quản trị viên chọn Thêm voucher mới
+alt Quản trị viên chọn Thêm voucher chiến dịch mới (FR-VOU-01)
     A -> UI: Bấm nút "Tạo voucher mới"
     activate UI
-    UI -> C: Yêu cầu form tạo voucher
+    UI --> A: Hiển thị form tạo voucher mới (code, discountType, discountValue, minAmount, maxUsage, expiryDate, applicableMovieId)
+    A -> UI: Nhập dữ liệu & bấm "Lưu voucher"
+    UI -> C: POST /api/coupons (kèm JWT ADMIN)
     activate C
-    C --> UI: Biểu mẫu tạo voucher
-    deactivate C
-    UI --> A: Hiển thị form tạo voucher mới
-    deactivate UI
-else Quản trị viên chọn Sửa voucher
-    A -> UI: Chọn một voucher & bấm "Chỉnh sửa"
-    activate UI
-    UI -> C: Yêu cầu thông tin chi tiết voucher
-    activate C
-    C -> DB: Tra cứu voucher theo ID
+    C -> C: requireAuth(['ADMIN']) & Validate dữ liệu
+    C -> DB: prisma.coupon.create({\n  data: { code, discountType, discountValue, minAmount, maxUsage, usedCount: 0, expiryDate, applicableMovieId }\n})
     activate DB
-    DB --> C: Dữ liệu voucher hiện tại
+    DB --> C: Bản ghi coupon mới
     deactivate DB
-    C --> UI: Dữ liệu voucher
-    deactivate C
-    UI --> A: Hiển thị form chỉnh sửa voucher
-    deactivate UI
-else Quản trị viên chọn Ngừng sử dụng voucher
-    A -> UI: Chọn voucher & bấm "Ngừng sử dụng"
-    activate UI
-    UI -> C: Yêu cầu cập nhật trạng thái ngừng áp dụng
-    activate C
-    C -> DB: Cập nhật status = 'INACTIVE'
-    activate DB
-    DB --> C: Xác nhận cập nhật thành công
-    deactivate DB
-    C --> UI: Thông báo cập nhật trạng thái thành công
+    C --> UI: 201 Created
     deactivate C
     UI --> A: Hiển thị Toast thành công & cập nhật bảng
+    deactivate UI
+else Quản trị viên chọn Sửa voucher (FR-VOU-01)
+    A -> UI: Chọn một voucher & bấm "Chỉnh sửa"
+    activate UI
+    UI -> C: GET /api/coupons/[id]
+    activate C
+    C -> DB: prisma.coupon.findUnique({ where: { id: couponId } })
+    activate DB
+    DB --> C: Dữ liệu voucher hiện tại (usedCount, maxUsage, expiryDate...)
+    deactivate DB
+    C --> UI: 200 OK (Dữ liệu voucher)
+    deactivate C
+    UI --> A: Hiển thị form chỉnh sửa voucher
+    A -> UI: Cập nhật thông tin (maxUsage >= usedCount) & bấm "Cập nhật"
+    UI -> C: PUT /api/coupons/[id] (kèm JWT ADMIN)
+    activate C
+    C -> C: requireAuth(['ADMIN']) & Kiểm tra maxUsage >= usedCount
+    C -> DB: prisma.coupon.update({ where: { id: couponId }, data: updateData })
+    activate DB
+    DB --> C: Bản ghi coupon đã cập nhật
+    deactivate DB
+    C --> UI: 200 OK
+    deactivate C
+    UI --> A: Hiển thị Toast cập nhật thành công
+    deactivate UI
+else Quản trị viên chọn Xóa / Vô hiệu hóa voucher (DELETE /api/coupons/[id])
+    A -> UI: Chọn voucher & bấm "Xóa / Ngừng sử dụng"
+    activate UI
+    UI -> C: DELETE /api/coupons/[id] (kèm JWT ADMIN)
+    activate C
+    C -> C: Kiểm tra quyền hạn requireAuth(['ADMIN'])
+    C -> DB: prisma.coupon.delete({ where: { id: couponId } })\n(hoặc cập nhật expiryDate < NOW() / maxUsage = usedCount)
+    activate DB
+    DB --> C: Xác nhận thu hồi / xóa voucher thành công
+    deactivate DB
+    C --> UI: 200 OK (Thông báo xóa/vô hiệu hóa thành công)
+    deactivate C
+    UI --> A: Hiển thị Toast thành công & làm mới bảng
     deactivate UI
 end
 deactivate A

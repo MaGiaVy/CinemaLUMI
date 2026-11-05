@@ -1,6 +1,6 @@
 @startuml 13_ban_combo_tai_quay_pos
 hide footbox
-title SƠ ĐỒ TUẦN TỰ: BÁN COMBO BẮP NƯỚC TẠI QUẦY POS (POS COMBO SALES)
+title SƠ ĐỒ TUẦN TỰ: BÁN COMBO BẮP NƯỚC LẺ TẠI QUẦY POS (POS STANDALONE COMBO SALES)
 autonumber
 skinparam style strictuml
 skinparam monochrome true
@@ -14,72 +14,57 @@ control "API Quầy Bắp Nước\n(Next.js App Router)" as API
 entity "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
 
 activate NV
-NV -> UI : Mở màn hình Bán combo bắp nước (/staff/pos/combos)
+NV -> UI : Mở màn hình Bán combo bắp nước tại quầy (/staff/pos)
 activate UI
 
-UI -> API : GET /api/combos?activeOnly=true
+UI -> API : GET /api/combos
 activate API
 API -> DB : prisma.combo.findMany({ where: { status: 'ACTIVE', stock: { gt: 0 } } })
 activate DB
-DB --> API : Trả về danh sách combo khả dụng & số lượng tồn kho
+DB --> API : Trả về danh sách combo khả dụng & số lượng tồn kho (stock)
 deactivate DB
 API --> UI : 200 OK (Danh sách gói bắp nước đang kinh doanh)
 deactivate API
 
-UI --> NV : Hiển thị bảng chọn combo kèm giá niêm yết
+UI --> NV : Hiển thị bảng chọn combo kèm giá niêm yết và tồn kho
 activate KH
-KH -> NV : Yêu cầu mua combo bắp nước & số lượng
-NV -> UI : Chọn gói combo và số lượng theo yêu cầu
+KH -> NV : Yêu cầu mua lẻ combo bắp nước & số lượng
+NV -> UI : Chọn các gói combo, số lượng và nhập SĐT/Email khách (nếu là thành viên)
 
-UI -> API : POST /api/pos/combos/check-stock\n{ comboId, quantity }
-activate API
-API -> DB : prisma.combo.findUnique({ where: { id: comboId } })
-activate DB
-DB --> API : Trả về thông tin combo & tồn kho hiện tại
-deactivate DB
-
-alt Số lượng tồn kho không đủ (stock < quantity)
-    API --> UI : 400 Bad Request { message: "Không đủ số lượng tồn kho khả dụng!" }
-    UI --> NV : Hiển thị cảnh báo thiếu hàng, yêu cầu chọn lại
-else Đủ hàng tồn kho (stock >= quantity)
-    API --> UI : 200 OK { message: "Tồn kho hợp lệ" }
-    UI --> NV : Thêm combo vào giỏ hàng và cập nhật tổng tiền
-end
-deactivate API
-
-opt Khách hàng muốn tích điểm thành viên
-    NV -> UI : Nhập Số điện thoại hoặc Email của khách
-    UI -> API : GET /api/users/lookup?query=...
-    activate API
-    API -> DB : prisma.user.findFirst({ where: { OR: [{ phone }, { email }] } })
-    activate DB
-    DB --> API : Trả về thông tin khách hàng & điểm tích lũy
-    deactivate DB
-    API --> UI : 200 OK (Tìm thấy thông tin khách hàng)
-    deactivate API
-    UI --> NV : Gắn tài khoản khách vào đơn hàng POS
-end
-
-NV -> UI : Chọn hình thức thanh toán (Tiền mặt hoặc Quét mã QR)
+NV -> UI : Chọn hình thức thanh toán (Tiền mặt / Chuyển khoản tại quầy)
 NV -> KH : Báo tổng số tiền cần thanh toán
-KH -> NV : Thanh toán tiền mặt hoặc chuyển khoản QR thành công
+KH -> NV : Thanh toán tiền mặt hoặc chuyển khoản thành công
 NV -> UI : Bấm nút "Xác nhận đã thu tiền & Xuất hóa đơn"
 
-UI -> API : POST /api/pos/orders/combos\n{ items: [...], customerId, paymentMethod }
+UI -> API : POST /api/staff/pos/combos\n{ items: [{ comboId, quantity }], customerPhoneOrEmail, paymentMethod }
 activate API
 
-API -> DB : Prisma Transaction (ACID):\n1. Tạo Order (type: 'POS', status: 'COMPLETED')\n2. Tạo OrderCombo (status: 'DELIVERED')\n3. Trừ tồn kho: combo.stock = combo.stock - quantity\n4. Tạo Payment (status: 'COMPLETED')\n5. Cộng điểm tích lũy thành viên (nếu có)
+API -> DB : Gọi resolveCustomer(customerPhoneOrEmail):\nTìm tài khoản khách thành viên hoặc sử dụng tài khoản Khách vãng lai (Guest)
 activate DB
-DB --> API : Xác nhận giao dịch hoàn tất thành công
+DB --> API : Trả về customerId
 deactivate DB
 
-API --> UI : 201 Created { orderId, receiptData }
-deactivate API
+API -> DB : Kiểm tra trạng thái ACTIVE và tồn kho hiện tại của các Combo
+activate DB
+DB --> API : Trả về thông tin Combo và stock hiện tại
+deactivate DB
 
-UI --> NV : Kích hoạt in phiếu mua hàng & hiển thị Toast thành công
-NV -> KH : Bàn giao combo bắp nước và phiếu mua hàng
+alt Có combo ngừng bán hoặc tồn kho không đủ (Combo.stock < quantity)
+    API --> UI : 400 Bad Request { message: "Không đủ số lượng tồn kho khả dụng!" }
+    UI --> NV : Hiển thị cảnh báo thiếu hàng, yêu cầu điều chỉnh số lượng
+else Đủ hàng tồn kho (Combo.stock >= quantity)
+    API -> DB : Thực thi Prisma Transaction (prisma.$transaction):\n1. Trừ tồn kho: Combo.stock = Combo.stock - quantity\n2. Tạo bản ghi Payment (userId = customerId, amount = totalAmount, status = 'Success')\n3. Tạo các bản ghi OrderCombo gắn với paymentId:\n   (comboId, quantity, isDelivered = true, deliveredAt = NOW())
+    activate DB
+    DB --> API : Xác nhận giao dịch hoàn tất thành công
+    deactivate DB
+
+    API --> UI : 201 Created { paymentId, orderCombos, totalAmount }
+    UI --> NV : Kích hoạt in phiếu mua hàng & hiển thị Toast thành công
+    NV -> KH : Bàn giao ngay combo bắp nước và phiếu mua hàng tại quầy
+end
+
+deactivate API
 deactivate KH
 deactivate UI
 deactivate NV
-
 @enduml

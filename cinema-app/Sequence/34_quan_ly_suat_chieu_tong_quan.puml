@@ -1,0 +1,86 @@
+@startuml 34_quan_ly_suat_chieu_tong_quan
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: QUẢN TRỊ LỊCH CHIẾU VÀ SUẤT CHIẾU (TỔNG QUAN - FR-ADM-03, FR-ADM-04, BR-01, BR-04, BR-08)
+
+actor "Quản trị viên\n(Admin)" as A
+boundary "Frontend Next.js\n(/admin/screenings)" as UI
+control "Next.js API\n(/api/screenings)" as C
+entity "Docker PostgreSQL\n(Prisma)" as DB
+
+activate A
+A -> UI: Truy cập trang Quản lý Suất chiếu (/admin/screenings)
+activate UI
+UI -> C: GET /api/screenings?date=...&room_number=...&movie_id=...\n(kèm JWT quyền ADMIN)
+activate C
+C -> C: Xác thực quyền hạn requireAuth(['ADMIN'])
+C -> DB: prisma.screening.findMany({\n  include: { movie: true, _count: { select: { tickets: true, seats: true } } },\n  orderBy: { startTime: 'asc' }\n})
+activate DB
+DB --> C: Danh sách các suất chiếu (status: UPCOMING | SHOWING | ENDED | CANCELLED)
+deactivate DB
+C --> UI: 200 OK (Dữ liệu lịch chiếu & các chức năng quản trị)
+deactivate C
+UI --> A: Hiển thị timeline lịch chiếu 5 phòng và các nút chức năng
+deactivate UI
+
+alt Quản trị viên chọn Tạo suất chiếu mới (FR-ADM-03, BR-01, BR-08)
+    A -> UI: Bấm nút "Tạo suất chiếu mới"
+    activate UI
+    UI --> A: Hiển thị form tạo suất chiếu (Chọn phim, phòng 1-5, giờ bắt đầu)
+    A -> UI: Nhập thông tin & bấm "Xác nhận tạo"
+    UI -> C: POST /api/screenings (kèm JWT ADMIN)
+    activate C
+    C -> C: requireAuth(['ADMIN']) & Kiểm tra chống trùng lịch phòng chiếu:\nendTime = startTime + movie.duration + 15 phút dọn phòng (BR-08)
+    C -> DB: prisma.$transaction:\n1. tx.screening.create({ status: 'UPCOMING' })\n2. tx.seat.createMany (Khởi tạo 50 ghế chuẩn A1..E10, type='STANDARD', status='EMPTY' theo BR-01)
+    activate DB
+    DB --> C: Suất chiếu mới kèm 50 ghế
+    deactivate DB
+    C --> UI: 201 Created
+    deactivate C
+    UI --> A: Hiển thị Toast thành công & cập nhật timeline
+    deactivate UI
+else Quản trị viên chọn Sửa suất chiếu (FR-ADM-03, BR-08)
+    A -> UI: Chọn một suất chiếu & bấm "Chỉnh sửa"
+    activate UI
+    UI -> C: GET /api/screenings/[id]
+    activate C
+    C -> DB: prisma.screening.findUnique({ where: { id: screeningId } })
+    activate DB
+    DB --> C: Chi tiết suất chiếu
+    deactivate DB
+    C --> UI: 200 OK (Dữ liệu suất chiếu hiện tại)
+    deactivate C
+    UI --> A: Hiển thị form chỉnh sửa suất chiếu
+    A -> UI: Cập nhật giờ / phòng & bấm "Lưu thay đổi"
+    UI -> C: PUT /api/screenings/[id] (kèm JWT ADMIN)
+    activate C
+    C -> C: requireAuth(['ADMIN']), kiểm tra startTime > NOW() & chống trùng lịch + 15p dọn phòng (BR-08)
+    C -> DB: prisma.screening.update({ where: { id: screeningId }, data: updateData })
+    activate DB
+    DB --> C: Bản ghi suất chiếu đã cập nhật
+    deactivate DB
+    C --> UI: 200 OK
+    deactivate C
+    UI --> A: Hiển thị Toast cập nhật thành công
+    deactivate UI
+else Quản trị viên chọn Hủy suất chiếu khẩn cấp do sự cố rạp (FR-ADM-04, BR-04)
+    A -> UI: Chọn suất chiếu gặp sự cố (mất điện, hỏng máy chiếu) & bấm "Hủy khẩn cấp"
+    activate UI
+    UI -> C: DELETE /api/screenings/[id] (kèm JWT ADMIN & lý do sự cố)
+    activate C
+    C -> C: Xác thực quyền hạn requireAuth(['ADMIN']) (FR-AUTH-03)
+    C -> DB: prisma.$transaction xử lý hủy khẩn cấp (FR-ADM-04, BR-04):\n1. Chuyển toàn bộ vé Valid -> Cancelled (ghi nhận công nợ PENDING_CASH_REFUND 100%)\n2. Hoàn lại tồn kho Combo.stock cho các OrderCombo chưa nhận (isDelivered == false)\n3. Giải phóng toàn bộ ghế về Seat.status = 'EMPTY' (reservedUntil = null)\n4. Cập nhật Screening.status = 'CANCELLED' / 'ENDED'\n5. Ghi nhận nhật ký kiểm toán AuditLog
+    activate DB
+    DB --> C: Xác nhận hoàn tất hủy suất chiếu & danh sách vé cần hoàn tiền mặt 100%
+    deactivate DB
+    C --> UI: 200 OK (Thông báo hủy khẩn cấp thành công & danh sách khách chờ hoàn tiền)
+    deactivate C
+    UI --> A: Hiển thị Toast thành công & cập nhật trạng thái trên timeline
+    deactivate UI
+end
+deactivate A
+@enduml

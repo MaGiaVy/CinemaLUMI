@@ -5,59 +5,57 @@ skinparam style strictuml
 skinparam monochrome true
 skinparam defaultTextAlignment center
 skinparam shadowing false
-title SƠ ĐỒ TUẦN TỰ: CHỈNH SỬA SUẤT CHIẾU
+title SƠ ĐỒ TUẦN TỰ: CHỈNH SỬA SUẤT CHIẾU (FR-ADM-03, BR-08)
 
-actor "Quản trị viên (Admin)" as A
-boundary "Giao diện quản lý suất chiếu" as UI
-control "Điều khiển suất chiếu" as C
-entity "Dữ liệu hệ thống" as DB
+actor "Quản trị viên\n(Admin)" as A
+boundary "Frontend Next.js\n(/admin/screenings)" as UI
+control "Next.js API\n(/api/screenings)" as C
+entity "Docker PostgreSQL\n(Prisma)" as DB
 
 activate A
 A -> UI: Chọn suất chiếu cần sửa và bấm "Chỉnh sửa"
 activate UI
-UI -> C: Yêu cầu thông tin chi tiết suất chiếu theo ID
+UI -> C: GET /api/screenings/[id]\n(kèm JWT ADMIN)
 activate C
-C -> DB: Tra cứu suất chiếu và kiểm tra danh sách vé đã đặt
+C -> C: Xác thực quyền hạn requireAuth(['ADMIN'])
+C -> DB: Tra cứu suất chiếu và kiểm tra danh sách vé hiệu lực:\nprisma.screening.findUnique({\n  where: { id: screeningId },\n  include: { movie: true, _count: { select: { tickets: { where: { status: { in: ['Valid', 'Used'] } } } } } }\n})
 activate DB
-DB --> C: Thông tin suất chiếu và số lượng vé đã đặt
+DB --> C: Thông tin suất chiếu (startTime, status) và số lượng vé hiệu lực
 deactivate DB
 
 alt Không tìm thấy suất chiếu
-    C --> UI: Báo 404 Not Found (Không tìm thấy suất chiếu)
-    activate UI
+    C --> UI: 404 Not Found ("Không tìm thấy suất chiếu")
     UI --> A: Hiển thị thông báo lỗi
-    deactivate UI
-else Đã có vé được đặt (tickets > 0)
-    C --> UI: Báo 400 Bad Request (Không thể sửa suất chiếu đã có khách mua vé)
-    activate UI
-    UI --> A: Cảnh báo không thể đổi lịch do đã có vé bán ra
-    deactivate UI
-else Chưa có vé nào được đặt (Hợp lệ để sửa)
-    C --> UI: Thông tin suất chiếu hiện tại
+else Suất chiếu đã bắt đầu/kết thúc (startTime <= NOW()) hoặc đang có vé hiệu lực
+    C --> UI: 400 Bad Request\n("Không thể cập nhật suất chiếu đã bắt đầu/kết thúc (startTime <= NOW()) hoặc đã có khách mua vé")
+    UI --> A: Cảnh báo chặn chỉnh sửa lịch chiếu
+else Suất chiếu chưa bắt đầu (startTime > NOW()) & hợp lệ để sửa
+    C --> UI: 200 OK (Thông tin suất chiếu hiện tại)
     deactivate C
     UI --> A: Hiển thị form chỉnh sửa lịch chiếu
     deactivate UI
     
-    A -> UI: Thay đổi khung giờ / phòng chiếu và bấm "Lưu thay đổi"
+    A -> UI: Thay đổi khung giờ (newStartTime) / phòng chiếu (newRoom) và bấm "Lưu thay đổi"
     activate UI
-    UI -> C: Gửi dữ liệu điều chỉnh suất chiếu
+    UI -> C: PUT /api/screenings/[id]\n(kèm JWT ADMIN & dữ liệu cập nhật)
     activate C
-    C -> C: Kiểm tra xung đột phòng chiếu & thời gian dọn dẹp (BR-09)
+    C -> C: Xác thực quyền hạn requireAuth(['ADMIN']) (FR-AUTH-03)
+    C -> C: Tính lại giờ kết thúc mới kèm 15 phút dọn phòng (BR-08):\nnewEndTime = newStartTime + movie.duration + 15 phút
+    C -> DB: Kiểm tra xung đột lịch phòng chiếu (loại trừ chính suất chiếu đang sửa - BR-08):\nprisma.screening.findFirst({\n  where: {\n    id: { not: screeningId }, room: newRoom,\n    status: { not: 'CANCELLED' },\n    startTime: { lt: newEndTime }, endTime: { gt: newStartTime }\n  }\n})
+    activate DB
+    DB --> C: Kết quả kiểm tra xung đột lịch chiếu
+    deactivate DB
     
-    alt Bị trùng lịch với suất chiếu khác
-        C --> UI: Báo 409 Conflict (Trùng lịch với suất chiếu khác)
-        activate UI
+    alt Bị trùng lịch với suất chiếu khác trong phòng (Vi phạm BR-08)
+        C --> UI: 400 Bad Request ("Trùng lịch với suất chiếu khác trong cùng phòng chiếu theo BR-08")
         UI --> A: Cảnh báo xung đột lịch phòng chiếu
-        deactivate UI
-    else Khung giờ hợp lệ
-        C -> DB: Cập nhật phòng chiếu và khung giờ mới vào CSDL
+    else Khung giờ hợp lệ (Đạt chuẩn BR-08)
+        C -> DB: prisma.screening.update({\n  where: { id: screeningId },\n  data: { movieId, room: newRoom, startTime: newStartTime, endTime: newEndTime }\n})
         activate DB
         DB --> C: Bản ghi suất chiếu đã cập nhật
         deactivate DB
-        C --> UI: Báo 200 OK (Cập nhật suất chiếu thành công)
-        activate UI
+        C --> UI: 200 OK (Cập nhật suất chiếu thành công)
         UI --> A: Hiển thị Toast thành công & cập nhật lại timeline
-        deactivate UI
     end
     deactivate C
     deactivate UI

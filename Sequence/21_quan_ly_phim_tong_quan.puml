@@ -7,59 +7,103 @@ skinparam defaultTextAlignment center
 skinparam shadowing false
 title SƠ ĐỒ TUẦN TỰ: QUẢN TRỊ DANH MỤC PHIM (TỔNG QUAN)
 
-actor "Quản trị viên (Admin)" as A
-boundary "Giao diện quản lý phim" as UI
-control "Điều khiển phim" as C
-entity "Dữ liệu hệ thống" as DB
+actor "Quản trị viên\n(Admin)" as A
+boundary "Frontend Next.js\n(/admin/movies)" as UI
+control "Next.js API\n(/api/movies)" as C
+entity "Docker PostgreSQL\n(Prisma)" as DB
 
 activate A
 A -> UI: Truy cập trang Quản lý phim (/admin/movies)
 activate UI
-UI -> C: Yêu cầu danh sách phim hiện có
+UI -> C: GET /api/movies (Lấy danh sách phim)
 activate C
-C -> DB: Truy vấn danh sách phim (Lọc trạng thái, thể loại)
+C -> C: Kiểm tra phiên & phân quyền requireAuth(['ADMIN'])
+C -> DB: prisma.movie.findMany({\n  where: { isDeleted: false },\n  orderBy: { releaseDate: 'desc' }\n})
 activate DB
-DB --> C: Danh sách bản ghi phim
+DB --> C: Danh sách bản ghi phim (status: SHOWING | UPCOMING | ENDED)
 deactivate DB
-C --> UI: Dữ liệu danh sách phim & danh mục chức năng
+C --> UI: 200 OK (Dữ liệu danh sách phim & danh mục chức năng)
 deactivate C
 UI --> A: Hiển thị bảng danh sách phim & các nút thao tác
 deactivate UI
 
-alt Quản trị viên chọn Thêm phim mới
+alt Quản trị viên chọn Thêm phim mới (FR-ADM-01)
     A -> UI: Bấm nút "Thêm phim mới"
     activate UI
-    UI -> C: Chuyển hướng sang quy trình Thêm phim
+    UI --> A: Hiển thị modal / form Thêm phim (title, duration, ageRating: P | C13 | T18, status: UPCOMING | SHOWING)
+    A -> UI: Nhập dữ liệu & bấm "Lưu phim"
+    UI -> C: POST /api/movies (kèm JWT ADMIN)
     activate C
-    C --> UI: Trả về form biểu mẫu nhập liệu phim
+    C -> C: requireAuth(['ADMIN']) & Validate dữ liệu đầu vào
+    C -> DB: prisma.movie.create({ data: { ..., status: 'UPCOMING' | 'SHOWING', isDeleted: false } })
+    activate DB
+    DB --> C: Bản ghi phim mới
+    deactivate DB
+    C --> UI: 201 Created
     deactivate C
-    UI --> A: Hiển thị modal / form Thêm phim
+    UI --> A: Hiển thị Toast thành công & làm mới bảng phim
     deactivate UI
-else Quản trị viên chọn Sửa thông tin phim
+else Quản trị viên chọn Sửa thông tin phim (FR-ADM-01)
     A -> UI: Chọn một phim & bấm nút "Chỉnh sửa"
     activate UI
-    UI -> C: Yêu cầu dữ liệu chi tiết của phim theo ID
+    UI -> C: GET /api/movies/[id]
     activate C
-    C -> DB: Tra cứu phim theo movie_id
+    C -> DB: prisma.movie.findUnique({ where: { id: movieId } })
     activate DB
     DB --> C: Dữ liệu chi tiết phim
     deactivate DB
-    C --> UI: Dữ liệu phim hiện tại
+    C --> UI: 200 OK (Dữ liệu phim hiện tại)
     deactivate C
     UI --> A: Hiển thị form chỉnh sửa phim với dữ liệu đã điền
-    deactivate UI
-else Quản trị viên chọn Ngừng chiếu phim
-    A -> UI: Chọn phim & bấm nút "Ngừng chiếu"
-    activate UI
-    UI -> C: Yêu cầu cập nhật trạng thái ngừng chiếu
+    A -> UI: Cập nhật thông tin & bấm "Lưu thay đổi"
+    UI -> C: PUT /api/movies/[id] (kèm JWT ADMIN)
     activate C
-    C -> DB: Cập nhật status = 'INACTIVE'
+    C -> C: requireAuth(['ADMIN']) & Validate dữ liệu
+    C -> DB: prisma.movie.update({ where: { id: movieId }, data: updateData })
     activate DB
-    DB --> C: Xác nhận cập nhật trạng thái thành công
+    DB --> C: Bản ghi phim đã cập nhật
     deactivate DB
-    C --> UI: Thông báo cập nhật thành công & danh sách mới
+    C --> UI: 200 OK
     deactivate C
-    UI --> A: Hiển thị Toast thành công & làm mới bảng phim
+    UI --> A: Hiển thị Toast cập nhật thành công
+    deactivate UI
+else Quản trị viên chọn Ngừng chiếu / Xóa phim (FR-ADM-02, BR-07)
+    A -> UI: Chọn phim & bấm nút "Ngừng chiếu / Xóa"
+    activate UI
+    UI -> C: DELETE /api/movies/[id] (kèm JWT ADMIN)
+    activate C
+    C -> C: Kiểm tra quyền hạn requireAuth(['ADMIN'])
+    C -> DB: Kiểm tra suất chiếu đang hoạt động:\nprisma.screening.findFirst({ where: { movieId, status: { in: ['UPCOMING', 'SHOWING'] } } })
+    activate DB
+    DB --> C: Kết quả kiểm tra suất chiếu
+    deactivate DB
+
+    alt Đang có suất chiếu UPCOMING hoặc SHOWING
+        C --> UI: 400 Bad Request\n("Không thể ngừng chiếu/xóa phim đang có suất chiếu UPCOMING hoặc SHOWING")
+        UI --> A: Hiển thị cảnh báo chặn xóa phim
+    else Không còn suất chiếu UPCOMING / SHOWING
+        C -> DB: Kiểm tra lịch sử bán vé (prisma.ticket.findFirst)\nThực hiện Soft Delete bảo toàn doanh thu (FR-ADM-02, BR-07):\nprisma.movie.update({ where: { id: movieId }, data: { status: 'ENDED', isDeleted: true } })
+        activate DB
+        DB --> C: Xác nhận cập nhật status = 'ENDED', isDeleted = true
+        deactivate DB
+        C --> UI: 200 OK (Ngừng chiếu / Xóa mềm thành công)
+        UI --> A: Hiển thị Toast thành công & làm mới bảng phim
+    end
+    deactivate C
+    deactivate UI
+else Quản trị viên chọn Cấu hình bảng giá vé & phụ thu (GET / PUT /api/pricing, BR-02)
+    A -> UI: Truy cập tab cấu hình giá vé & phụ thu
+    activate UI
+    UI -> C: GET /api/pricing -> PUT /api/pricing/[type] & PUT /api/pricing/surcharges (kèm JWT ADMIN)
+    activate C
+    C -> C: Xác thực requireAuth(['ADMIN'])
+    C -> DB: Cập nhật bảng giá vé (Vé Thường 100%, Vé Trẻ em 50%) & lưu vết AuditLog
+    activate DB
+    DB --> C: Xác nhận cập nhật giá vé & ghi AuditLog thành công
+    deactivate DB
+    C --> UI: 200 OK
+    deactivate C
+    UI --> A: Hiển thị Toast cập nhật bảng giá thành công
     deactivate UI
 end
 deactivate A

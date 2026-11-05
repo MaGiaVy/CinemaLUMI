@@ -11,22 +11,25 @@ skinparam state {
 
 title SƠ ĐỒ TRẠNG THÁI VÒNG ĐỜI PHIM (MOVIE STATE MACHINE)
 
-[*] --> UPCOMING : Admin thêm phim mới vào hệ thống (FR-ADM-01)\n/ Hiển thị banner "Sắp chiếu", poster, trailer & thông tin phim
+[*] --> UPCOMING : Admin thêm phim mới vào hệ thống (POST /api/admin/movies - FR-ADM-01)\n/ Thiết lập nhãn độ tuổi (P, C13, T18 - BR-02), isDeleted = false & hiển thị mục "Sắp chiếu"
 
-UPCOMING --> SHOWING : Quản lý rạp xếp ít nhất 1 suất chiếu hoạt động\n/ Hiển thị trong mục "Đang chiếu", mở tính năng đặt vé online
+UPCOMING --> SHOWING : Đến ngày khởi chiếu [TODAY >= releaseDate] hoặc Admin mở bán suất chiếu\n/ Cập nhật status = SHOWING [isDeleted = false], hiển thị mục "Đang chiếu" & mở đặt vé online
 
-SHOWING --> ENDED : Hết thời gian công chiếu hoặc Quản lý thực hiện Soft Delete (FR-ADM-02)\n[isDeleted = true]\n/ Ẩn khỏi trang chủ, ngừng xếp suất chiếu mới
+SHOWING --> ENDED : Hết thời gian công chiếu [TODAY > endDate]\nhoặc Admin thực hiện Ngừng chiếu / Soft Delete (FR-ADM-02, BR-07) [isDeleted = true]\n/ Ẩn khỏi danh sách đặt vé, ngừng xếp suất chiếu mới
 
-UPCOMING --> ENDED : Phim bị hủy lịch phát hành / Quản lý thực hiện Soft Delete (FR-ADM-02)\n[isDeleted = true]\n/ Ẩn khỏi danh sách sắp chiếu
+UPCOMING --> ENDED : Phim bị hủy lịch phát hành / Admin thực hiện Soft Delete (FR-ADM-02, BR-07)\n[isDeleted = true]\n/ Ẩn khỏi danh sách sắp chiếu
 
-ENDED --> [*] : Lưu trữ dữ liệu lịch sử phim trong hệ thống
+ENDED --> SHOWING : Admin mở chiếu lại phim (Re-release) [isDeleted = false]\n/ Cập nhật status = SHOWING, isDeleted = false & mở bán suất chiếu mới
+
+ENDED --> [*] : Lưu trữ dữ liệu lịch sử phim trong hệ thống (Không Hard Delete)
 
 note right of ENDED
-  <b>QUY TẮC XÓA MỀM (FR-ADM-02):</b>
-  Hệ thống sử dụng cờ <b>isDeleted = true</b>
-  chứ không xóa vật lý (Hard Delete),
-  nhằm bảo toàn tính toàn vẹn dữ liệu
-  cho báo cáo doanh thu và lịch sử vé đã bán.
+  <b>QUY TẮC XÓA MỀM & TÁI CHIẾU (FR-ADM-02, BR-07):</b>
+  - Hệ thống sử dụng cờ <b>isDeleted = true</b> kết hợp <b>status = ENDED</b>
+    chứ không xóa vật lý (Hard Delete) khi phim đã có lịch sử suất chiếu/vé,
+    nhằm bảo toàn tính toàn vẹn dữ liệu cho báo cáo doanh thu.
+  - Khi tái phát hành (<b>Re-release</b>), Admin chuyển trạng thái
+    <b>ENDED --> SHOWING</b> và đặt lại <b>[isDeleted = false]</b>.
 end note
 
 @enduml

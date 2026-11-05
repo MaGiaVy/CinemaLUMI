@@ -11,23 +11,27 @@ skinparam state {
 
 title SƠ ĐỒ TRẠNG THÁI GHẾ THEO SUẤT CHIẾU (SCREENING SEAT STATE MACHINE)
 
-[*] --> EMPTY : Tạo suất chiếu mới\n/ Khởi tạo mặc định 50 ghế trống (A1-E10)
+[*] --> EMPTY : Tạo suất chiếu mới (POST /api/admin/screenings - FR-ADM-03)\n/ Khởi tạo mặc định 50 ghế STANDARD trống (A1-E10 - BR-01), reservedUntil = null
 
-EMPTY --> RESERVED : Khách click chọn ghế trên sơ đồ (FR-SEL-01)\n/ Đặt khóa tạm thời: reservedUntil = NOW() + 10 phút
+EMPTY --> RESERVED : Khách hoặc Staff chọn ghế (POST /api/seats/reserve - FR-BOK-02)\n[status == EMPTY && Tối đa 8 ghế/lần]\n/ Khóa nguyên tử: reservedUntil = NOW() + 10 phút
 
-RESERVED --> EMPTY : [Quá hạn 10 phút giữ chỗ chưa thanh toán]\nhoặc Khách bỏ chọn ghế / Hủy phiên đặt vé\n/ Giải phóng ghế về trạng thái trống
+RESERVED --> EMPTY : [Quá hạn 10 phút chưa thanh toán: NOW() > reservedUntil]\nhoặc Khách bỏ chọn ghế / Thanh toán Failed\n/ Giải phóng ghế về trạng thái trống (status = EMPTY, reservedUntil = null)
 
-RESERVED --> OCCUPIED : Đơn hàng thanh toán thành công (VNPay / Tiền mặt POS)\n/ Xác nhận bán vé chính thức, gắn mã vé cố định
+RESERVED --> OCCUPIED : Đơn hàng thanh toán thành công (ZaloPay Sandbox v2 IPN / Tiền mặt POS)\n[Payment == Success && Vượt qua Partial Unique Index unique_active_ticket]\n/ Xác nhận bán vé chính thức, xóa reservedUntil = null, gắn Ticket (Valid)
 
-OCCUPIED --> EMPTY : [Vé xem phim bị hủy hợp lệ trước giờ chiếu]\n(Khách hủy trước 2h hoặc Rạp hủy trước giờ chiếu)\n/ Giải phóng ghế để khách khác có thể đặt lại
+OCCUPIED --> EMPTY : [Vé xem phim bị hủy hợp lệ trước giờ chiếu]\n(Khách hủy trước >= 2h hoặc Rạp hủy sự cố trước giờ chiếu)\n[Ticket -> Cancelled] / Giải phóng ghế (status = EMPTY, reservedUntil = null) để khách khác đặt lại
 
-OCCUPIED --> [*] : Suất chiếu kết thúc (Ended)\n/ Lưu trữ lịch sử ghế ngồi của suất chiếu
+OCCUPIED --> [*] : Suất chiếu kết thúc (Screening == ENDED)\n/ Lưu trữ lịch sử ghế ngồi phục vụ thống kê tỷ lệ lấp đầy
+EMPTY --> [*] : Suất chiếu kết thúc hoặc bị hủy (ENDED / CANCELLED)
 
 note right of RESERVED
-  <b>CƠ CHẾ KHÓA GHẾ TẠM THỜI:</b>
-  - Tránh tranh chấp đồng thời (Race condition)
-  - Nếu sau 10 phút không hoàn tất thanh toán,
-    hệ thống tự động trả ghế về EMPTY.
+  <b>CƠ CHẾ KHÓA GHẾ & CHỐNG TRÙNG VÉ (BR-01, FR-BOK-02):</b>
+  - Giới hạn giữ tối đa <b>08 ghế/giao dịch</b> trong <b>10 phút</b>.
+  - Chống tranh chấp đồng thời (Race Condition) bằng
+    ACID Transaction & Lazy Release khi quá hạn 10 phút.
+  - Ràng buộc <b>Partial Unique Index (unique_active_ticket)</b>:
+    <i>ON tickets(screening_id, seat_id) WHERE status != 'Cancelled'</i>
+    chặn tuyệt đối phát sinh 2 vé hiệu lực trên cùng 1 ghế.
 end note
 
 @enduml

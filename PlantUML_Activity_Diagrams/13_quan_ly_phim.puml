@@ -1,4 +1,4 @@
-﻿@startuml 13_quan_ly_phim
+@startuml 13_quan_ly_phim
 title SƠ ĐỒ HOẠT ĐỘNG: QUẢN LÝ DANH MỤC PHIM (MOVIE MANAGEMENT)
 skinparam conditionStyle insideDiamond
 skinparam defaultTextAlignment center
@@ -10,44 +10,53 @@ skinparam wrapWidth 180
 |Hệ thống|
 |Admin|
 start
-:Chọn quản lý phim;
+:Chọn chức năng Quản lý danh mục phim (/admin/movies);
 
 |Hệ thống|
-:Hiển thị danh sách phim;
+:Hiển thị danh sách phim (SHOWING, UPCOMING, ENDED);
 
 |Admin|
-:Chọn thêm, sửa hoặc ngừng chiếu;
+:Chọn thao tác: Thêm mới, Sửa hoặc Xóa / Ngừng chiếu phim;
 if (Thêm mới?) then (Có)
 else (Không)
   :Chọn phim cần xử lý;
   |Hệ thống|
-  :Tìm thông tin phim;
+  :Tìm thông tin phim trong CSDL;
   if (Tồn tại?) then (Có)
-    :Hiển thị thông tin hiện tại;
+    :Hiển thị thông tin hiện tại của phim;
   else (Không)
-    :Thông báo không tìm thấy phim;
+    :Thông báo không tìm thấy phim (404 Not Found);
     stop
   endif
 endif
 
 |Admin|
-if (Ngừng chiếu?) then (Có)
+if (Xóa / Ngừng chiếu?) then (Có - DELETE /api/movies/[id])
+  :Xác nhận yêu cầu xóa / ngừng chiếu phim;
   |Hệ thống|
-  if (Đã ngừng?) then (Có)
-    :Thông báo phim đã ngừng chiếu;
+  :Kiểm tra các suất chiếu của phim;
+  if (Có suất UPCOMING/SHOWING?) then (Có)
+    :Chặn xóa và trả về lỗi 400 Bad Request\n(yêu cầu kết thúc hoặc hủy các suất chiếu đang mở trước);
     stop
   else (Không)
-    :Kiểm tra phim đã có suất chiếu\nhoặc giao dịch vé hay chưa;
-    :Không xóa vĩnh viễn, chỉ chuyển trạng thái\nsang Ngừng chiếu (xóa mềm);
+    :Kiểm tra lịch sử vé đã phát hành của phim;
+    if (Đã có vé lịch sử?) then (Có - BR-07)
+      :Thực hiện Xóa mềm (Soft Delete):\nCập nhật status = 'ENDED' và isDeleted = true;
+    else (Không)
+      :Xóa bản ghi phim hoặc cập nhật status = 'ENDED', isDeleted = true;
+    endif
+    :Thông báo ngừng chiếu / xóa mềm phim thành công;
+    :Cập nhật lại danh sách phim;
+    stop
   endif
-else (Không)
+else (Không - Thêm mới / Sửa)
 endif
 
 |Hệ thống|
-:Hiển thị biểu mẫu hoặc yêu cầu xác nhận\ntheo thao tác đã chọn;
+:Hiển thị biểu mẫu nhập / cập nhật thông tin phim;
 
 |Admin|
-:Nhập hoặc sửa thông tin phim\n(tên, thể loại, thời lượng, poster)\nvà chọn nhãn độ tuổi P, C13 hoặc T18;
+:Nhập hoặc sửa thông tin phim\n(tên, thể loại, thời lượng, đạo diễn, diễn viên, poster, trạng thái)\nvà chọn nhãn độ tuổi chuẩn P, C13 hoặc T18;
 if (Xác nhận?) then (Có)
 else (Không)
   :Hủy thao tác;
@@ -55,7 +64,7 @@ else (Không)
 endif
 
 |Hệ thống|
-:Kiểm tra thông tin phim;
+:Kiểm tra tính hợp lệ của dữ liệu phim;
 while (Hợp lệ?) is (Không)
   :Thông báo lỗi và yêu cầu nhập lại;
   |Admin|
@@ -66,9 +75,9 @@ while (Hợp lệ?) is (Không)
 endwhile (Có)
 
 |Hệ thống|
-:Lưu mới, sửa thông tin hoặc ngừng chiếu phim\ntheo thao tác đã chọn;
+:Lưu mới (POST /api/movies) hoặc cập nhật phim (PUT /api/movies/[id]);
 if (Thành công?) then (Có)
-  :Thông báo thành công;
+  :Thông báo lưu thông tin phim thành công;
   :Cập nhật danh sách phim;
   stop
 else (Không)
@@ -76,4 +85,3 @@ else (Không)
   stop
 endif
 @enduml
-

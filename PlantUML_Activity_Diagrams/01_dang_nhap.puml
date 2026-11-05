@@ -61,7 +61,7 @@ else (Có)
       :Cập nhật Session tại SessionProvider;
       :Hiển thị Toast "Đăng nhập thành công!";
       if (Role?) then (ADMIN)
-        :Điều hướng sang /admin/dashboard;
+        :Điều hướng sang /admin (Admin Dashboard);
       else if (Role == STAFF?) then (STAFF)
         :Điều hướng sang /staff;
       else (CUSTOMER)

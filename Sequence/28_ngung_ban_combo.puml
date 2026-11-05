@@ -5,17 +5,17 @@ skinparam style strictuml
 skinparam monochrome true
 skinparam defaultTextAlignment center
 skinparam shadowing false
-title SƠ ĐỒ TUẦN TỰ: NGỪNG BÁN COMBO BẮP NƯỚC
+title SƠ ĐỒ TUẦN TỰ: NGỪNG BÁN / XÓA COMBO BẮP NƯỚC (UC-17)
 
-actor "Quản trị viên (Admin)" as A
-boundary "Giao diện quản lý combo" as UI
-control "Điều khiển combo" as C
-entity "Dữ liệu hệ thống" as DB
+actor "Quản trị viên\n(Admin)" as A
+boundary "Frontend Next.js\n(/admin/combos)" as UI
+control "Next.js API\n(/api/combos)" as C
+entity "Docker PostgreSQL\n(Prisma)" as DB
 
 activate A
-A -> UI: Chọn combo và bấm "Ngừng bán"
+A -> UI: Chọn combo và bấm "Ngừng bán / Xóa"
 activate UI
-UI --> A: Hiển thị hộp thoại xác nhận ngừng kinh doanh combo này
+UI --> A: Hiển thị hộp thoại xác nhận ngừng kinh doanh hoặc xóa combo này
 deactivate UI
 
 alt Quản trị viên hủy thao tác
@@ -23,30 +23,34 @@ alt Quản trị viên hủy thao tác
     activate UI
     UI --> A: Đóng hộp thoại, giữ nguyên trạng thái bán
     deactivate UI
-else Quản trị viên xác nhận ngừng bán
-    A -> UI: Bấm "Xác nhận ngừng bán"
+else Quản trị viên xác nhận thao tác
+    A -> UI: Bấm "Xác nhận"
     activate UI
-    UI -> C: Yêu cầu chuyển trạng thái combo sang INACTIVE
+    UI -> C: PUT /api/combos/[id] ({ status: 'INACTIVE' })\nhoặc DELETE /api/combos/[id] (kèm JWT ADMIN)
     activate C
-    C -> DB: Tra cứu trạng thái hiện tại của combo
+    C -> C: Xác thực quyền hạn requireAuth(['ADMIN']) (FR-AUTH-03)
+    C -> DB: Tra cứu combo & kiểm tra lịch sử đơn hàng (orderCombos):\nprisma.combo.findUnique({ where: { id: comboId }, include: { _count: { select: { orderCombos: true } } } })
     activate DB
-    DB --> C: Trạng thái hiện tại của combo
+    DB --> C: Bản ghi combo hiện tại & số lượng orderCombos
     deactivate DB
     
-    alt Combo vốn đã ngừng bán
-        C --> UI: Báo 400 Bad Request (Combo đã ngừng bán trước đó)
-        activate UI
-        UI --> A: Hiển thị thông báo trạng thái hiện tại
-        deactivate UI
-    else Combo đang hoạt động (ACTIVE)
-        C -> DB: Cập nhật status = 'INACTIVE'
+    alt Không tìm thấy combo -> 404 Not Found
+        C --> UI: 404 Not Found ("Không tìm thấy combo")
+        UI --> A: Hiển thị thông báo lỗi không tìm thấy combo
+    else Combo đã có lịch sử đơn hàng (orderCombos > 0) -> Soft Delete (INACTIVE)
+        C -> DB: Bảo toàn lịch sử đối soát doanh thu:\nprisma.combo.update({ where: { id: comboId }, data: { status: 'INACTIVE' } })
         activate DB
-        DB --> C: Xác nhận cập nhật thành công
+        DB --> C: Xác nhận cập nhật status = 'INACTIVE' thành công
         deactivate DB
-        C --> UI: Báo 200 OK (Ngừng bán thành công)
-        activate UI
-        UI --> A: Hiển thị Toast thành công & chuyển trạng thái trên giao diện
-        deactivate UI
+        C --> UI: 200 OK (Đã chuyển combo sang trạng thái ngừng bán INACTIVE)
+        UI --> A: Hiển thị Toast thành công & chuyển trạng thái INACTIVE trên giao diện
+    else Combo chưa từng phát sinh đơn hàng (orderCombos == 0)
+        C -> DB: Cập nhật status = 'INACTIVE' hoặc xóa cứng:\nprisma.combo.delete({ where: { id: comboId } })
+        activate DB
+        DB --> C: Xác nhận hoàn tất
+        deactivate DB
+        C --> UI: 200 OK (Thao tác thành công)
+        UI --> A: Hiển thị Toast thành công & làm mới danh sách combo
     end
     deactivate C
     deactivate UI

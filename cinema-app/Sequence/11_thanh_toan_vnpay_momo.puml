@@ -1,0 +1,80 @@
+@startuml 11_thanh_toan_vnpay_momo
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: CHI TIẾT GIAO THỨC TÍCH HỢP CỔNG ZALOPAY SANDBOX V2
+
+actor "Khách hàng" as A
+boundary "Giao diện Thanh toán\n(Frontend Next.js)" as UI
+control "API Thanh toán\n(Next.js App Router)" as C
+entity "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
+participant "Cổng ZaloPay Sandbox v2\n(sb-openapi.zalopay.vn)" as PAY
+
+activate A
+A -> UI: Bấm xác nhận thanh toán trực tuyến
+activate UI
+UI -> C: POST /api/payments/initiate
+activate C
+
+C -> C: Tạo chuỗi dữ liệu hmacInput:\napp_id|app_trans_id|app_user|amount|app_time|embed_data|item\n& Ký HMAC-SHA256 bằng ZALOPAY_KEY1
+C -> PAY: POST https://sb-openapi.zalopay.vn/v2/create\n(app_id = 2553, app_trans_id, amount, mac)
+activate PAY
+PAY -> PAY: Kiểm tra chữ ký MAC (ZALOPAY_KEY1)\nvà khởi tạo đơn thanh toán ZaloPay
+PAY --> C: Trả về { return_code: 1, order_url, zp_trans_token }
+deactivate C
+C --> UI: Trả về order_url
+UI --> A: Chuyển hướng sang giao diện cổng thanh toán ZaloPay Sandbox v2
+deactivate UI
+
+alt Khách hàng xác nhận thanh toán thành công
+    A -> PAY: Quét mã QR / Xác nhận thanh toán trên ZaloPay Sandbox
+    PAY -> PAY: Khấu trừ tiền & tạo gói tin callback (data + mac ký bằng ZALOPAY_KEY2)
+    
+    PAY -> C: POST /api/payments/zalopay-ipn\n{ data: JSON(app_trans_id, zp_trans_id, amount...), mac }
+    activate C
+    C -> C: Tính reqMac = HMAC-SHA256(data, ZALOPAY_KEY2)\n& so sánh chống timing attack bằng crypto.timingSafeEqual()
+    
+    alt Chữ ký MAC không hợp lệ
+        C --> PAY: { return_code: -1, return_message: "mac not equal" }
+    else Chữ ký MAC hợp lệ (return_code = 1)
+        C -> DB: Kiểm tra Idempotency theo app_trans_id\n(Nếu Payment.status == 'Success' thì trả về return_code: 2)
+        activate DB
+        DB --> C: Trạng thái đơn hàng hiện tại
+        deactivate DB
+        
+        opt Đơn hàng đang ở trạng thái 'Pending'
+            C -> DB: Prisma Transaction:\n- Payment.status = 'Success', zpTransId = zp_trans_id\n- Ticket.status = 'Valid', Seat.status = 'OCCUPIED'\n- ComboReservation.status = 'COMPLETED', tạo OrderCombo (isDelivered = false)\n- Tăng Coupon.usedCount (nếu có)
+            activate DB
+            DB --> C: Xác nhận cập nhật thành công
+            deactivate DB
+        end
+        C --> PAY: { return_code: 1, return_message: "success" }
+    end
+    deactivate C
+
+    PAY --> A: Điều hướng trình duyệt về Return URL:\nGET /api/payments/zalopay-return?status=1&apptransid=...&checksum=...
+    A -> C: GET /api/payments/zalopay-return?status=1&apptransid=...
+    activate C
+    C -> C: Kiểm tra checksum & đồng bộ Idempotency (fallback nếu IPN đến trễ)
+    C --> A: Chuyển hướng về trang Vé của tôi kèm mã QR (<QRCodeSVG />)
+    deactivate C
+
+else Khách hàng chủ động hủy hoặc giao dịch thất bại (status != 1)
+    A -> PAY: Bấm nút Hủy giao dịch trên cổng ZaloPay Sandbox
+    PAY --> A: Điều hướng về GET /api/payments/zalopay-return?status=-49&apptransid=...
+    A -> C: GET /api/payments/zalopay-return?status=-49
+    activate C
+    C -> DB: Cập nhật Payment.status = 'Failed', Ticket.status = 'Cancelled',\ngiải phóng ghế (Seat.status = 'EMPTY') & hoàn lại tồn kho Combo.stock
+    activate DB
+    DB --> C: Xác nhận cập nhật & giải phóng tài nguyên
+    deactivate DB
+    C --> A: Thông báo hủy giao dịch & điều hướng về màn hình đặt vé
+    deactivate C
+end
+
+deactivate PAY
+deactivate A
+@enduml

@@ -1,5 +1,5 @@
-﻿@startuml 15_huy_suat_chieu_khan_cap
-title SƠ ĐỒ HOẠT ĐỘNG: HỦY SUẤT CHIẾU KHẨN CẤP DO SỰ CỐ (EMERGENCY SCREENING CANCELLATION)
+@startuml 15_huy_suat_chieu_khan_cap
+title SƠ ĐỒ HOẠT ĐỘNG: HỦY SUẤT CHIẾU KHẨN CẤP DO SỰ CỐ (EMERGENCY SCREENING CANCELLATION - FR-ADM-04 & BR-04)
 skinparam conditionStyle insideDiamond
 skinparam defaultTextAlignment center
 skinparam shadowing false
@@ -11,19 +11,19 @@ skinparam wrapWidth 180
 |Admin|
 start
 :Chọn quản lý suất chiếu;
-:Chọn suất chiếu gặp sự cố phòng chiếu;
+:Chọn suất chiếu gặp sự cố kỹ thuật / phòng chiếu;
 :Chọn hủy suất chiếu khẩn cấp\nvà nhập lý do sự cố;
 
 |Hệ thống|
 :Tìm suất chiếu và kiểm tra trạng thái;
 if (Còn hiệu lực?) then (Có)
 else (Không)
-  :Thông báo không thể hủy suất chiếu;
+  :Thông báo không thể hủy suất chiếu đã kết thúc hoặc đã hủy;
   stop
 endif
 
 |Hệ thống|
-:Hiển thị cảnh báo số vé và combo bị ảnh hưởng;
+:Hiển thị cảnh báo số lượng vé Valid và đơn combo bị ảnh hưởng;
 
 |Admin|
 if (Xác nhận?) then (Có)
@@ -33,22 +33,20 @@ else (Không)
 endif
 
 |Hệ thống|
-:Chuyển suất chiếu sang Cancelled và ngừng bán vé;
-:Hủy toàn bộ vé chưa sử dụng của suất chiếu\n(vé đã Used được giữ nguyên);
-:Ghi nhận công nợ Chờ hoàn tiền 100%\ncho các vé bị hủy;
-:Giải phóng ghế nhưng khóa không cho đặt lại\ntrên suất chiếu này;
-:Hoàn tiền và cộng lại tồn kho cho combo Chưa nhận;
-:Ghi nhận nhật ký kiểm toán;
+:Chuyển trạng thái suất chiếu sang CANCELLED / ENDED và ngừng bán vé;
+:Hủy toàn bộ vé đang Valid sang Cancelled\n(ghi nhận công nợ hoàn tiền 100% PENDING_CASH_REFUND; giữ nguyên vé đã Used);
+:Giải phóng toàn bộ ghế của suất chiếu về EMPTY;
+:Hoàn lại tồn kho Combo.stock cho các combo chưa nhận (OrderCombo.isDelivered = false);
+:Ghi nhận nhật ký kiểm toán (AuditLog);
 if (Thành công?) then (Có)
-  :Gửi thông báo cho khách:\ncó 30 ngày để nhận hoàn tiền mặt tại rạp;
-  :Hiển thị kết quả xử lý sự cố;
+  :Gửi thông báo cho khách hàng bị ảnh hưởng:\nCó 30 ngày để nhận hoàn tiền mặt 100% tại quầy rạp;
+  :Hiển thị kết quả xử lý sự cố và danh sách vé chờ hoàn tiền;
 else (Không)
-  :Hoàn tác toàn bộ thay đổi (rollback)\nvà thông báo thao tác thất bại;
+  :Hoàn tác toàn bộ thay đổi (Rollback Transaction)\nvà thông báo thao tác thất bại;
 endif
 
 |Admin|
-:Xem kết quả xử lý;
+:Xem kết quả xử lý sự cố;
 
 stop
 @enduml
-

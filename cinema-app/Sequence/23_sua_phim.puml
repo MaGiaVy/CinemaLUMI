@@ -1,0 +1,56 @@
+@startuml 23_sua_phim
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: CHỈNH SỬA THÔNG TIN PHIM (FR-ADM-01, BR-02)
+
+actor "Quản trị viên\n(Admin)" as A
+boundary "Frontend Next.js\n(/admin/movies)" as UI
+control "Next.js API\n(/api/movies)" as C
+entity "Docker PostgreSQL\n(Prisma)" as DB
+
+activate A
+A -> UI: Chọn phim cần chỉnh sửa và bấm "Sửa"
+activate UI
+UI -> C: GET /api/movies/[id]
+activate C
+C -> DB: prisma.movie.findUnique({ where: { id: movieId } })
+activate DB
+DB --> C: Bản ghi thông tin phim hoặc null
+deactivate DB
+
+alt Không tìm thấy phim trong hệ thống (hoặc isDeleted == true)
+    C --> UI: 404 Not Found (Phim không tồn tại)
+    UI --> A: Hiển thị thông báo lỗi không tìm thấy phim
+else Tìm thấy thông tin phim
+    C --> UI: 200 OK (Dữ liệu phim hiện tại)
+    deactivate C
+    UI --> A: Hiển thị form chỉnh sửa với dữ liệu cũ\n(title, duration, ageRating: P | C13 | T18, status: SHOWING | UPCOMING | ENDED)
+    deactivate UI
+    
+    A -> UI: Nhập thông tin chỉnh sửa và bấm "Cập nhật"
+    activate UI
+    UI -> C: PUT /api/movies/[id]\n(kèm JWT ADMIN & dữ liệu cập nhật)
+    activate C
+    C -> C: Xác thực quyền hạn requireAuth(['ADMIN']) (FR-AUTH-03)
+    C -> C: Kiểm tra tính hợp lệ dữ liệu cập nhật\n(duration > 0, ageRating IN ('P', 'C13', 'T18'), status IN ('SHOWING', 'UPCOMING', 'ENDED'))
+    
+    alt Dữ liệu cập nhật không hợp lệ
+        C --> UI: 400 Bad Request (Lỗi dữ liệu đầu vào)
+        UI --> A: Hiển thị lỗi yêu cầu điều chỉnh lại
+    else Dữ liệu hợp lệ
+        C -> DB: prisma.movie.update({\n  where: { id: movieId },\n  data: { title, duration, ageRating, ticketPrice, releaseDate, endDate, status }\n})
+        activate DB
+        DB --> C: Bản ghi phim đã được cập nhật
+        deactivate DB
+        C --> UI: 200 OK (Cập nhật thành công)
+        UI --> A: Hiển thị Toast cập nhật thành công & làm mới bảng
+    end
+    deactivate C
+    deactivate UI
+end
+deactivate A
+@enduml

@@ -11,25 +11,28 @@ skinparam state {
 
 title SƠ ĐỒ TRẠNG THÁI SUẤT CHIẾU (SCREENING STATE MACHINE)
 
-[*] --> UPCOMING : Quản lý tạo suất chiếu mới (FR-ADM-04)\n/ Thiết lập phòng, phim, giờ chiếu & mở bán vé
+[*] --> UPCOMING : Quản lý tạo suất chiếu mới (POST /api/admin/screenings - FR-ADM-03)\n[Không giao cắt giờ chiếu + 15p dọn phòng (BR-08)]\n/ Tự sinh 50 ghế STANDARD (A1..E10 - BR-01) & mở bán vé
 
-UPCOMING --> SHOWING : [Hiện tại >= startTime]\n/ Tự động đóng bán vé online, mở cổng soát vé phòng chiếu
+UPCOMING --> SHOWING : Đến giờ bắt đầu chiếu [NOW() >= startTime]\n/ Tự động đóng bán vé online, duy trì cổng soát vé QR tại rạp
 
-SHOWING --> ENDED : [Hiện tại >= startTime + duration]\n/ Kết thúc suất chiếu, chốt doanh thu phòng vé
+SHOWING --> ENDED : Hết thời lượng chiếu phim [NOW() >= endTime]\n/ Đóng cổng soát vé, kết thúc suất chiếu & chốt doanh thu phòng vé
 
-UPCOMING --> CANCELLED : Quản lý kích hoạt Hủy suất chiếu khẩn cấp do sự cố\n(Mất điện, hỏng phòng chiếu, hỏng máy chiếu - FR-ADM-04)\n/ Dừng bán vé ngay lập tức,\n  Tự động chuyển toàn bộ vé đã bán sang Cancelled,\n  Thiết lập refundStatus = PENDING_CASH_REFUND (BR-04)
+UPCOMING --> CANCELLED : Quản lý kích hoạt Hủy suất chiếu khẩn cấp do sự cố\n(Mất điện, hỏng phòng chiếu, hỏng máy chiếu - FR-ADM-04)\n/ Dừng bán vé ngay lập tức,\n  Chuyển toàn bộ vé Valid sang Cancelled (PENDING_CASH_REFUND 100% - BR-04),\n  Giải phóng ghế về EMPTY, hoàn kho Combo chưa nhận & ghi AuditLog
 
-SHOWING --> CANCELLED : Sự cố kỹ thuật nghiêm trọng dừng phim giữa chừng\n/ Quản lý xác nhận hủy suất đang chiếu,\n  Kích hoạt quy trình bồi thường & giải quyết sự cố
+SHOWING --> CANCELLED : Sự cố kỹ thuật nghiêm trọng dừng phim giữa chừng (FR-ADM-04)\n/ Quản lý xác nhận hủy suất đang chiếu,\n  Kích hoạt quy trình bồi hoàn 100% tiền mặt (PENDING_CASH_REFUND - BR-04) & ghi AuditLog
 
 ENDED --> [*] : Hoàn tất lưu trữ lịch sử suất chiếu
-CANCELLED --> [*] : Hoàn tất quy trình xử lý sự cố rạp
+CANCELLED --> [*] : Hoàn tất quy trình xử lý sự cố rạp & lưu vết AuditLog
 
 note right of CANCELLED
-  <b>ĐỒNG BỘ TRẠNG THÁI TOÀN HỆ THỐNG:</b>
-  Khi Suất chiếu -> CANCELLED:
-  1. Vé đã bán -> Cancelled (PENDING_CASH_REFUND 100%)
-  2. Ghế đã bán -> EMPTY
-  3. Combo bắp nước trong đơn -> Cancelled & hoàn kho
+  <b>ĐỒNG BỘ TRẠNG THÁI TOÀN HỆ THỐNG (BR-04, BR-08):</b>
+  - Khi tạo suất chiếu mới (<b>FR-ADM-03</b>): Kiểm tra chống trùng phòng
+    <b>[startTime, endTime + 15p dọn phòng] (BR-08)</b> và tự sinh 50 ghế <b>A1..E10 (BR-01)</b>.
+  - Khi Suất chiếu -> <b>CANCELLED</b>:
+    1. Toàn bộ vé <i>Valid</i> -> <b>Cancelled (PENDING_CASH_REFUND 100%)</b>
+    2. Toàn bộ ghế của suất chiếu -> <b>EMPTY</b>
+    3. Combo chưa nhận (<i>isDelivered = false</i>) -> <b>Cancelled & hoàn lại Combo.stock</b>
+    4. Ghi nhận nhật ký kiểm toán sự cố vào <b>AuditLog</b>
 end note
 
 @enduml

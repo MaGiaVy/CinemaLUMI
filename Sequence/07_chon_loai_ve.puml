@@ -13,35 +13,38 @@ control "Điều khiển mua vé" as C
 entity "Dữ liệu hệ thống" as DB
 
 activate A
-A -> UI: Chuyển sang bước chọn loại vé
+A -> UI: Chuyển sang bước chọn loại vé cho các ghế đang giữ
 activate UI
-UI -> C: Yêu cầu danh sách loại vé theo nhãn tuổi phim
+UI -> C: GET /api/pricing & kiểm tra nhãn tuổi phim từ GET /api/screenings/[id]
 activate C
-C -> DB: Lấy các loại vé (Thường 100%, Trẻ em 50%) và nhãn tuổi phim
+C -> DB: Lấy cấu hình giá vé (Người lớn 100%, Trẻ em 50%, phụ thu VIP/Cuối tuần)\nvà nhãn độ tuổi phim (ageRating: P, C13, T18)
 activate DB
-DB --> C: Danh sách loại vé và nhãn độ tuổi (P, K, T13, T16, T18)
+DB --> C: Bảng giá vé và nhãn độ tuổi (P, C13, T18)
 deactivate DB
-C --> UI: Danh sách loại vé khả dụng
+C -> C: Áp dụng quy tắc BR-02: Nếu phim gắn nhãn T18,\nkhóa/vô hiệu hóa loại vé Trẻ em (giảm 50%)
+C --> UI: 200 OK (Danh sách loại vé khả dụng và đơn giá)
 deactivate C
-UI --> A: Hiển thị các loại vé phù hợp
+UI --> A: Hiển thị các loại vé phù hợp (Khóa vé Trẻ em nếu phim T18)
 deactivate UI
 
-A -> UI: Chọn loại vé cho từng ghế đã chọn
+A -> UI: Chọn số lượng từng loại vé tương ứng với số ghế đã chọn
 activate UI
-UI -> C: Gửi loại vé được chọn
+UI -> C: Gửi phân bổ loại vé đã chọn
 activate C
-C -> DB: Kiểm tra sự phù hợp với nhãn tuổi phim & lấy bảng giá (BR-02)
-activate DB
-DB --> C: Trạng thái hợp lệ và đơn giá vé tương ứng
-deactivate DB
+C -> C: Kiểm tra quy tắc:\n1. Tổng số lượng vé == Tổng số ghế đang giữ (reservedSeats.length)\n2. Kiểm tra nhãn tuổi phim (BR-02: Cấm vé Trẻ em 50% khi phim T18)
 
-alt Không phù hợp nhãn tuổi (VD: Vé Trẻ em cho phim T18)
-    C --> UI: Báo loại vé không áp dụng cho phim này
+alt Tổng số vé khác tổng số ghế đang giữ
+    C --> UI: Báo tổng số lượng vé phải bằng đúng số ghế đang giữ
     activate UI
-    UI --> A: Hiển thị cảnh báo & yêu cầu chọn loại vé khác
+    UI --> A: Yêu cầu điều chỉnh lại số lượng từng loại vé
     deactivate UI
-else Hợp lệ với nhãn tuổi phim
-    C -> C: Ghi nhận loại vé và đơn giá vào giao dịch
+else Vi phạm nhãn tuổi (Chọn vé Trẻ em 50% cho phim T18 - BR-02)
+    C --> UI: 400 Bad Request (Phim T18 không áp dụng vé Trẻ em)
+    activate UI
+    UI --> A: Hiển thị cảnh báo & yêu cầu chọn vé Người lớn (100%)
+    deactivate UI
+else Hợp lệ (Đúng số ghế đang giữ & phù hợp nhãn tuổi P, C13, T18)
+    C -> C: Ghi nhận cơ cấu loại vé và tính tổng tiền vé tạm tính
     C --> UI: Xác nhận loại vé và hiển thị tổng tiền vé
     activate UI
     UI --> A: Hiển thị danh sách vé & đơn giá cập nhật

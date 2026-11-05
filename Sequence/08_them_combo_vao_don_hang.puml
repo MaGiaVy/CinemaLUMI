@@ -13,44 +13,47 @@ control "Điều khiển mua vé" as C
 entity "Dữ liệu hệ thống" as DB
 
 activate A
-A -> UI: Chọn thêm combo bắp nước
+A -> UI: Chuyển sang bước chọn thêm combo bắp nước
 activate UI
-UI -> C: Yêu cầu danh sách combo đang phục vụ
+UI -> C: GET /api/combos (Yêu cầu danh sách combo đang phục vụ)
 activate C
-C -> DB: Lấy danh sách combo đang bán (ACTIVE)
+C -> DB: prisma.combo.findMany({ where: { status: 'ACTIVE' } })
 activate DB
-DB --> C: Danh sách combo và đơn giá
+DB --> C: Danh sách combo, đơn giá và tồn kho hiện tại (stock)
 deactivate DB
-C --> UI: Danh sách combo
+C --> UI: 200 OK (Danh sách combo)
 deactivate C
 UI --> A: Hiển thị danh mục combo bắp nước
 deactivate UI
 
-A -> UI: Chọn combo và số lượng mong muốn
+A -> UI: Chọn combo, số lượng mong muốn và bấm Tiếp tục
 activate UI
-UI -> C: Yêu cầu thêm combo vào đơn hàng
+UI -> C: POST /api/combos/reserve\n{ items: [{ comboId, quantity }] }
 activate C
-C -> DB: Kiểm tra trạng thái bán và số lượng tồn kho
+C -> DB: Thực thi prisma.$transaction:\n1. Lazy Release: Tìm các ComboReservation có status='RESERVED' và reservedUntil < NOW(),\n   hoàn lại Combo.stock và cập nhật status='EXPIRED'\n2. Kiểm tra từng combo (status == 'ACTIVE' và Combo.stock >= quantity)
 activate DB
-DB --> C: Trạng thái kinh doanh và tồn kho hiện tại
+DB --> C: Kết quả kiểm tra trạng thái và tồn kho thực tế
 deactivate DB
 
-alt Combo đã ngừng bán
-    C --> UI: Báo combo đã ngừng kinh doanh
+alt Combo đã ngừng bán (status != 'ACTIVE')
+    C --> UI: 400 Bad Request (Combo đã ngừng kinh doanh)
     activate UI
     UI --> A: Hiển thị thông báo combo không còn phục vụ
     deactivate UI
-else Số lượng yêu cầu vượt quá tồn kho
-    C --> UI: Báo số lượng tồn kho không đủ
+else Số lượng yêu cầu vượt quá tồn kho (Combo.stock < quantity)
+    C --> UI: 400 Bad Request (Số lượng tồn kho không đủ)
     activate UI
     UI --> A: Yêu cầu điều chỉnh lại số lượng combo
     deactivate UI
-else Đang bán và đủ tồn kho
-    C -> C: Thêm combo vào đơn hàng hiện tại
+else Đang bán và đủ tồn kho (Hợp lệ)
+    C -> DB: Trong cùng prisma.$transaction:\n- Trừ tạm tồn kho: Combo.stock = Combo.stock - quantity\n- Tạo bản ghi ComboReservation (status = 'RESERVED', reservedUntil = NOW() + 10 phút)
+    activate DB
+    DB --> C: Trả về danh sách reservationIds và thời hạn giữ 10 phút
+    deactivate DB
     C -> C: Cập nhật tổng tiền đơn hàng (Tiền vé + Tiền combo)
-    C --> UI: Đơn hàng mới và tổng tiền chi tiết
+    C --> UI: 200 OK (Đơn hàng mới, reservationIds & tổng tiền chi tiết)
     activate UI
-    UI --> A: Hiển thị danh sách combo đã chọn & tổng tiền mới
+    UI --> A: Hiển thị danh sách combo đã giữ chỗ 10 phút & tổng tiền mới
     deactivate UI
 end
 deactivate C

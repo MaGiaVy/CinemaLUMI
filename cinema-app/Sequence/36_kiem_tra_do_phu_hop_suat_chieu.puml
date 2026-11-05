@@ -1,0 +1,46 @@
+@startuml 36_kiem_tra_do_phu_hop_suat_chieu
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: KIỂM TRA CHỐNG TRÙNG LỊCH PHÒNG CHIẾU & ĐỘ PHÙ HỢP SUẤT CHIẾU (BR-02, BR-08)
+
+actor "Quản trị viên\n(Admin)" as A
+boundary "Frontend Next.js\n(/admin/screenings)" as UI
+control "Next.js API\n(/api/screenings)" as C
+entity "Docker PostgreSQL\n(Prisma)" as DB
+
+activate A
+A -> UI: Nhập thông tin suất chiếu dự kiến (movieId, room: 1..5, startTime)
+activate UI
+UI -> C: Gửi thông tin suất chiếu dự kiến để kiểm tra\n(POST / PUT /api/screenings kèm JWT ADMIN)
+activate C
+
+C -> C: Xác thực quyền hạn requireAuth(['ADMIN']) (FR-AUTH-03)
+
+C -> DB: Truy vấn thông tin phim từ bảng movies:\nprisma.movie.findUnique({ where: { id: movieId }, select: { duration, ageRating, status, isDeleted } })
+activate DB
+DB --> C: Thông tin phim (duration, ageRating: P | C13 | T18, status: SHOWING | UPCOMING)
+deactivate DB
+
+C -> C: Kiểm tra nhãn độ tuổi ageRating (P, C13, T18) để áp dụng quy tắc vé (BR-02:\nNếu phim T18 sẽ tự động khóa vé Trẻ em 50% khi mở bán)
+C -> C: Tính toán khung giờ chiếm dụng phòng chiếu theo quy tắc BR-08:\nendTime = startTime + movie.duration (phút) + 15 phút nghỉ dọn vệ sinh phòng
+
+C -> DB: Tra cứu các suất chiếu khác trong cùng phòng chiếu giao thoa khung giờ (BR-08):\nprisma.screening.findMany({\n  where: {\n    room,\n    status: { in: ['UPCOMING', 'SHOWING'] },\n    startTime: { lt: endTime },\n    endTime: { gt: startTime }\n  }\n})
+activate DB
+DB --> C: Danh sách suất chiếu giao thoa trong phòng (conflictingScreenings)
+deactivate DB
+
+alt Trùng lịch phòng chiếu hoặc không đủ khoảng cách 15 phút dọn dẹp (Vi phạm BR-08)
+    C --> UI: 400 Bad Request (Không phù hợp: Xung đột lịch chiếu trong phòng theo BR-08)
+    UI --> A: Hiển thị cảnh báo trực quan & đề xuất khung giờ trống tiếp theo
+else Khung giờ hoàn toàn khả dụng (Đạt chuẩn BR-02 & BR-08)
+    C --> UI: 200 OK (Đạt yêu cầu: Phòng chiếu trống & đáp ứng +15 phút dọn phòng)
+    UI --> A: Đánh dấu hợp lệ (tick xanh) & cho phép lưu suất chiếu
+end
+deactivate C
+deactivate UI
+deactivate A
+@enduml

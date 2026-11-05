@@ -1,0 +1,59 @@
+@startuml 17_khach_huy_ve_nhan_voucher
+hide footbox
+title SƠ ĐỒ TUẦN TỰ: KHÁCH HÀNG TỰ HỦY VÉ & CẤP VOUCHER BỒI HOÀN (CUSTOMER CANCELLATION)
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultTextAlignment center
+
+actor "Khách hàng\n(Customer)" as KH
+boundary "Giao diện Chi tiết vé\n(Frontend Next.js)" as UI
+control "API Hủy vé khách hàng\n(Next.js App Router)" as API
+entity "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
+participant "Dịch vụ Email\n(Nodemailer SMTP)" as MAIL
+
+activate KH
+KH -> UI : Xem chi tiết vé đã đặt và chọn "Hủy vé"
+activate UI
+
+UI --> KH : Hiển thị Modal cảnh báo quy chế BR-03:\n- Hủy trước giờ chiếu >= 2 tiếng\n- Cấp Voucher bồi hoàn giảm 50% (hạn 30 ngày)\n- Không hoàn tiền mặt / chuyển khoản
+
+KH -> UI : Bấm nút "Xác nhận hủy vé"
+
+UI -> API : POST /api/tickets/{id}/cancel\n(JWT Header)
+activate API
+
+API -> DB : prisma.ticket.findUnique({\n  where: { id },\n  include: { screening: true, user: true }\n})
+activate DB
+DB --> API : Trả về thông tin vé, giờ bắt đầu suất chiếu và chủ sở hữu
+deactivate DB
+
+API -> API : Kiểm tra điều kiện nghiệp vụ BR-03:\n1. Vé thuộc chính chủ khách hàng\n2. Ticket.status == 'Valid'\n3. Khoảng thời gian: (startTime - NOW()) >= 2 tiếng (120 phút)
+
+alt Không thỏa mãn điều kiện hủy vé
+    API --> UI : 400 Bad Request\n{ message: "Không thể hủy vé (Cách giờ chiếu < 2h hoặc vé đã sử dụng)" }
+    UI --> KH : Hiển thị Toast lỗi màu đỏ viền đậm từ chối hủy
+else Đủ điều kiện hủy theo quy chế BR-03
+    API -> API : Tự động sinh mã Voucher bồi hoàn:\ncode = "COMP50_" + ticketId + "_" + random(6)
+
+    API -> DB : Prisma Transaction nguyên tử:\n1. Ticket.status = 'Cancelled',\n   cancellationReason = "Khách chủ động hủy theo BR-03"\n2. Seat.status = 'EMPTY' (Giải phóng vị trí ghế)\n3. Coupon.create({\n     code, discountType: 'Percentage', discountValue: 50,\n     maxUsage: 1, expiryDate: NOW() + 30 ngày, userId\n   })\n4. Ghi Audit Log hủy vé
+    activate DB
+    DB --> API : Xác nhận hoàn tất Transaction
+    deactivate DB
+
+    API -> MAIL : Gửi thư thông báo cấp Voucher bồi hoàn 50%\nkèm mã code và hạn sử dụng 30 ngày
+    activate MAIL
+    MAIL --> API : Xác nhận đã gửi email thành công
+    deactivate MAIL
+
+    API --> UI : 200 OK\n{ success: true, voucherCode, expiryDate }
+    deactivate API
+
+    UI --> KH : Hiển thị Toast thông báo thành công viền đậm:\n"Hủy vé thành công! Voucher giảm 50% đã được gửi vào tài khoản"
+    note right of UI : Vé khác trong đơn và combo mua kèm được giữ nguyên.\nKhông hoàn tiền và không hoàn kho combo.
+end
+
+deactivate UI
+deactivate KH
+@enduml

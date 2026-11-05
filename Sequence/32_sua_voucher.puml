@@ -5,54 +5,50 @@ skinparam style strictuml
 skinparam monochrome true
 skinparam defaultTextAlignment center
 skinparam shadowing false
-title SƠ ĐỒ TUẦN TỰ: CHỈNH SỬA VOUCHER
+title SƠ ĐỒ TUẦN TỰ: CHỈNH SỬA VOUCHER (FR-VOU-01)
 
-actor "Quản trị viên (Admin)" as A
-boundary "Giao diện quản lý voucher" as UI
-control "Điều khiển voucher" as C
-entity "Dữ liệu hệ thống" as DB
+actor "Quản trị viên\n(Admin)" as A
+boundary "Frontend Next.js\n(/admin/coupons)" as UI
+control "Next.js API\n(/api/coupons)" as C
+entity "Docker PostgreSQL\n(Prisma)" as DB
 
 activate A
 A -> UI: Chọn voucher cần sửa và bấm "Chỉnh sửa"
 activate UI
-UI -> C: Yêu cầu thông tin voucher theo ID
+UI -> C: GET /api/coupons/[id]\n(kèm JWT ADMIN)
 activate C
-C -> DB: Tra cứu voucher trong CSDL
+C -> C: Xác thực quyền hạn requireAuth(['ADMIN'])
+C -> DB: prisma.coupon.findUnique({\n  where: { id: couponId },\n  include: { applicableMovie: true, user: true }\n})
 activate DB
-DB --> C: Bản ghi voucher hoặc null
+DB --> C: Bản ghi coupon hoặc null\n(Phân biệt Admin Campaign userId == null và Voucher bồi hoàn COMP50_ gắn userId)
 deactivate DB
 
 alt Không tìm thấy voucher
-    C --> UI: Báo 404 Not Found (Voucher không tồn tại)
-    activate UI
+    C --> UI: 404 Not Found ("Không tìm thấy voucher")
     UI --> A: Hiển thị thông báo không tìm thấy voucher
-    deactivate UI
 else Tìm thấy voucher
-    C --> UI: Thông tin voucher hiện tại
+    C --> UI: 200 OK (Thông tin voucher hiện tại: code, discountType, discountValue, usedCount, maxUsage, expiryDate)
     deactivate C
     UI --> A: Hiển thị form chỉnh sửa với dữ liệu cũ
     deactivate UI
     
-    A -> UI: Điều chỉnh hạn sử dụng, điều kiện và bấm "Cập nhật"
+    A -> UI: Điều chỉnh hạn sử dụng (expiryDate), tổng lượt dùng (maxUsage), mức giảm và bấm "Cập nhật"
     activate UI
-    UI -> C: Gửi dữ liệu cập nhật voucher
+    UI -> C: PUT /api/coupons/[id]\n(kèm JWT ADMIN & dữ liệu cập nhật)
     activate C
-    C -> C: Kiểm tra dữ liệu cập nhật
+    C -> C: Xác thực quyền hạn requireAuth(['ADMIN']) (FR-AUTH-03)
+    C -> C: Kiểm tra ràng buộc nghiệp vụ:\n1. Nếu đổi code -> Kiểm tra không trùng mã khác\n2. maxUsage >= existingCoupon.usedCount (INVALID_MAX_USAGE)\n3. Nếu discountType == 'Percentage' -> discountValue <= 100
     
-    alt Dữ liệu cập nhật không hợp lệ
-        C --> UI: Báo 400 Bad Request (Hạn sử dụng không hợp lệ)
-        activate UI
+    alt Dữ liệu cập nhật vi phạm ràng buộc (VD: maxUsage < usedCount hoặc trùng code)
+        C --> UI: 400 Bad Request ("Số lượt sử dụng tối đa không được nhỏ hơn số lượt đã dùng" / "Dữ liệu không hợp lệ")
         UI --> A: Hiển thị cảnh báo lỗi dữ liệu
-        deactivate UI
     else Dữ liệu hợp lệ
-        C -> DB: Cập nhật thông tin voucher vào CSDL
+        C -> DB: prisma.coupon.update({\n  where: { id: couponId },\n  data: { code, discountType, discountValue, minAmount, maxUsage, expiryDate, applicableMovieId }\n})
         activate DB
-        DB --> C: Bản ghi voucher đã cập nhật
+        DB --> C: Bản ghi coupon đã cập nhật
         deactivate DB
-        C --> UI: Báo 200 OK (Cập nhật thành công)
-        activate UI
+        C --> UI: 200 OK (Cập nhật voucher thành công)
         UI --> A: Hiển thị Toast thành công & làm mới bảng voucher
-        deactivate UI
     end
     deactivate C
     deactivate UI

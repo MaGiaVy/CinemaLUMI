@@ -14,51 +14,51 @@ control "API Soát bắp nước\n(Next.js App Router)" as API
 entity "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
 
 activate KH
-KH -> NV : Xuất trình Mã đơn hàng (#LMC-XXXXXX) hoặc mã QR đơn hàng
+KH -> NV : Xuất trình Mã giao dịch / Mã vé hoặc mã QR đơn hàng
 deactivate KH
 
 activate NV
-NV -> UI : Mở màn hình Giao nhận combo (/staff/concession/fulfill)
+NV -> UI : Mở màn hình Giao nhận combo (/staff/combos)
 activate UI
-NV -> UI : Nhập hoặc quét mã đơn hàng
+NV -> UI : Nhập mã tìm kiếm hoặc quét mã QR đơn hàng
 
-UI -> API : GET /api/staff/orders/{code}/combos
+UI -> API : GET /api/staff/combos/orders?q={searchQuery}
 activate API
 
-API -> DB : prisma.order.findUnique({\n  where: { code },\n  include: { orderCombos: { include: { combo: true } } }\n})
+API -> DB : prisma.payment.findMany({\n  where: { status: 'Success', ... },\n  include: { orderCombos: { include: { combo: true } }, user: true }\n})
 activate DB
-DB --> API : Trả về thông tin đơn hàng & trạng thái các gói combo
+DB --> API : Trả về danh sách đơn thanh toán (Payment) kèm các bản ghi OrderCombo
 deactivate DB
 
-alt Mã đơn hàng không tồn tại trong hệ thống
+alt Không tìm thấy đơn hàng bắp nước hợp lệ
     API --> UI : 404 Not Found { message: "Không tìm thấy đơn hàng bắp nước!" }
     UI --> NV : Hiển thị Toast lỗi màu đỏ, từ chối giao hàng
     NV -> KH : Thông báo mã đơn không hợp lệ, yêu cầu kiểm tra lại
-else Đơn hàng hợp lệ nhưng toàn bộ combo đã được nhận trước đó (BR-05)
-    API --> UI : 409 Conflict {\n  message: "Gói combo đã được nhận!",\n  deliveredAt, deliveredBy\n}
-    UI --> NV : Cảnh báo: "Combo đã được nhận lúc [thời gian] bởi nhân viên [tên]!"
+else Toàn bộ OrderCombo trong đơn đã được giao trước đó (isDelivered == true) (BR-05)
+    API --> UI : 200 OK (Trạng thái: isDelivered = true, kèm deliveredAt)
+    UI --> NV : Cảnh báo: "Combo đã được giao lúc [deliveredAt]!" (Nút giao hàng bị khóa)
     NV -> KH : Từ chối giao hàng lần hai (Chặn nhận trùng theo quy định BR-05)
-else Đơn hàng có combo chưa nhận (status == 'NOT_DELIVERED')
-    API --> UI : 200 OK (Chi tiết danh sách combo cần giao)
+else Đơn hàng có combo chưa nhận (OrderCombo.isDelivered == false)
+    API --> UI : 200 OK (Chi tiết danh sách OrderCombo có isDelivered = false)
     deactivate API
-    UI --> NV : Hiển thị chi tiết: Tên combo, số lượng và quy cách từng món
+    UI --> NV : Hiển thị chi tiết: Tên combo, số lượng và trạng thái "Chưa nhận"
     
     NV -> NV : Chuẩn bị bắp nước và đóng gói theo đơn
     NV -> KH : Bàn giao bắp nước cho khách
-    NV -> UI : Bấm nút "Xác nhận đã giao combo cho khách"
+    NV -> UI : Bấm nút "Xác nhận đã giao combo"
     
-    UI -> API : POST /api/staff/orders/{id}/fulfill-combo\n{ staffId, orderComboIds: [...] }
+    UI -> API : POST /api/staff/combos/deliver\n{ orderComboId (hoặc paymentId) }
     activate API
     
-    API -> DB : Prisma Transaction:\n1. Update OrderCombo: status = 'DELIVERED',\n   deliveredAt = NOW(), deliveredBy = staffId\n2. Ghi Audit Trail: Sự kiện giao nhận bắp nước
+    API -> DB : prisma.orderCombo.update({\n  where: { id: orderComboId, isDelivered: false },\n  data: { isDelivered: true, deliveredAt: NOW() }\n})
     activate DB
-    DB --> API : Xác nhận cập nhật trạng thái thành công
+    DB --> API : Xác nhận cập nhật isDelivered = true, deliveredAt = NOW()
     deactivate DB
     
-    API --> UI : 200 OK { message: "Xác nhận giao combo thành công!" }
+    API --> UI : 200 OK { message: "Xác nhận giao combo thành công!", isDelivered: true, deliveredAt }
     deactivate API
     
-    UI --> NV : Hiển thị Toast xanh "Hoàn tất giao nhận combo", làm mới giao diện
+    UI --> NV : Hiển thị Toast xanh "Hoàn tất giao nhận combo", cập nhật trạng thái Đã giao
     deactivate UI
     deactivate NV
 end

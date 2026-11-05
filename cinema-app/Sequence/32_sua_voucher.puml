@@ -1,0 +1,57 @@
+@startuml 32_sua_voucher
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: CHỈNH SỬA VOUCHER (FR-VOU-01)
+
+actor "Quản trị viên\n(Admin)" as A
+boundary "Frontend Next.js\n(/admin/coupons)" as UI
+control "Next.js API\n(/api/coupons)" as C
+entity "Docker PostgreSQL\n(Prisma)" as DB
+
+activate A
+A -> UI: Chọn voucher cần sửa và bấm "Chỉnh sửa"
+activate UI
+UI -> C: GET /api/coupons/[id]\n(kèm JWT ADMIN)
+activate C
+C -> C: Xác thực quyền hạn requireAuth(['ADMIN'])
+C -> DB: prisma.coupon.findUnique({\n  where: { id: couponId },\n  include: { applicableMovie: true, user: true }\n})
+activate DB
+DB --> C: Bản ghi coupon hoặc null\n(Phân biệt Admin Campaign userId == null và Voucher bồi hoàn COMP50_ gắn userId)
+deactivate DB
+
+alt Không tìm thấy voucher
+    C --> UI: 404 Not Found ("Không tìm thấy voucher")
+    UI --> A: Hiển thị thông báo không tìm thấy voucher
+else Tìm thấy voucher
+    C --> UI: 200 OK (Thông tin voucher hiện tại: code, discountType, discountValue, usedCount, maxUsage, expiryDate)
+    deactivate C
+    UI --> A: Hiển thị form chỉnh sửa với dữ liệu cũ
+    deactivate UI
+    
+    A -> UI: Điều chỉnh hạn sử dụng (expiryDate), tổng lượt dùng (maxUsage), mức giảm và bấm "Cập nhật"
+    activate UI
+    UI -> C: PUT /api/coupons/[id]\n(kèm JWT ADMIN & dữ liệu cập nhật)
+    activate C
+    C -> C: Xác thực quyền hạn requireAuth(['ADMIN']) (FR-AUTH-03)
+    C -> C: Kiểm tra ràng buộc nghiệp vụ:\n1. Nếu đổi code -> Kiểm tra không trùng mã khác\n2. maxUsage >= existingCoupon.usedCount (INVALID_MAX_USAGE)\n3. Nếu discountType == 'Percentage' -> discountValue <= 100
+    
+    alt Dữ liệu cập nhật vi phạm ràng buộc (VD: maxUsage < usedCount hoặc trùng code)
+        C --> UI: 400 Bad Request ("Số lượt sử dụng tối đa không được nhỏ hơn số lượt đã dùng" / "Dữ liệu không hợp lệ")
+        UI --> A: Hiển thị cảnh báo lỗi dữ liệu
+    else Dữ liệu hợp lệ
+        C -> DB: prisma.coupon.update({\n  where: { id: couponId },\n  data: { code, discountType, discountValue, minAmount, maxUsage, expiryDate, applicableMovieId }\n})
+        activate DB
+        DB --> C: Bản ghi coupon đã cập nhật
+        deactivate DB
+        C --> UI: 200 OK (Cập nhật voucher thành công)
+        UI --> A: Hiển thị Toast thành công & làm mới bảng voucher
+    end
+    deactivate C
+    deactivate UI
+end
+deactivate A
+@enduml

@@ -5,48 +5,46 @@ skinparam style strictuml
 skinparam monochrome true
 skinparam defaultTextAlignment center
 skinparam shadowing false
-title SƠ ĐỒ TUẦN TỰ: THÊM VOUCHER MỚI
+title SƠ ĐỒ TUẦN TỰ: THÊM VOUCHER MỚI (FR-VOU-01)
 
-actor "Quản trị viên (Admin)" as A
-boundary "Giao diện quản lý voucher" as UI
-control "Điều khiển voucher" as C
-entity "Dữ liệu hệ thống" as DB
+actor "Quản trị viên\n(Admin)" as A
+boundary "Frontend Next.js\n(/admin/coupons)" as UI
+control "Next.js API\n(/api/coupons)" as C
+entity "Docker PostgreSQL\n(Prisma)" as DB
 
 activate A
 A -> UI: Bấm chọn "Tạo voucher mới"
 activate UI
-UI --> A: Hiển thị form thông tin voucher (Mã code, % giảm, Đơn tối thiểu, HSD)
+UI --> A: Hiển thị form thông tin voucher chiến dịch (Admin Campaign):\n(code, discountType: Percentage | FixedAmount, discountValue, minAmount, maxUsage, expiryDate, applicableMovieId)
 deactivate UI
 
 A -> UI: Nhập thông tin voucher và bấm "Lưu voucher"
 activate UI
-UI -> C: Gửi dữ liệu voucher mới
+UI -> C: POST /api/coupons\n(kèm JWT ADMIN & payload dữ liệu voucher mới)
 activate C
-C -> C: Kiểm tra dữ liệu (Mã không trống, HSD > Hiện tại, Mức giảm hợp lệ)
+C -> C: Xác thực quyền hạn requireAuth(['ADMIN']) (FR-AUTH-03)
+C -> C: Kiểm tra dữ liệu bằng Zod:\n- code chuẩn hóa IN HOA, không trống\n- expiryDate > NOW(), maxUsage >= 1\n- Nếu discountType == 'Percentage' thì 0 < discountValue <= 100
 
-alt Dữ liệu thiếu hoặc ngày hết hạn không hợp lệ
-    C --> UI: Báo 400 Bad Request (Lỗi dữ liệu đầu vào)
-    activate UI
+alt Dữ liệu thiếu, mức giảm không hợp lệ hoặc ngày hết hạn <= NOW()
+    C --> UI: 400 Bad Request (Lỗi dữ liệu đầu vào)
     UI --> A: Hiển thị thông báo lỗi cụ thể trên form
-    deactivate UI
-else Mã voucher đã tồn tại trong hệ thống
-    C -> DB: Tra cứu kiểm tra trùng mã voucher
+else Kiểm tra trùng mã voucher trong hệ thống
+    C -> DB: prisma.coupon.findUnique({ where: { code: normalizedCode } })
     activate DB
-    DB --> C: Mã voucher đã tồn tại
+    DB --> C: Kết quả kiểm tra mã code
     deactivate DB
-    C --> UI: Báo 409 Conflict (Mã voucher đã tồn tại)
-    activate UI
-    UI --> A: Cảnh báo mã voucher bị trùng lặp
-    deactivate UI
-else Dữ liệu hợp lệ
-    C -> DB: Lưu voucher mới vào CSDL (status = 'ACTIVE')
-    activate DB
-    DB --> C: Bản ghi voucher mới được tạo
-    deactivate DB
-    C --> UI: Báo 201 Created (Thêm voucher thành công)
-    activate UI
-    UI --> A: Hiển thị Toast thông báo thành công & làm mới danh sách
-    deactivate UI
+
+    alt Mã voucher đã tồn tại (COUPON_ALREADY_EXISTS)
+        C --> UI: 400 Bad Request / 409 Conflict ("Mã voucher này đã tồn tại trong hệ thống")
+        UI --> A: Cảnh báo mã voucher bị trùng lặp
+    else Mã voucher hợp lệ (Chưa tồn tại)
+        C -> DB: Lưu voucher chiến dịch mới vào CSDL:\nprisma.coupon.create({\n  data: {\n    code, discountType, discountValue, minAmount,\n    maxUsage, usedCount: 0, expiryDate,\n    applicableMovieId, userId: null\n  }\n})
+        activate DB
+        DB --> C: Bản ghi coupon mới được tạo (usedCount = 0)
+        deactivate DB
+        C --> UI: 201 Created (Thêm voucher thành công)
+        UI --> A: Hiển thị Toast thông báo thành công & làm mới danh sách
+    end
 end
 deactivate C
 deactivate UI

@@ -1,6 +1,6 @@
 @startuml 38_bao_cao_doanh_thu_tai_chinh
 hide footbox
-title SƠ ĐỒ TUẦN TỰ: BÁO CÁO DOANH THU & ĐỐI SOÁT TÀI CHÍNH (REVENUE REPORTING & AUDITING)
+title SƠ ĐỒ TUẦN TỰ: BÁO CÁO DOANH THU & ĐỐI SOÁT TÀI CHÍNH (REVENUE REPORTING & AUDITING - FR-REP-01..03, BR-10)
 autonumber
 skinparam style strictuml
 skinparam monochrome true
@@ -9,50 +9,45 @@ skinparam defaultTextAlignment center
 
 actor "Quản trị viên\n(Admin)" as AD
 boundary "Giao diện Báo cáo\n(Frontend Next.js)" as UI
-control "API Báo cáo Doanh thu\n(Next.js App Router)" as API
-entity "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
+control "API Báo cáo & Dashboard\n(Next.js App Router)" as API
+entity "Cơ sở dữ liệu\n(Docker PostgreSQL / Prisma)" as DB
 
 activate AD
 AD -> UI : Truy cập mục Báo cáo doanh thu (/admin/reports)
 activate UI
 
-AD -> UI : Thiết lập bộ lọc đa chiều (FR-REP-01):\n- Khoảng thời gian (Từ ngày - Đến ngày)\n- Phim (Tất cả hoặc phim cụ thể)\n- Phòng chiếu (Phòng 1 -> Phòng 5)\n- Kênh bán (Tất cả / Trực tuyến / Quầy POS)
+AD -> UI : Thiết lập bộ lọc đa chiều (FR-REP-01):\n- Khoảng thời gian (from_date, to_date)\n- Phim (movie_id: Tất cả hoặc phim cụ thể)\n- Phòng chiếu (room_number: Phòng 1 -> Phòng 5)
 AD -> UI : Bấm nút "Xem báo cáo" (hoặc "Áp dụng")
 
-UI -> API : GET /api/admin/reports/revenue?fromDate=...&toDate=...&movieId=...&channel=...\n(Admin Session Token)
+UI -> API : Song song gọi:\n1. GET /api/admin/dashboard\n2. GET /api/admin/reports/revenue?from_date=...&to_date=...&movie_id=...&room_number=...\n(kèm JWT quyền ADMIN)
 activate API
 
-API -> API : Xác thực quyền hạn ADMIN (FR-AUTH-03)
+API -> API : Xác thực quyền hạn requireAuth(['ADMIN']) (FR-AUTH-03)
 
 alt Không phải quyền ADMIN
     API --> UI : 403 Forbidden\n{ message: "Truy cập bị từ chối" }
     UI --> AD : Hiển thị cảnh báo từ chối truy cập
 else Quyền ADMIN hợp lệ
-    alt Khoảng thời gian lọc không hợp lệ (fromDate > toDate)
-        API --> UI : 400 Bad Request\n{ message: "Ngày bắt đầu phải nhỏ hơn hoặc bằng ngày kết thúc" }
-        UI --> AD : Hiển thị Toast lỗi yêu cầu chọn lại ngày
-    else Bộ lọc hợp lệ
-        API -> DB : Truy vấn cơ sở dữ liệu song song (FR-REP-02 & BR-10):\n1. Doanh thu vé thực thu: SUM(price) vé status IN ('Valid', 'Used')\n2. Doanh thu combo: SUM(price * quantity) từ order_combos\n3. Tiền nợ chờ hoàn: SUM(refundAmount) với refundStatus = 'PENDING_CASH_REFUND'\n4. Tiền đã hoàn thực tế: SUM(refundAmount) với refundStatus = 'REFUNDED_CASH'\n5. Tỷ lệ lấp đầy: (Ghế đã bán / Tổng 50 ghế phòng) * 100%
-        activate DB
-        DB --> API : Trả về tập dữ liệu thống kê tài chính
-        deactivate DB
+    API -> DB : Truy vấn cơ sở dữ liệu đối soát (FR-REP-02 & BR-10):\n1. prisma.screening.findMany({ where: { startTime, movieId, room }, include: { movie, seats, tickets } })\n2. prisma.orderCombo.findMany({ where: { payment: { status: 'Success' } } })\n3. prisma.payment.findMany({ where: { status: 'Refunded' } })
+    activate DB
+    DB --> API : Trả về tập dữ liệu suất chiếu, ghế, vé, combo & giao dịch hoàn tiền
+    deactivate DB
 
-        API -> API : Chuẩn hóa số liệu kế toán (BR-10):\nĐảm bảo phân tách rõ công nợ chờ trả, không trừ doanh thu 2 lần
+    API -> API : Tính toán & bóc tách 4 chỉ số tài chính chuẩn kế toán (BR-10) + Tỷ lệ lấp đầy:\n1. Net Ticket Revenue (Doanh thu vé thực thu): SUM(price) của vé status IN ('Valid', 'Used')\n2. Combo Revenue (Doanh thu bắp nước): SUM(price * quantity) từ order_combos (Payment == 'Success')\n3. Pending Refund Amount (Tiền nợ chờ hoàn): SUM(price) vé Cancelled thuộc diện PENDING_CASH_REFUND\n4. Actual Refunded Amount (Tiền đã hoàn thực tế): SUM(amount) đã chi tiền mặt tại quầy (REFUNDED_CASH / Payment == 'Refunded')\n5. Fill Rate % (Tỷ lệ lấp đầy ghế): (tickets_sold / total_seats [50 ghế]) * 100%\n(Đảm bảo không trừ trùng doanh thu 2 lần khi vé chuyển sang hoàn tiền)
 
-        API --> UI : 200 OK\n{\n  netTicketRevenue, comboRevenue, grossRevenue,\n  pendingRefundAmount, actualRefundedAmount, fillRate,\n  screenings: [...]\n}
-        deactivate API
+    API --> UI : 200 OK\n{\n  netTicketRevenue, comboRevenue, pendingRefundAmount, actualRefundedAmount,\n  fillRate, screenings: ScreeningRevenueReportItem[] (\n    screening_id, movie_title, room_number, total_seats: 50, tickets_sold, cancelled_tickets,\n    empty_seats, fill_rate, gross_revenue, refunded_amount, net_revenue\n  )\n}
+    deactivate API
 
-        alt Không có dữ liệu giao dịch phát sinh trong kỳ
-            UI --> AD : Hiển thị trạng thái rỗng "Không có giao dịch nào trong khoảng thời gian đã chọn"
-        else Có dữ liệu doanh thu
-            UI --> AD : Render 4 thẻ chỉ số KPI tài chính nổi bật\n+ Biểu đồ xu hướng doanh thu & tỷ lệ lấp đầy phòng\n+ Bảng thống kê chi tiết từng suất chiếu
+    alt Không có dữ liệu suất chiếu / giao dịch phát sinh trong kỳ
+        UI --> AD : Hiển thị trạng thái rỗng "Không có giao dịch nào trong khoảng thời gian đã chọn"
+    else Có dữ liệu doanh thu
+        UI --> AD : Render 4 thẻ chỉ số KPI tài chính theo BR-10 (Net Ticket Revenue, Combo Revenue,\nPending Refund Amount, Actual Refunded Amount) + Tỷ lệ lấp đầy (Fill Rate %)\n+ Biểu đồ xu hướng doanh thu & Bảng đối soát chi tiết từng suất chiếu (FR-REP-03)
 
-            opt Quản trị viên xuất file báo cáo
-                AD -> UI : Bấm nút "Xuất báo cáo Excel / CSV"
-                UI -> UI : Định dạng dữ liệu sang bảng tính (.xlsx / .csv)
-                UI --> AD : Tải tệp báo cáo tài chính xuống máy trạm
-                UI --> AD : Hiển thị Toast "Xuất báo cáo tài chính thành công!"
-            end
+        opt Quản trị viên xuất file báo cáo
+            AD -> UI : Bấm nút "Xuất báo cáo Excel / CSV"
+            UI -> UI : Định dạng dữ liệu đối soát sang bảng tính (.xlsx / .csv)
+            UI --> AD : Tải tệp báo cáo tài chính xuống máy trạm
+            UI --> AD : Hiển thị Toast "Xuất báo cáo tài chính thành công!"
         end
     end
 end

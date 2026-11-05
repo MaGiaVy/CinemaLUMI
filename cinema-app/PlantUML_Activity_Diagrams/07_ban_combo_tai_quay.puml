@@ -1,0 +1,60 @@
+@startuml 07_ban_combo_tai_quay
+title SƠ ĐỒ HOẠT ĐỘNG: BÁN COMBO BẮP NƯỚC TẠI QUẦY (POS COMBO SALES)
+skinparam conditionStyle insideDiamond
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam monochrome true
+skinparam wrapWidth 180
+
+|Nhân viên|
+|Hệ thống|
+|Nhân viên|
+start
+:Chọn chức năng bán combo tại quầy\n(không cần chọn phim hay suất chiếu);
+
+|Hệ thống|
+:Hiển thị danh sách combo còn tồn kho > 0;
+
+|Nhân viên|
+:Chọn combo và số lượng theo yêu cầu khách;
+
+|Hệ thống|
+:Kiểm tra tồn kho combo;
+while (Đủ hàng?) is (Không)
+  :Thông báo không đủ tồn kho;
+  |Nhân viên|
+  :Điều chỉnh combo hoặc số lượng;
+  |Hệ thống|
+  :Kiểm tra lại tồn kho combo;
+endwhile (Có)
+:Thêm combo vào đơn hàng\nvà tính tổng tiền;
+
+|Nhân viên|
+if (Gắn tài khoản?) then (Có)
+  :Tìm tài khoản khách bằng\nsố điện thoại hoặc email;
+  |Hệ thống|
+  :Gắn đơn combo vào tài khoản khách;
+else (Không)
+  |Hệ thống|
+  :Cho phép hoàn tất giao dịch\nmà không cần tài khoản;
+endif
+
+|Nhân viên|
+:Chọn hình thức thanh toán\n(Tiền mặt hoặc quét mã chuyển khoản QR);
+:Thu tiền từ khách;
+if (Đã thu?) then (Có)
+  |Hệ thống|
+  :Ghi nhận thanh toán POS thành công (Payment.status = 'Success');
+  :Trừ kho combo chính thức (Combo.stock);
+  :Tạo bản ghi OrderCombo thiết lập isDelivered = true (Đã nhận)\nvà deliveredAt = NOW() ngay lập tức, in phiếu mua hàng;
+  |Nhân viên|
+  :Giao combo bắp nước cho khách;
+  stop
+else (Không)
+  |Hệ thống|
+  :Hủy đơn hàng và không trừ kho combo;
+  |Nhân viên|
+  :Thông báo giao dịch chưa hoàn tất;
+  stop
+endif
+@enduml

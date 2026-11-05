@@ -1,0 +1,395 @@
+@startuml class_diagram_lumicinema
+title MASTER DOMAIN MODEL CLASS DIAGRAM - HỆ THỐNG RẠP CHIẾU PHIM LUMICINEMA
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam backgroundColor #FFFFFF
+skinparam roundcorner 4
+skinparam linetype ortho
+skinparam defaultFontName "Segoe UI", Arial, sans-serif
+skinparam defaultFontSize 12
+
+skinparam class {
+    BackgroundColor #FFFFFF
+    ArrowColor #1E293B
+    BorderColor #1E293B
+    HeaderBackgroundColor #F1F5F9
+}
+
+skinparam package {
+    BackgroundColor #FAFAFA
+    BorderColor #94A3B8
+    FontColor #334155
+}
+
+' =========================================================================
+' 1. USER & SPECIALIZATION (PHÂN HỆ NGƯỜI DÙNG & PHÂN QUYỀN RBAC)
+' =========================================================================
+abstract class User {
+    - id: Int
+    - email: String
+    - passwordHash: String
+    - name: String
+    - phone: String
+    - role: Role
+    - createdAt: DateTime
+    + register(email: String, password: String, name: String, phone: String): Boolean
+    + login(email: String, password: String): String
+    + updateProfile(name: String, phone: String): Boolean
+    + changePassword(oldPass: String, newPass: String): Boolean
+}
+
+class Customer {
+    + bookTicket(screeningId: Int, seatIds: List<Int>, couponCode: String): Payment
+    + selectCombo(comboId: Int, quantity: Int): Void
+    + applyCoupon(code: String): Decimal
+    + cancelTicket(ticketId: Int, reason: String): Boolean
+    + writeReview(movieId: Int, rating: Int, comment: String): Review
+}
+
+class Staff {
+    + sellTicketAtPOS(screeningId: Int, seatIds: List<Int>, method: PaymentMethod): Payment
+    + sellComboAtPOS(comboId: Int, quantity: Int, method: PaymentMethod): Payment
+    + checkInTicket(ticketCode: String): Boolean
+    + deliverCombo(orderComboId: Int): Void
+}
+
+class Admin {
+    + createMovie(movieData: Movie): Movie
+    + scheduleScreening(screeningData: Screening): Screening
+    + manageCombo(comboData: Combo): Combo
+    + issueCoupon(couponData: Coupon): Coupon
+    + viewReports(from: Date, to: Date): ReportData
+}
+
+' =========================================================================
+' 2. MOVIE & SCREENING (PHÂN HỆ PHIM, SUẤT CHIẾU & GIÁ VÉ)
+' =========================================================================
+class Movie {
+    - id: Int
+    - title: String
+    - slug: String
+    - description: String
+    - duration: Int
+    - releaseDate: Date
+    - endDate: Date
+    - ageRating: String
+    - poster: String
+    - trailer: String
+    - genre: String
+    - director: String
+    - cast: String
+    - rating: Decimal
+    - status: MovieStatus
+    - ticketPrice: Decimal
+    - isDeleted: Boolean
+    + getActiveScreenings(): List<Screening>
+    + calculateAverageRating(): Decimal
+    + updateStatus(newStatus: MovieStatus): Void
+    + softDelete(): Void
+}
+
+class Screening {
+    - id: Int
+    - room: String
+    - roomNumber: Int
+    - startTime: DateTime
+    - endTime: DateTime
+    - date: Date
+    - price: Decimal
+    - status: ScreeningStatus
+    + checkRoomConflict(startTime: DateTime, endTime: DateTime, roomNumber: Int): Boolean
+    + generateSeats(): Void
+    + cancelScreening(reason: String): Boolean
+}
+
+class Seat {
+    - id: Int
+    - room: String
+    - row: String
+    - number: Int
+    - code: String
+    - type: SeatType
+    - status: SeatStatus
+    - reservedUntil: DateTime
+    + holdSeat(durationMinutes: Int): Boolean
+    + releaseSeat(): Void
+    + markAsOccupied(): Void
+}
+
+class Pricing {
+    - id: Int
+    - ticketType: String
+    - label: String
+    - percentage: Int
+    - basePrice: Decimal
+    - description: String
+    + calculateFinalPrice(basePrice: Decimal, seatType: SeatType): Decimal
+}
+
+' =========================================================================
+' 3. TICKETING & PAYMENT (PHÂN HỆ VÉ, THANH TOÁN & VOUCHER)
+' =========================================================================
+class Ticket {
+    - id: Int
+    - ticketType: String
+    - price: Decimal
+    - purchaseDate: DateTime
+    - status: TicketStatus
+    - cancellationReason: String
+    - refundStatus: String
+    + generateQRCode(): String
+    + verifyQRCode(signature: String): Boolean
+    + checkIn(): Boolean
+    + cancelTicket(reason: String): Boolean
+    + cancelByCustomer(): Coupon
+    + cancelByIncident(reason: String): Void
+    + confirmCashRefund(staffId: Int): Void
+}
+
+class Payment {
+    - id: Int
+    - amount: Decimal
+    - paymentMethod: PaymentMethod
+    - transactionCode: String
+    - status: PaymentStatus
+    - createdAt: DateTime
+    + calculateTotal(tickets: List<Ticket>, combos: List<OrderCombo>, coupon: Coupon): Decimal
+    + createPaymentUrl(gateway: PaymentMethod): String
+    + processIPNCallback(data: Map<String, String>): Boolean
+    + issueRefund(amount: Decimal, method: PaymentMethod): Boolean
+}
+
+class Coupon {
+    - id: Int
+    - code: String
+    - discountType: DiscountType
+    - discountValue: Decimal
+    - minAmount: Decimal
+    - maxUsage: Int
+    - usedCount: Int
+    - expiryDate: Date
+    + validateCoupon(orderAmount: Decimal, movieId: Int): Boolean
+    + calculateDiscount(ticketAmount: Decimal): Decimal
+    + markAsUsed(): Void
+}
+
+' =========================================================================
+' 4. CONCESSION, REVIEW & AUDIT LOG (PHÂN HỆ BẮP NƯỚC, ĐÁNH GIÁ & KIỂM TOÁN)
+' =========================================================================
+class Combo {
+    - id: Int
+    - name: String
+    - description: String
+    - price: Decimal
+    - stock: Int
+    - status: ComboStatus
+    - image: String
+    - reservedUntil: DateTime
+    + checkStockAvailability(quantity: Int): Boolean
+    + deductStock(quantity: Int): Void
+    + restock(quantity: Int): Void
+}
+
+class OrderCombo {
+    - id: Int
+    - quantity: Int
+    - price: Decimal
+    - isDelivered: Boolean
+    - deliveredAt: DateTime
+    + markAsDelivered(): Void
+    + getSubtotal(): Decimal
+}
+
+class ComboReservation {
+    - id: Int
+    - quantity: Int
+    - status: String
+    - reservedUntil: DateTime
+    + checkExpiry(): Boolean
+    + release(): Void
+}
+
+class Review {
+    - id: Int
+    - rating: Int
+    - comment: String
+    - createdAt: DateTime
+    + createReview(userId: Int, movieId: Int, rating: Int, comment: String): Boolean
+    + hideReview(): Void
+}
+
+class AuditLog {
+    - id: Int
+    - actorId: Int
+    - action: String
+    - targetEntity: String
+    - targetId: Int
+    - metadata: String
+    - createdAt: DateTime
+    + recordLog(actorId: Int, action: String, targetEntity: String, targetId: Int, metadata: String): Void
+}
+
+' =========================================================================
+' 5. INFRASTRUCTURE & DOMAIN SERVICES (DỊCH VỤ HẠ TẦNG & BẢO MẬT - MỤC 6.7 SRS)
+' =========================================================================
+package "Infrastructure & Domain Services" {
+    class ZaloPayService <<service>> {
+        - appId: String
+        - key1: String
+        - key2: String
+        - endpoint: String
+        + createSandboxOrder(payment: Payment): ZaloOrderResponse
+        + generateHmacSHA256(data: String, key: String): String
+        + verifyIPNCallback(data: String, receivedMac: String): Boolean
+        + verifyReturnChecksum(queryParams: Map<String, String>): Boolean
+    }
+
+    class QRSignatureService <<service>> {
+        - secretKey: String
+        - algorithm: String
+        + signTicketPayload(ticketId: Int, screeningId: Int, seatCode: String): String
+        + verifyTicketQR(qrPayload: String, signature: String): Boolean
+    }
+
+    class SeatExpirationService <<service>> {
+        - holdDurationMinutes: Int
+        + releaseExpiredSeatsAndCombos(screeningId: Int): Int
+        + reserveSeatsAtomic(screeningId: Int, seatIds: List<Int>): Boolean
+    }
+}
+
+' =========================================================================
+' 6. ENUMS & TYPES (HỆ THỐNG 10 ENUMS CHUẨN ĐỒNG BỘ CSDL PRISMA)
+' =========================================================================
+package "Enums & Types" {
+    enum Role {
+        CUSTOMER
+        STAFF
+        ADMIN
+    }
+
+    enum MovieStatus {
+        SHOWING
+        UPCOMING
+        ENDED
+    }
+
+    enum ScreeningStatus {
+        UPCOMING
+        SHOWING
+        ENDED
+        CANCELLED
+    }
+
+    enum SeatType {
+        STANDARD
+        VIP
+        COUPLE
+    }
+
+    enum SeatStatus {
+        EMPTY
+        RESERVED
+        OCCUPIED
+    }
+
+    enum TicketStatus {
+        Valid
+        Used
+        Cancelled
+    }
+
+    enum ComboStatus {
+        ACTIVE
+        INACTIVE
+    }
+
+    enum PaymentMethod {
+        ZaloPay
+        Cash
+        VNPay
+        Momo
+        BankCard
+    }
+
+    enum PaymentStatus {
+        Pending
+        Success
+        Failed
+        Refunded
+    }
+
+    enum DiscountType {
+        Percentage
+        FixedAmount
+    }
+}
+
+' =========================================================================
+' 7. RELATIONSHIPS (QUAN HỆ HƯỚNG ĐỐI TƯỢNG: KẾ THỪA, HỢP THÀNH, KẾT TẬP)
+' =========================================================================
+
+' Generalization (Kế thừa)
+User <|-- Customer
+User <|-- Staff
+User <|-- Admin
+
+' Composition (Hợp thành - Ràng buộc sinh tử / Lifecycle Coupling)
+Screening "1" *-- "50" Seat : sở hữu
+Payment "1" *-- "0..*" OrderCombo : bao gồm
+Combo "1" *-- "0..*" ComboReservation : giữ chỗ
+
+' Aggregation & Association (Kết tập & Hiệp hội nghiệp vụ)
+Screening "0..*" o-- "1" Movie : chiếu phim
+Ticket "0..*" o-- "1" Screening : thuộc suất
+Ticket "1" o-- "1" Seat : chiếm chỗ
+Ticket "0..*" o-- "1" User : sở hữu bởi
+Ticket "0..*" o-- "1" Payment : thanh toán qua
+OrderCombo "0..*" o-- "1" Combo : đặt món
+Payment "0..*" o-- "0..1" Coupon : áp dụng
+Review "0..*" o-- "1" Movie : bình luận cho
+Review "0..*" o-- "1" User : tạo bởi
+Screening "0..*" ..> "1" Pricing : tham chiếu tỷ lệ giá
+Coupon "0..*" o-- "0..1" Movie : áp dụng riêng cho
+Coupon "0..*" o-- "0..1" User : cấp riêng cho
+User "1" o-- "0..*" AuditLog : thực thi
+
+' Service Dependencies (Phụ thuộc dịch vụ hạ tầng)
+Payment ..> ZaloPayService : tích hợp ZaloPay v2
+Ticket ..> QRSignatureService : ký & xác thực HMAC-SHA256
+Seat ..> SeatExpirationService : khóa & giải phóng 10p
+ComboReservation ..> SeatExpirationService : giải phóng kho 10p
+
+' =========================================================================
+' 8. BUSINESS RULE NOTES (GHI CHÚ QUY TẮC NGHIỆP VỤ BR-01 .. BR-10)
+' =========================================================================
+note bottom of Seat
+  **BR-01: Khởi tạo 50 ghế STANDARD & Giữ ghế tạm thời 10 phút**
+  - Mặc định 50 ghế STANDARD (A1..E10), giữ tối đa 8 ghế/lần (HOLD_MINUTES = 10)
+  - Chống Race Condition bằng ACID Transaction & Lazy Release (SeatExpirationService)
+  - Tự động hoàn lại 'EMPTY' khi quá hạn reservedUntil
+end note
+
+note right of Ticket
+  **BR-03, BR-04 & BR-09: Soát vé, Hủy vé & Chống trùng vé**
+  - QR Code bảo mật kèm chữ ký HMAC-SHA256 qua QRSignatureService (BR-09)
+  - Partial Unique Index: unique_active_ticket ON tickets(screening_id, seat_id)
+    WHERE status != 'Cancelled' (Chống tuyệt đối phát sinh 2 vé hiệu lực cùng ghế)
+  - Hủy vé trước >= 2 tiếng nhận Voucher bồi hoàn COMP50_ 50% (BR-03)
+  - Rạp hủy vé sự cố: PENDING_CASH_REFUND -> REFUNDED_CASH 100% trong 30 ngày & ghi AuditLog (BR-04)
+end note
+
+note left of Screening
+  **BR-08: Chống trùng lịch phòng chiếu**
+  - [startTime, endTime + 15p dọn phòng] không giao cắt
+  - Đảm bảo phòng chiếu được dọn vệ sinh 15 phút giữa 2 suất
+end note
+
+note bottom of Payment
+  **BR-09 & BR-10: Cổng ZaloPay Sandbox v2 & Đối soát Doanh thu**
+  - Tích hợp ZaloPay Sandbox v2 (app_id: 2553, HMAC-SHA256 KEY1/KEY2)
+  - Xác thực MAC hai chiều (ZALOPAY_KEY1 tạo đơn / ZALOPAY_KEY2 kiểm tra IPN)
+  - Bóc tách Doanh thu thực thu, Công nợ chờ hoàn & Tiền đã hoàn (BR-10)
+end note
+
+@enduml

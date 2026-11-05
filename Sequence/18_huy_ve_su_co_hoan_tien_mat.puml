@@ -14,61 +14,61 @@ control "API Sự cố & Hoàn tiền\n(Next.js App Router)" as API
 entity "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
 participant "Quỹ tiền mặt rạp\n(Cash Drawer)" as CASH
 
-== Giai đoạn 1: Xử lý sự cố phòng chiếu & Ghi nhận công nợ Chờ hoàn tiền ==
+== Giai đoạn 1: Xử lý sự cố phòng chiếu & Ghi nhận công nợ Chờ hoàn tiền (PENDING_CASH_REFUND) ==
 
-alt Nhân viên / Admin hủy từng vé lẻ gặp sự cố (FR-CAN-03)
+alt Nhân viên / Admin hủy vé gặp sự cố (FR-CAN-03)
     activate NV
-    NV -> UI : Tra cứu mã vé (#LMC-...), chọn "Hủy vé sự cố" & nhập lý do
+    NV -> UI : Tra cứu mã vé, chọn "Hủy vé sự cố (Hoàn tiền mặt 100%)" & nhập lý do
     activate UI
-    UI -> API : POST /api/staff/tickets/{id}/cancel-with-voucher\n{ reason: "Sự cố phòng chiếu", issue_voucher: false }
+    UI -> API : POST /api/staff/tickets/[id]/cancel-with-voucher\n{ reason: "Sự cố phòng chiếu", refundType: "PENDING_CASH_REFUND" }
     activate API
 
-    API -> DB : prisma.ticket.findUnique({ where: { id } })
+    API -> DB : prisma.ticket.findUnique({ where: { id }, include: { payment: { include: { orderCombos: true } } } })
     activate DB
-    DB --> API : Trả về thông tin vé
+    DB --> API : Trả về thông tin vé, đơn thanh toán và các combo đi kèm
     deactivate DB
 
-    API -> API : Kiểm tra: Vé chưa soát vào rạp (status == 'Valid')\n(Không áp dụng quy chế 2 tiếng theo BR-04)
+    API -> API : Kiểm tra: Vé chưa sử dụng (status == 'Valid')\n(Sự cố rạp được miễn trừ quy tắc 2 tiếng trước giờ chiếu - BR-04)
 
-    alt Vé đã sử dụng ('Used') hoặc đã xử lý hủy trước đó
-        API --> UI : 400 Bad Request\n{ message: "Vé đã sử dụng, không thể hoàn tiền!" }
+    alt Vé đã sử dụng ('Used') hoặc đã hủy trước đó
+        API --> UI : 400 Bad Request\n{ message: "Vé đã sử dụng hoặc đã hủy, không thể xử lý!" }
         UI --> NV : Hiển thị Toast thông báo lỗi từ chối hủy
     else Vé hợp lệ ('Valid')
-        API -> DB : Prisma Transaction:\n- Ticket.status = 'Cancelled', cancellationReason = reason\n- refundStatus = 'PENDING_CASH_REFUND', refundAmount = 100%\n- Seat.status = 'EMPTY'\n- Ghi Audit Log sự cố
+        API -> DB : Prisma Transaction (prisma.$transaction):\n1. Ticket.status = 'Cancelled', ghi nhận trạng thái công nợ PENDING_CASH_REFUND (100%)\n2. Giải phóng ghế về trống: Seat.status = 'EMPTY', reservedBy = null, reservedUntil = null\n3. Hoàn lại Combo.stock cho các OrderCombo chưa nhận (isDelivered == false)\n4. Ghi bản ghi AuditLog sự cố hủy vé
         activate DB
         DB --> API : Xác nhận cập nhật thành công
         deactivate DB
 
-        API --> UI : 200 OK\n{ message: "Đã hủy vé sự cố và ghi nhận công nợ Chờ hoàn tiền" }
-        UI --> NV : Hiển thị thông báo hoàn tất, vé chuyển sang trạng thái "Chờ hoàn tiền"
+        API --> UI : 200 OK\n{ message: "Đã hủy vé sự cố, giải phóng ghế và ghi nhận công nợ PENDING_CASH_REFUND" }
+        UI --> NV : Hiển thị thông báo hoàn tất, đơn chuyển sang công nợ "Chờ hoàn tiền mặt"
     end
     deactivate API
     deactivate UI
     deactivate NV
 
-else Quản trị viên hủy khẩn cấp toàn bộ suất chiếu (FR-ADM-04)
+else Quản trị viên hủy khẩn cấp toàn bộ suất chiếu gặp sự cố (FR-ADM-04)
     activate NV
     NV -> UI : Chọn suất chiếu sự cố, kích hoạt "Hủy suất chiếu khẩn cấp" & nhập lý do
     activate UI
-    UI -> API : POST /api/admin/screenings/{id}/cancel\n{ reason }
+    UI -> API : POST /api/admin/screenings/[id]/cancel\n{ reason }
     activate API
 
-    API -> DB : Prisma Transaction tổng lực:\n1. Screening.status = 'CANCELLED' (Ngừng bán vé)\n2. Cập nhật tất cả vé 'Valid' của suất chiếu:\n   status = 'Cancelled', refundStatus = 'PENDING_CASH_REFUND', refundAmount = 100%\n3. Khóa toàn bộ ghế của suất chiếu không cho đặt lại\n4. Hủy các combo chưa nhận đi kèm và hoàn tiền vào công nợ chờ hoàn\n5. Ghi Audit Log hủy suất chiếu khẩn cấp
+    API -> DB : Prisma Transaction tổng lực (prisma.$transaction):\n1. Screening.status = 'CANCELLED'\n2. Cập nhật tất cả vé 'Valid' sang status = 'Cancelled' & ghi công nợ PENDING_CASH_REFUND (100%)\n3. Giải phóng toàn bộ ghế của suất chiếu về Seat.status = 'EMPTY'\n4. Hoàn lại Combo.stock cho toàn bộ OrderCombo chưa nhận (isDelivered == false)\n5. Ghi bản ghi AuditLog hủy suất chiếu khẩn cấp
     activate DB
     DB --> API : Xác nhận hoàn tất Transaction
     deactivate DB
 
-    API --> UI : 200 OK\n{ message: "Đã hủy toàn bộ suất chiếu và chuyển công nợ chờ hoàn" }
+    API --> UI : 200 OK\n{ message: "Đã hủy suất chiếu, giải phóng ghế, hoàn kho combo & ghi công nợ PENDING_CASH_REFUND" }
     UI --> NV : Hiển thị thông báo hủy suất chiếu thành công
     deactivate API
     deactivate UI
     deactivate NV
 end
 
-== Giai đoạn 2: Đối soát & Chi trả tiền mặt 100% tại quầy (FR-CAN-02 & BR-04) ==
+== Giai đoạn 2: Đối soát & Chi trả tiền mặt 100% tại quầy trong 30 ngày ==
 
 activate KH
-KH -> NV : Đến rạp xuất trình mã vé (#LMC-XXXXXX) trong vòng 30 ngày
+KH -> NV : Đến rạp xuất trình mã vé / mã đơn trong vòng 30 ngày kể từ ngày sự cố
 activate NV
 
 NV -> UI : Nhập mã vé tra cứu thông tin đối soát công nợ
@@ -76,38 +76,37 @@ activate UI
 UI -> API : GET /api/staff/tickets/search?q={ticketCode}
 activate API
 
-API -> DB : prisma.ticket.findUnique({ where: { code } })
+API -> DB : Truy vấn thông tin Ticket, Payment, trạng thái PENDING_CASH_REFUND và thời điểm hủy
 activate DB
-DB --> API : Trả về thông tin vé, refundStatus, refundAmount và ngày thông báo sự cố
+DB --> API : Trả về thông tin công nợ hoàn tiền và ngày ghi nhận sự cố
 deactivate DB
 
-API -> API : Kiểm tra điều kiện chi trả hoàn tiền:\n1. refundStatus == 'PENDING_CASH_REFUND'\n2. Thời gian hiện tại <= 30 ngày kể từ ngày sự cố
+API -> API : Kiểm tra điều kiện chi trả hoàn tiền:\n1. Đang ở trạng thái chờ hoàn tiền mặt (PENDING_CASH_REFUND)\n2. Thời gian hiện tại <= 30 ngày kể từ ngày sự cố
 
-alt Không hợp lệ (Đã hoàn tiền trước đó hoặc quá hạn 30 ngày)
-    API --> UI : 400 Bad Request\n{ message: "Khoản hoàn tiền không hợp lệ hoặc đã quá hạn 30 ngày!" }
+alt Không hợp lệ (Đã hoàn tiền Payment.status == 'Refunded' hoặc quá hạn 30 ngày)
+    API --> UI : 400 Bad Request\n{ message: "Khoản hoàn tiền đã được chi trả hoặc đã quá thời hạn 30 ngày!" }
     UI --> NV : Cảnh báo từ chối hoàn tiền
     NV -> KH : Giải thích lý do từ chối chi trả
-else Hợp lệ (Đủ điều kiện chi trả tiền mặt 100%)
+else Hợp lệ (Đang PENDING_CASH_REFUND & trong hạn 30 ngày)
     API --> UI : 200 OK\n{ refundStatus: 'PENDING_CASH_REFUND', refundAmount: 100% }
-    UI --> NV : Hiển thị số tiền mặt cần xuất quỹ & nút "Xác nhận đã trả tiền mặt"
+    UI --> NV : Hiển thị số tiền mặt cần xuất quỹ & nút "Xác nhận chi tiền mặt"
 
-    NV -> UI : Bấm nút "Xác nhận đã trả tiền mặt cho khách"
-    UI -> API : POST /api/staff/tickets/{id}/confirm-cash-refund\n{ staffId, notes: "Đã hoàn tiền mặt tại quầy" }
+    NV -> CASH : Xuất quỹ tiền mặt tại quầy thu ngân (100% giá trị)
+    activate CASH
+    CASH --> NV : Nhận đủ số tiền mặt hoàn trả
+    deactivate CASH
+    NV -> KH : Trao tận tay 100% tiền mặt cho khách hàng
 
-    API -> DB : Prisma Transaction đối soát kế toán (BR-10):\n- refundStatus = 'REFUNDED_CASH', refundedAt = NOW()\n- Ghi Audit Log chứng từ kế toán chi quỹ tiền mặt
+    NV -> UI : Bấm nút "Xác nhận đã chi tiền mặt cho khách"
+    UI -> API : POST /api/staff/tickets/[id]/confirm-cash-refund\n{ notes: "Đã hoàn 100% tiền mặt tại quầy" }
+
+    API -> DB : Prisma Transaction đối soát kế toán:\n1. Cập nhật Payment.status = 'Refunded'\n2. Đánh dấu hoàn tất công nợ hoàn tiền mặt (refundedAt = NOW())\n3. Ghi bản ghi AuditLog xác nhận chi tiền mặt tại quầy
     activate DB
-    DB --> API : Xác nhận lưu chứng từ đối soát thành công
+    DB --> API : Xác nhận cập nhật Payment.status = 'Refunded' & lưu AuditLog thành công
     deactivate DB
 
-    API --> UI : 200 OK\n{ message: "Chứng từ hoàn tất. Hoàn tiền mặt thành công!" }
-    UI --> NV : Thông báo hoàn tất giao dịch trên hệ thống
-
-    NV -> CASH : Xuất quỹ tiền mặt tại quầy thu ngân
-    activate CASH
-    CASH --> NV : Nhận số tiền mặt tương ứng (100% tiền vé)
-    deactivate CASH
-
-    NV -> KH : Trao tận tay 100% tiền mặt cho khách hàng
+    API --> UI : 200 OK\n{ message: "Đã cập nhật Payment.status = 'Refunded' và ghi AuditLog thành công!" }
+    UI --> NV : Thông báo hoàn tất đối soát hoàn tiền mặt trên hệ thống
     deactivate API
     deactivate UI
     deactivate NV

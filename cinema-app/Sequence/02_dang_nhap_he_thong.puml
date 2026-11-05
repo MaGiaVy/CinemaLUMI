@@ -1,0 +1,60 @@
+@startuml 02_dang_nhap_he_thong
+hide footbox
+title SƠ ĐỒ TUẦN TỰ: ĐĂNG NHẬP & PHÂN QUYỀN ĐIỀU HƯỚNG (LOGIN & RBAC ROUTING)
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultTextAlignment center
+
+actor "Người dùng\n(Khách / NV / Admin)" as ND
+boundary "Giao diện Đăng nhập\n(Frontend Next.js)" as UI
+control "API Xác thực (NextAuth)\n(Next.js App Router)" as API
+entity "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
+
+activate ND
+ND -> UI : Truy cập trang Đăng nhập (/login)
+activate UI
+UI --> ND : Hiển thị form đăng nhập
+
+ND -> UI : Nhập Email và Mật khẩu
+ND -> UI : Bấm nút "Đăng nhập"
+
+UI -> API : POST /api/auth/[...nextauth]\n(NextAuth CredentialsProvider: { email, password })
+activate API
+
+API -> DB : prisma.user.findUnique({ where: { email } })
+activate DB
+DB --> API : Trả về thông tin User (kèm password hash & role)
+deactivate DB
+
+API -> API : So khớp mật khẩu:\nbcryptjs.compare(password, user.password)
+
+alt Sai email hoặc sai mật khẩu
+    API --> UI : 401 Unauthorized\n{ message: "Email hoặc mật khẩu không chính xác" }
+    UI --> ND : Hiển thị Toast thông báo lỗi màu đỏ
+else Xác thực thành công (FR-AUTH-02)
+    API -> API : Khởi tạo JWT Session chứa { id, email, name, role }\nKý số bằng NEXTAUTH_SECRET (hạn 24 giờ)
+    API -> API : Thiết lập HttpOnly Secure Cookie (next-auth.session-token)
+    API --> UI : 200 OK\n{ user: { id, email, name, role } }
+
+    UI -> UI : Cập nhật trạng thái Session tại Client (SessionProvider)
+    UI --> ND : Hiển thị Toast "Đăng nhập thành công!"
+
+    alt Vai trò là ADMIN (FR-AUTH-03)
+        UI --> ND : Điều hướng sang Bảng điều khiển Quản trị (/admin/dashboard)
+    else Vai trò là STAFF
+        UI --> ND : Điều hướng sang Cổng nghiệp vụ Quầy & Soát vé (/staff)
+    else Vai trò là CUSTOMER
+        alt Có tham số chuyển hướng callbackUrl (đang chọn ghế dở dang)
+            UI --> ND : Điều hướng quay lại trang đặt vé tiếp tục (callbackUrl)
+        else Không có callbackUrl
+            UI --> ND : Điều hướng về Trang chủ (/)
+        end
+    end
+end
+
+deactivate API
+deactivate UI
+deactivate ND
+@enduml

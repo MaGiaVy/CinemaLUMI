@@ -5,48 +5,45 @@ skinparam style strictuml
 skinparam monochrome true
 skinparam defaultTextAlignment center
 skinparam shadowing false
-title SƠ ĐỒ TUẦN TỰ: NGỪNG SỬ DỤNG VOUCHER
+title SƠ ĐỒ TUẦN TỰ: XÓA / VÔ HIỆU HÓA VOUCHER (FR-VOU-01)
 
-actor "Quản trị viên (Admin)" as A
-boundary "Giao diện quản lý voucher" as UI
-control "Điều khiển voucher" as C
-entity "Dữ liệu hệ thống" as DB
+actor "Quản trị viên\n(Admin)" as A
+boundary "Frontend Next.js\n(/admin/coupons)" as UI
+control "Next.js API\n(/api/coupons)" as C
+entity "Docker PostgreSQL\n(Prisma)" as DB
 
 activate A
-A -> UI: Chọn voucher và bấm "Ngừng sử dụng"
+A -> UI: Chọn voucher và bấm "Xóa / Vô hiệu hóa"
 activate UI
-UI --> A: Hiển thị hộp thoại xác nhận thu hồi voucher
+UI --> A: Hiển thị hộp thoại xác nhận thu hồi / xóa chiến dịch voucher
 deactivate UI
 
 alt Quản trị viên hủy thao tác
     A -> UI: Bấm "Hủy bỏ"
     activate UI
-    UI --> A: Đóng hộp thoại, giữ nguyên trạng thái voucher
+    UI --> A: Đóng hộp thoại, giữ nguyên hiệu lực voucher
     deactivate UI
-else Quản trị viên xác nhận ngừng sử dụng
-    A -> UI: Bấm "Xác nhận ngừng sử dụng"
+else Quản trị viên xác nhận xóa / vô hiệu hóa voucher
+    A -> UI: Bấm "Xác nhận"
     activate UI
-    UI -> C: Yêu cầu chuyển trạng thái voucher sang INACTIVE
+    UI -> C: DELETE /api/coupons/[id]\n(kèm JWT ADMIN)
     activate C
-    C -> DB: Tra cứu trạng thái hiện tại của voucher
+    C -> C: Xác thực quyền hạn requireAuth(['ADMIN']) (FR-AUTH-03)
+    C -> DB: Kiểm tra sự tồn tại của voucher:\nprisma.coupon.findUnique({ where: { id: couponId } })
     activate DB
-    DB --> C: Trạng thái hiện tại của voucher
+    DB --> C: Bản ghi coupon (code, expiryDate, usedCount, maxUsage, userId) hoặc null
     deactivate DB
     
-    alt Voucher vốn đã ngừng sử dụng
-        C --> UI: Báo 400 Bad Request (Voucher đã ngừng sử dụng trước đó)
-        activate UI
-        UI --> A: Hiển thị thông báo trạng thái hiện tại
-        deactivate UI
-    else Voucher đang hoạt động (ACTIVE)
-        C -> DB: Cập nhật status = 'INACTIVE'
+    alt Không tìm thấy voucher -> 404 Not Found
+        C --> UI: 404 Not Found ("Không tìm thấy mã giảm giá cần xóa")
+        UI --> A: Hiển thị thông báo lỗi không tìm thấy voucher
+    else Tìm thấy voucher trong hệ thống
+        C -> DB: Xóa bản ghi voucher khỏi bảng coupons:\nprisma.coupon.delete({ where: { id: couponId } })\n(Hoặc vô hiệu hóa bằng cách đặt expiryDate = NOW() / maxUsage = usedCount)
         activate DB
-        DB --> C: Xác nhận cập nhật thành công
+        DB --> C: Xác nhận xóa / thu hồi voucher thành công
         deactivate DB
-        C --> UI: Báo 200 OK (Thu hồi voucher thành công)
-        activate UI
-        UI --> A: Hiển thị Toast thành công & chuyển trạng thái sang INACTIVE
-        deactivate UI
+        C --> UI: 200 OK\n{ success: true, message: "Đã xóa mã giảm giá thành công" }
+        UI --> A: Hiển thị Toast thành công & loại bỏ/cập nhật trên danh sách
     end
     deactivate C
     deactivate UI

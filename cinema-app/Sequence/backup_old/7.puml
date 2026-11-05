@@ -1,0 +1,37 @@
+@startuml
+title Sequence Diagram - Tra cuu & Quan ly ve khach hang
+autonumber
+skinparam maxMessageSize 220
+
+actor "Nhan vien / Quan tri vien\n(Staff / Admin)" as A
+boundary "Giao dien POS / Admin\n(UI)" as UI
+control "Ticket Controller\n(Backend API)" as BE
+database "Co so du lieu\n(PostgreSQL)" as DB
+
+A -> UI : Chon chuc nang Tra cuu & Quan ly ve
+UI -> BE : Yeu cau danh sach ve
+BE -> DB : Truy van danh sach ve
+DB --> BE : Tra danh sach bản ghi ve
+BE --> UI : Tra du lieu danh sach ve
+UI --> A : Hien thi danh sach ve
+
+A -> UI : Nhap Ma ve (#LMC-XXXXXX), Email hoac SDT
+UI -> BE : Gui yeu cau tra cuu (keyword)
+BE -> DB : Tim kiem ve theo dieu kien
+DB --> BE : Tra ket qua tra cuu
+
+alt Tim thay ve
+    BE --> UI : Tra danh sach ve phu hop
+    UI --> A : Hien thi ket qua tim kiem
+
+    A -> UI : Chon 1 ve de xem chi tiet
+    UI -> BE : Yeu cau chi tiet ve (ticketId)
+    BE -> DB : Truy van chi tiet ve, suat chieu, ghe va cong no hoan tien
+    DB --> BE : Tra thong tin chi tiet
+    BE --> UI : Tra du lieu chi tiet ve
+    UI --> A : Hien thi: Ma ve, Khach hang, Phim, Suat chieu,\nPhong, Ghe, Loai ve (Adult 100% / Child 50%),\nGia, Trang thai (Valid/Used/Cancelled),\nLy do huy & Trang thai hoan tien (Pending/Refunded)
+else Khong tim thay ve
+    BE --> UI : Tra thong bao khong tim thay ve
+    UI --> A : Hien thi thong bao loi "Khong tim thay ve"
+end
+@enduml

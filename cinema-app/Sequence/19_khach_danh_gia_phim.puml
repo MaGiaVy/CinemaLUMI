@@ -1,0 +1,71 @@
+@startuml 19_khach_danh_gia_phim
+hide footbox
+title SƠ ĐỒ TUẦN TỰ: KHÁCH HÀNG ĐÁNH GIÁ & BÌNH LUẬN PHIM (MOVIE REVIEW)
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultTextAlignment center
+
+actor "Khách hàng\n(Customer)" as KH
+boundary "Giao diện Chi tiết Phim\n(Frontend Next.js)" as UI
+control "API Đánh giá Phim\n(Next.js App Router)" as API
+entity "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
+
+activate KH
+KH -> UI : Xem chi tiết phim và cuộn đến mục Đánh giá
+activate UI
+
+UI -> API : GET /api/reviews?movie_id={id}
+activate API
+API -> DB : prisma.review.findMany({ where: { movieId }, include: { user: true } })
+activate DB
+DB --> API : Trả về danh sách bình luận & điểm trung bình của phim
+deactivate DB
+API --> UI : 200 OK (Danh sách đánh giá & movie.rating)
+deactivate API
+
+UI --> KH : Hiển thị các bài bình luận và khung gửi đánh giá
+
+KH -> UI : Chọn số sao (1 - 5 sao) và nhập bình luận (tối đa 1000 ký tự)
+KH -> UI : Bấm nút "Gửi đánh giá"
+
+UI -> API : POST /api/reviews\n{ movieId, rating, comment } (kèm Session Token)
+activate API
+
+API -> API : Xác thực quyền đăng nhập & kiểm tra dữ liệu qua Zod:\n(BR-06: Không ràng buộc điều kiện phải mua vé xem phim trước đó)
+
+alt Chưa đăng nhập hoặc dữ liệu không hợp lệ
+    API --> UI : 401 Unauthorized / 400 Bad Request
+    UI --> KH : Hiển thị thông báo yêu cầu đăng nhập hoặc sửa lỗi form
+else Hợp lệ
+    API -> DB : prisma.review.findUnique({ where: { userId_movieId: { userId, movieId } } })
+    activate DB
+    DB --> API : Trả về bản ghi đánh giá cũ (nếu có)
+    deactivate DB
+
+    alt Khách hàng đã từng đánh giá phim này trước đó (FR-REV-02)
+        API -> DB : prisma.review.update({\n  where: { id: oldReview.id },\n  data: { rating, comment, updatedAt: NOW() }\n})
+        activate DB
+        DB --> API : Xác nhận cập nhật bản ghi thành công
+        deactivate DB
+    else Khách hàng đánh giá lần đầu
+        API -> DB : prisma.review.create({\n  data: { userId, movieId, rating, comment }\n})
+        activate DB
+        DB --> API : Xác nhận tạo mới bản ghi đánh giá thành công
+        deactivate DB
+    end
+
+    API -> DB : Tính lại điểm trung bình của phim (FR-REV-03):\nnewRating = round(AVG(rating), 1)\nprisma.movie.update({ where: { id: movieId }, data: { rating: newRating } })
+    activate DB
+    DB --> API : Xác nhận cập nhật movie.rating thành công
+    deactivate DB
+
+    API --> UI : 200 OK\n{ success: true, message: "Đánh giá phim thành công!", newRating }
+    UI --> KH : Hiển thị Toast thành công viền đậm & cập nhật số sao phim ngay lập tức
+end
+
+deactivate API
+deactivate UI
+deactivate KH
+@enduml

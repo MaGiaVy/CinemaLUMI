@@ -1,4 +1,4 @@
-﻿@startuml 06_ban_ve_tai_quay
+@startuml 06_ban_ve_tai_quay
 title SƠ ĐỒ HOẠT ĐỘNG: BÁN VÉ TẠI QUẦY (POS TICKET SALES)
 skinparam conditionStyle insideDiamond
 skinparam defaultTextAlignment center
@@ -19,10 +19,10 @@ start
 :Chọn suất chiếu theo yêu cầu khách;
 
 |Hệ thống|
-:Hiển thị sơ đồ ghế và trạng thái từng ghế;
+:Hiển thị sơ đồ 50 ghế (A1-E10) và trạng thái từng ghế;
 
 |Nhân viên|
-:Chọn ghế trên sơ đồ;
+:Chọn ghế trên sơ đồ (tối đa 08 ghế/giao dịch);
 
 |Hệ thống|
 :Kiểm tra trạng thái ghế;
@@ -36,41 +36,62 @@ endwhile (Có)
 :Chuyển ghế sang RESERVED\ngiữ chỗ 10 phút;
 
 |Nhân viên|
-:Chọn loại vé cho từng ghế\n(Thường hoặc Trẻ em);
-if (Vé trẻ em?) then (Có)
-  :Kiểm tra giấy tờ độ tuổi của khách;
-  if (Đạt?) then (Có)
-  else (Không)
-    :Chuyển về vé Thường;
-  endif
+:Chọn loại vé cho từng ghế\n(Thường 100% hoặc Trẻ em 50%);
+
+|Hệ thống|
+if (Phim T18?) then (Có - BR-02)
+  :Tự động khóa lựa chọn vé Trẻ em (50%)\nvà bắt buộc áp dụng vé Thường (100%);
 else (Không)
+  |Nhân viên|
+  if (Vé trẻ em?) then (Có)
+    :Kiểm tra giấy tờ/độ tuổi của khách tại quầy;
+    if (Đạt?) then (Có)
+    else (Không)
+      :Chuyển về vé Thường (100%);
+    endif
+  else (Không)
+  endif
 endif
 
 |Hệ thống|
 :Tính giá vé (Thường 100%, Trẻ em 50%);
 
 |Nhân viên|
+if (Mua kèm Combo?) then (Có)
+  :Chọn combo bắp nước và số lượng tại quầy;
+  |Hệ thống|
+  if (Đủ tồn kho?) then (Có)
+    :Thêm combo vào hóa đơn tại quầy;
+  else (Không)
+    :Thông báo combo không đủ tồn kho;
+  endif
+else (Không)
+endif
+
+|Nhân viên|
 :Tìm tài khoản khách bằng\nsố điện thoại hoặc email;
 
 |Hệ thống|
 if (Có tài khoản?) then (Có)
-  :Gắn vé vào tài khoản khách\nđể tích điểm và lưu vé;
+  :Gắn vé và đơn hàng vào tài khoản khách (userId);
 else (Không)
-  :Cho phép hoàn tất giao dịch\nmà không cần tài khoản;
+  :Cho phép hoàn tất giao dịch cho khách vãng lai\nmà không cần tài khoản;
 endif
-:Hiển thị tổng tiền cần thanh toán;
+:Hiển thị tổng tiền cần thanh toán (Vé + Combo);
 
 |Nhân viên|
 :Chọn hình thức thanh toán\n(Tiền mặt hoặc quét mã chuyển khoản QR);
 :Thu tiền từ khách;
 if (Đã thu?) then (Có)
   |Hệ thống|
+  :Ghi nhận Payment (status = 'Success');
   :Chuyển các vé sang Valid;
   :Chuyển các ghế sang OCCUPIED;
+  :Trừ tồn kho Combo.stock và tạo OrderCombo\ntrạng thái Đã nhận (isDelivered = true, deliveredAt = NOW());
   :Sinh chữ ký HMAC-SHA256\nvà mã QR Code cho vé;
-  :In vé cho khách;
+  :In vé (và giao combo nếu có) cho khách;
   |Nhân viên|
-  :Giao vé cho khách;
+  :Giao vé và combo bắp nước cho khách;
   stop
 else (Không)
   |Hệ thống|
@@ -80,4 +101,3 @@ else (Không)
   stop
 endif
 @enduml
-

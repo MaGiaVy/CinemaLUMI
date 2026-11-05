@@ -1,4 +1,4 @@
-﻿@startuml 14_quan_ly_suat_chieu
+@startuml 14_quan_ly_suat_chieu
 title SƠ ĐỒ HOẠT ĐỘNG: LÊN LỊCH VÀ QUẢN LÝ SUẤT CHIẾU (SCREENING MANAGEMENT)
 skinparam conditionStyle insideDiamond
 skinparam defaultTextAlignment center
@@ -42,22 +42,22 @@ else (Không)
 endif
 
 |Hệ thống|
-:Tính giờ kết thúc = giờ bắt đầu + thời lượng phim;
-:Kiểm tra suất chiếu có giao nhau về thời gian\nvới suất khác trong cùng phòng chiếu;
+:Tính giờ kết thúc (BR-08):\nendTime = startTime + Thời lượng phim (duration) + 15 phút dọn vệ sinh phòng chiếu;
+:Kiểm tra suất chiếu có giao nhau về thời gian\nvới suất khác trong cùng phòng chiếu (BR-08);
 while (Hợp lệ?) is (Không)
-  :Thông báo lỗi cần điều chỉnh;
+  :Thông báo lỗi trùng lịch phòng chiếu cần điều chỉnh;
   |Admin|
   :Điều chỉnh phim, phòng chiếu hoặc giờ bắt đầu;
   :Xác nhận thông tin;
   |Hệ thống|
-  :Tính lại giờ kết thúc và kiểm tra lại trùng phòng;
+  :Tính lại giờ kết thúc (startTime + duration + 15p) và kiểm tra lại trùng phòng;
 endwhile (Có)
 
 |Hệ thống|
 :Lưu suất chiếu theo thao tác đã chọn;
 if (Thành công?) then (Có)
   if (Thêm mới?) then (Có)
-    :Tự động tạo 50 ghế trống\ntừ A1 đến E10 cho suất chiếu;
+    :Tự động tạo 50 ghế trống chuẩn STANDARD\ntừ A1 đến E10 cho suất chiếu (BR-01);
   else (Không)
   endif
   :Thông báo thành công;
@@ -68,4 +68,3 @@ else (Không)
   stop
 endif
 @enduml
-

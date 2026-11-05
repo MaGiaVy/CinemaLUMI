@@ -1,0 +1,98 @@
+@startuml 25_quan_ly_combo_tong_quan
+hide footbox
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam defaultTextAlignment center
+skinparam shadowing false
+title SƠ ĐỒ TUẦN TỰ: QUẢN TRỊ DANH MỤC COMBO BẮP NƯỚC (TỔNG QUAN)
+
+actor "Quản trị viên\n(Admin)" as A
+boundary "Frontend Next.js\n(/admin/combos)" as UI
+control "Next.js API\n(/api/combos)" as C
+entity "Docker PostgreSQL\n(Prisma)" as DB
+
+activate A
+A -> UI: Truy cập trang Quản lý Combo (/admin/combos)
+activate UI
+UI -> C: GET /api/combos\n(kèm JWT ADMIN để lấy toàn bộ ACTIVE & INACTIVE)
+activate C
+C -> C: Kiểm tra phiên & phân quyền requireAuth(['ADMIN'])
+C -> DB: prisma.combo.findMany({\n  orderBy: { createdAt: 'desc' }\n})
+activate DB
+DB --> C: Danh sách bản ghi combo (status: ACTIVE | INACTIVE, stock)
+deactivate DB
+C --> UI: 200 OK (Danh sách combo và danh mục thao tác)
+deactivate C
+UI --> A: Hiển thị bảng combo, đơn giá, tồn kho (stock) và trạng thái (ComboStatus)
+deactivate UI
+
+alt Quản trị viên chọn Thêm combo mới (UC-17)
+    A -> UI: Bấm nút "Thêm combo mới"
+    activate UI
+    UI --> A: Hiển thị form Thêm combo mới (name, price, description, stock, status: ACTIVE)
+    A -> UI: Nhập dữ liệu & bấm "Lưu combo"
+    UI -> C: POST /api/combos (kèm JWT ADMIN)
+    activate C
+    C -> C: requireAuth(['ADMIN']) & Validate dữ liệu Zod
+    C -> DB: prisma.combo.create({ data: { name, price, description, stock, status: 'ACTIVE' } })
+    activate DB
+    DB --> C: Bản ghi combo mới
+    deactivate DB
+    C --> UI: 201 Created
+    deactivate C
+    UI --> A: Hiển thị Toast thành công & làm mới bảng combo
+    deactivate UI
+else Quản trị viên chọn Sửa thông tin / Cập nhật tồn kho combo
+    A -> UI: Chọn một combo & bấm nút "Chỉnh sửa / Cập nhật tồn kho"
+    activate UI
+    UI -> C: GET /api/combos/[id]
+    activate C
+    C -> DB: prisma.combo.findUnique({ where: { id: comboId } })
+    activate DB
+    DB --> C: Chi tiết combo (name, price, description, stock, status)
+    deactivate DB
+    C --> UI: 200 OK (Dữ liệu combo hiện tại)
+    deactivate C
+    UI --> A: Hiển thị form chỉnh sửa combo / điều chỉnh stock
+    A -> UI: Cập nhật thông tin (price > 0, stock >= 0) & bấm "Lưu thay đổi"
+    UI -> C: PUT /api/combos/[id] (kèm JWT ADMIN)
+    activate C
+    C -> C: requireAuth(['ADMIN']) & Validate dữ liệu
+    C -> DB: prisma.combo.update({ where: { id: comboId }, data: { name, price, stock, status } })
+    activate DB
+    DB --> C: Bản ghi combo đã cập nhật
+    deactivate DB
+    C --> UI: 200 OK
+    deactivate C
+    UI --> A: Hiển thị Toast cập nhật thành công
+    deactivate UI
+else Quản trị viên chọn Ngừng bán / Xóa combo (ComboStatus: ACTIVE <-> INACTIVE)
+    A -> UI: Chọn combo & bấm nút "Ngừng bán / Xóa"
+    activate UI
+    UI -> C: PUT /api/combos/[id] ({ status: 'INACTIVE' }) hoặc DELETE /api/combos/[id]
+    activate C
+    C -> C: Kiểm tra quyền hạn requireAuth(['ADMIN'])
+    C -> DB: Kiểm tra lịch sử đơn hàng:\nprisma.orderCombo.count({ where: { comboId } })
+    activate DB
+    DB --> C: Số lượng đơn hàng đã mua combo (orderComboCount)
+    deactivate DB
+    alt Đã có lịch sử đơn hàng (orderCombos > 0) -> Chuyển sang INACTIVE (Soft Delete)
+        C -> DB: prisma.combo.update({ where: { id: comboId }, data: { status: 'INACTIVE' } })
+        activate DB
+        DB --> C: Xác nhận cập nhật status = 'INACTIVE'
+        deactivate DB
+        C --> UI: 200 OK (Đã chuyển sang trạng thái ngừng bán INACTIVE)
+    else Chưa có đơn hàng nào -> Cho phép xóa cứng hoặc chuyển INACTIVE
+        C -> DB: prisma.combo.delete({ where: { id: comboId } })
+        activate DB
+        DB --> C: Xác nhận xóa bản ghi combo
+        deactivate DB
+        C --> UI: 200 OK
+    end
+    deactivate C
+    UI --> A: Hiển thị Toast thành công & làm mới danh sách combo
+    deactivate UI
+end
+deactivate A
+@enduml

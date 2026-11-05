@@ -1,0 +1,40 @@
+@startuml
+
+actor "Khách hàng" as KH
+boundary "Giao diện soát vé" as UI
+control "Bộ điều khiển soát vé" as CTRL
+database "CSDL" as DB
+
+KH -> UI : Xuất trình vé
+activate UI
+
+UI -> CTRL : Quét mã vé
+activate CTRL
+
+CTRL -> DB : Kiểm tra mã vé
+activate DB
+
+alt Vé hợp lệ
+DB --> CTRL : Vé hợp lệ
+
+CTRL -> DB : Cập nhật trạng thái đã sử dụng
+DB --> CTRL : Thành công
+
+CTRL --> UI : Cho phép vào rạp
+UI --> KH : Được phép vào rạp
+
+else Vé đã sử dụng
+DB --> CTRL : Vé đã sử dụng
+CTRL --> UI : Từ chối
+
+else Vé không hợp lệ
+DB --> CTRL : Không tìm thấy vé
+CTRL --> UI : Báo lỗi
+
+end
+
+deactivate DB
+deactivate CTRL
+deactivate UI
+
+@enduml

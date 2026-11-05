@@ -1,4 +1,4 @@
-﻿@startuml 08_soat_ve
+@startuml 08_soat_ve
 title SƠ ĐỒ HOẠT ĐỘNG: SOÁT VÉ VÀO RẠP (TICKET CHECK-IN)
 skinparam conditionStyle insideDiamond
 skinparam defaultTextAlignment center
@@ -43,10 +43,10 @@ else (Không)
 endif
 
 |Hệ thống|
-:Đối chiếu phòng chiếu và thời gian hiện tại\nvới suất chiếu của vé;
+:Đối chiếu phòng chiếu và khung giờ hợp lệ (FR-CHK-01):\nTừ 30 phút trước giờ bắt đầu chiếu (startTime - 30p)\nđến thời điểm kết thúc suất chiếu (endTime);
 if (Đúng giờ?) then (Có)
 else (Không)
-  :Từ chối vé và thông báo lý do;
+  :Từ chối vé và thông báo ngoài khung giờ soát vé;
   |Nhân viên|
   :Hướng dẫn khách theo thông báo;
   stop
@@ -61,4 +61,3 @@ endif
 
 stop
 @enduml
-

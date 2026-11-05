@@ -1,0 +1,69 @@
+@startuml 12_ban_ve_tai_quay_pos
+hide footbox
+title SƠ ĐỒ TUẦN TỰ: BÁN VÉ TẠI QUẦY POS (IN-PERSON TICKET SALES)
+autonumber
+skinparam style strictuml
+skinparam monochrome true
+skinparam shadowing false
+skinparam defaultTextAlignment center
+
+actor "Nhân viên quầy\n(Staff)" as NV
+boundary "Giao diện POS\n(Frontend Next.js)" as UI
+control "API Quầy POS\n(Next.js App Router)" as API
+entity "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
+
+activate NV
+NV -> UI : Mở màn hình Bán vé tại quầy (/staff/pos)
+activate UI
+
+UI -> API : GET /api/screenings?date=today
+activate API
+API -> DB : prisma.screening.findMany({ where: { status: 'ACTIVE' } })
+activate DB
+DB --> API : Trả về danh sách phim, phòng chiếu và suất chiếu
+deactivate DB
+API --> UI : 200 OK (Danh sách suất chiếu khả dụng)
+deactivate API
+
+UI --> NV : Hiển thị danh mục phim (nhãn P, C13, T18) và các khung giờ chiếu
+NV -> UI : Chọn phim và suất chiếu theo yêu cầu của khách
+
+UI -> API : GET /api/seats?screening_id={id}
+activate API
+API -> DB : Lazy Release ghế quá hạn 10p & lấy 50 ghế (A1 -> E10)
+activate DB
+DB --> API : Trả về 50 vị trí ghế (A1 -> E10) kèm trạng thái
+deactivate DB
+API --> UI : 200 OK (Trạng thái ghế: EMPTY, RESERVED, OCCUPIED)
+deactivate API
+
+UI --> NV : Hiển thị sơ đồ ma trận 50 ghế phòng chiếu
+NV -> UI : Chọn vị trí ghế (tối đa 8 ghế), chọn loại vé (Người lớn 100%, Trẻ em 50% - BR-02),\nchọn kèm Combo bắp nước (nếu khách mua thêm) và nhập SĐT/Email khách (nếu có)
+NV -> UI : Chọn phương thức thanh toán tại quầy (Tiền mặt / Chuyển khoản) & bấm "Xuất vé"
+
+UI -> API : POST /api/staff/pos/tickets\n{ screeningId, seatIds, ticketTypes, combos: [{ comboId, quantity }], customerPhoneOrEmail, paymentMethod }
+activate API
+
+API -> DB : Gọi resolveCustomer(customerPhoneOrEmail):\nTìm tài khoản thành viên theo SĐT/Email hoặc gắn tài khoản Khách vãng lai (Guest)
+activate DB
+DB --> API : Trả về customerId hợp lệ
+deactivate DB
+
+API -> API : Kiểm tra nhãn tuổi phim (BR-02), kiểm tra tồn kho Combo (nếu có)\nvà tính tổng tiền Server-side (Tiền vé + Tiền combo)
+
+API -> DB : Prisma Transaction nguyên tử (prisma.$transaction):\n1. Kiểm tra ghế khả dụng & cập nhật Seat.status = 'OCCUPIED'\n2. Tạo bản ghi Payment (userId = customerId, status = 'Success', paymentMethod)\n3. Tạo các bản ghi Ticket (status = 'Valid', kiểm tra Partial Unique Index unique_active_ticket)\n4. Nếu có mua kèm Combo: Trừ Combo.stock & tạo OrderCombo (isDelivered = true, deliveredAt = NOW())
+activate DB
+DB --> API : Xác nhận hoàn tất Transaction
+deactivate DB
+
+API -> API : Ký số payload từng vé bằng HMAC-SHA256
+API --> UI : 201 Created\n{ success: true, paymentId, tickets: [{ id, code, seatCode, qrPayload }], orderCombos }
+deactivate API
+
+UI -> UI : Render mã QR (<QRCodeSVG />) & gửi lệnh in vé đến máy in nhiệt tại quầy
+UI --> NV : Thông báo bán vé thành công & in cuống vé giấy
+NV -> NV : Bàn giao vé xem phim (và combo bắp nước nếu có) cho khách hàng
+
+deactivate UI
+deactivate NV
+@enduml

@@ -1,0 +1,58 @@
+@startuml
+title Hủy do lỗi rạp và hoàn tiền 100% (xử lý thủ công Phase 1)
+autonumber
+skinparam maxMessageSize 250
+
+actor "Admin" as AD
+actor "Nhân viên" as NV
+actor "Khách hàng" as KH
+participant "Hệ thống" as HT
+database "CSDL" as DB
+participant "Email/SMS" as TB
+
+== Giai đoạn 1: Hủy và ghi nhận khoản chờ hoàn ==
+
+alt Hủy từng vé (Nhân viên hoặc Admin)
+    NV -> HT : Tra cứu mã vé / mã đơn,\nchọn vé và lý do "Lỗi của rạp"
+    HT -> HT : Kiểm tra: vé chưa sử dụng, chưa xử lý\n(không xét điều kiện 2 tiếng)
+    alt Vé đã sử dụng hoặc đã xử lý
+        HT --> NV : Từ chối, nêu lý do
+    else Vé hợp lệ
+        HT -> DB : Vé -> "đã hủy", giải phóng ghế
+        HT -> DB : Tạo khoản "chờ hoàn tiền" = 100% tiền thực trả\n(không cấp voucher)
+        HT -> DB : Ghi log
+        HT --> NV : Hủy thành công
+    end
+else Hủy toàn bộ suất chiếu (chỉ Admin)
+    AD -> HT : Hủy suất chiếu, nhập lý do sự cố
+    HT -> DB : Suất chiếu -> "đã hủy", ngừng bán
+    loop Mỗi vé chưa sử dụng
+        HT -> DB : Vé -> "đã hủy", giải phóng ghế\n(suất đã hủy không được bán lại)
+        HT -> DB : Tạo khoản "chờ hoàn tiền" = 100% tiền thực trả
+    end
+    HT -> DB : Ghi log
+    note right of HT : Vé đã sử dụng giữ nguyên, không hoàn.\nCombo theo dõi riêng, không tự hủy.
+    HT --> AD : Hủy suất chiếu thành công
+end
+
+HT -> TB : Thông báo sự cố cho khách\n(online: 30 ngày để nhận hoàn tiền)
+
+== Giai đoạn 2: Hoàn tiền mặt tại rạp ==
+
+KH -> NV : Đến rạp, xuất trình mã vé
+NV -> HT : Tra cứu khoản chờ hoàn
+HT -> DB : Lấy khoản chờ hoàn
+DB --> HT : Trạng thái, số tiền, ngày thông báo
+
+HT -> HT : Kiểm tra:\n- Trạng thái = "chờ hoàn tiền"\n- Khách online: trong 30 ngày kể từ thông báo\n- Khách mua tại quầy: hoàn ngay
+
+alt Không hợp lệ (đã hoàn / quá hạn 30 ngày)
+    HT --> NV : Từ chối hoàn tiền
+else Hợp lệ
+    HT --> NV : Hiển thị số tiền cần hoàn
+    NV -> KH : Trả tiền mặt
+    NV -> HT : Xác nhận đã trả tiền
+    HT -> DB : Khoản hoàn -> "đã hoàn tiền"\n+ ghi log chứng từ đối soát cho kế toán
+    HT --> NV : Hoàn tiền thành công
+end
+@enduml

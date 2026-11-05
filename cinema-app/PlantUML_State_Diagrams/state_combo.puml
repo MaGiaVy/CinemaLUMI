@@ -1,0 +1,47 @@
+@startuml state_combo
+skinparam monochrome true
+skinparam style strictuml
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam roundCorner 8
+skinparam state {
+    BorderThickness 1.5
+    ArrowThickness 1.2
+}
+
+title SƠ ĐỒ TRẠNG THÁI ĐƠN HÀNG BẮP NƯỚC (COMBO RESERVATION & ORDER COMBO STATE MACHINE)
+
+[*] --> RESERVED : Khách chọn Combo khi đặt vé (POST /api/combos/reserve)\n[Combo.status == ACTIVE && Combo.stock >= quantity]\n/ Trừ tạm Combo.stock, tạo ComboReservation (status = RESERVED, giữ 10 phút: reservedUntil = NOW() + 10m)
+
+RESERVED --> EXPIRED_RELEASED : Quá hạn 10 phút không thanh toán [NOW() > reservedUntil]\nhoặc Giao dịch Payment Failed / Khách hủy phiên\n/ Cập nhật ComboReservation = RELEASED & Hoàn lại số lượng vào Combo.stock
+
+RESERVED --> CONFIRMED : Thanh toán đơn hàng thành công (Payment == Success)\n/ Cập nhật ComboReservation = COMPLETED (Chốt trừ kho Combo.stock)\n& Khởi tạo bản ghi OrderCombo
+
+state "EXPIRED / RELEASED\n(Hết hạn giữ 10 phút - Đã hoàn lại Combo.stock)" as EXPIRED_RELEASED
+
+state "CONFIRMED (Giai đoạn thực hiện đơn OrderCombo)" as CONFIRMED {
+    [*] --> PENDING_PICKUP : Khởi tạo OrderCombo (isDelivered = false)
+
+    state "PENDING_PICKUP\n(Chưa nhận, isDelivered = false)" as PENDING_PICKUP
+    state "PICKED_UP\n(Đã nhận, isDelivered = true, deliveredAt = NOW())" as PICKED_UP
+    state "CANCELLED\n(Hủy sự cố rạp trước khi nhận -> hoàn lại Combo.stock)" as CANCELLED
+
+    PENDING_PICKUP --> PICKED_UP : Khách xuất trình mã đơn tại quầy bắp nước (Concession)\n& Nhân viên bấm "Xác nhận đã giao combo" (POST /api/staff/combos/deliver - FR-CHK-02)\n[isDelivered == false] / Cập nhật isDelivered = true, deliveredAt = NOW() (Chặn nhận trùng lần 2 - BR-05)
+
+    PENDING_PICKUP --> CANCELLED : Suất chiếu hoặc vé bị hủy do sự cố kỹ thuật của rạp (BR-04)\n[Khi khách chưa nhận bắp nước: isDelivered == false]\n/ Hủy món bắp nước trong đơn, cộng hoàn lại số lượng vào Combo.stock\n& tính gộp giá trị combo vào công nợ hoàn tiền mặt 100%
+}
+
+EXPIRED_RELEASED --> [*] : Kết thúc giữ kho tạm quá hạn
+PICKED_UP --> [*] : Hoàn tất phục vụ bắp nước tại quầy
+CANCELLED --> [*] : Hoàn tất quy trình hoàn kho & ghi nhận công nợ hoàn tiền
+
+note right of CONFIRMED
+  <b>QUY TẮC QUẢN LÝ TỒN KHO & GIAO NHẬN (FR-CHK-02, BR-05):</b>
+  1. <b>Giai đoạn 1 (ComboReservation):</b> Khóa tạm <i>Combo.stock</i> trong <b>10 phút</b>
+     để chống bán vượt tồn kho (Overselling). Nếu hết hạn 10 phút -> hoàn lại <i>Combo.stock</i>.
+  2. <b>Giai đoạn 2 (OrderCombo):</b> Khách nhận bắp nước tại quầy độc lập hoàn toàn
+     với trạng thái soát vé vào phòng chiếu. Khi giao hàng chỉ cập nhật
+     <b>isDelivered = true</b> và <b>deliveredAt = NOW()</b>.
+end note
+
+@enduml

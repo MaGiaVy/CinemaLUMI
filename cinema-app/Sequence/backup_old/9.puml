@@ -1,0 +1,45 @@
+@startuml
+title Sequence Diagram - Danh gia & Binh luan phim (Movie Reviews)
+autonumber
+skinparam maxMessageSize 220
+
+actor "Khach hang\n(Customer)" as KH
+boundary "Giao dien Chi tiet Phim\n(Web UI)" as UI
+control "Review Controller\n(Backend API)" as BE
+database "Co so du lieu\n(PostgreSQL)" as DB
+
+KH -> UI : Chon phim va xem muc Danh gia phim
+UI -> BE : Yeu cau danh sach danh gia & diem trung binh
+BE -> DB : Truy van danh sach Reviews & diem Rating cua phim
+DB --> BE : Tra du lieu danh gia
+BE --> UI : Tra danh sach danh gia & diem trung binh
+UI --> KH : Hien thi danh sach binh luan va bieu mau danh gia
+
+KH -> UI : Chon so sao (1-5 sao) va nhap binh luan (<= 1000 ky tu)
+KH -> UI : Nhan nut "Gui danh gia"
+UI -> BE : Gui du lieu danh gia (movieId, rating, comment, JWT)
+
+BE -> BE : Kiem tra xac thuc dang nhap (JWT)\nva hop le du lieu (1-5 sao, <= 1000 ky tu)\n(Khong bat buoc da mua ve)
+
+alt Chua dang nhap hoac du lieu khong hop le
+    BE --> UI : Tra loi 401/400 (Yeu cau dang nhap / Sai dinh dang)
+    UI --> KH : Hien thi thong bao loi
+else Hop le
+    BE -> DB : Kiem tra khach da danh gia phim nay chua (userId, movieId)
+    DB --> BE : Tra ket qua kiem tra
+
+    alt Da tung danh gia truoc do (FR-REV-02)
+        BE -> DB : Cap nhat (UPDATE) so sao, binh luan va updatedAt
+        DB --> BE : Xac nhan cap nhat thanh cong
+    else Danh gia lan dau
+        BE -> DB : Them moi (INSERT) ban ghi danh gia
+        DB --> BE : Xac nhan luu moi thanh cong
+    end
+
+    BE -> DB : Tinh lai diem trung binh cua phim\n(lam tron 1 chu so thap phan - FR-REV-03)
+    DB --> BE : Xac nhan cap nhat Movie.rating
+
+    BE --> UI : Tra ket qua danh gia thanh cong & diem moi
+    UI --> KH : Hien thi thong bao thanh cong va cap nhat giao dien
+end
+@enduml

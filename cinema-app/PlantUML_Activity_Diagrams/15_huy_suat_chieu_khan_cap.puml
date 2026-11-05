@@ -1,0 +1,52 @@
+@startuml 15_huy_suat_chieu_khan_cap
+title SƠ ĐỒ HOẠT ĐỘNG: HỦY SUẤT CHIẾU KHẨN CẤP DO SỰ CỐ (EMERGENCY SCREENING CANCELLATION - FR-ADM-04 & BR-04)
+skinparam conditionStyle insideDiamond
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam monochrome true
+skinparam wrapWidth 180
+
+|Admin|
+|Hệ thống|
+|Admin|
+start
+:Chọn quản lý suất chiếu;
+:Chọn suất chiếu gặp sự cố kỹ thuật / phòng chiếu;
+:Chọn hủy suất chiếu khẩn cấp\nvà nhập lý do sự cố;
+
+|Hệ thống|
+:Tìm suất chiếu và kiểm tra trạng thái;
+if (Còn hiệu lực?) then (Có)
+else (Không)
+  :Thông báo không thể hủy suất chiếu đã kết thúc hoặc đã hủy;
+  stop
+endif
+
+|Hệ thống|
+:Hiển thị cảnh báo số lượng vé Valid và đơn combo bị ảnh hưởng;
+
+|Admin|
+if (Xác nhận?) then (Có)
+else (Không)
+  :Hủy thao tác;
+  stop
+endif
+
+|Hệ thống|
+:Chuyển trạng thái suất chiếu sang CANCELLED / ENDED và ngừng bán vé;
+:Hủy toàn bộ vé đang Valid sang Cancelled\n(ghi nhận công nợ hoàn tiền 100% PENDING_CASH_REFUND; giữ nguyên vé đã Used);
+:Giải phóng toàn bộ ghế của suất chiếu về EMPTY;
+:Hoàn lại tồn kho Combo.stock cho các combo chưa nhận (OrderCombo.isDelivered = false);
+:Ghi nhận nhật ký kiểm toán (AuditLog);
+if (Thành công?) then (Có)
+  :Gửi thông báo cho khách hàng bị ảnh hưởng:\nCó 30 ngày để nhận hoàn tiền mặt 100% tại quầy rạp;
+  :Hiển thị kết quả xử lý sự cố và danh sách vé chờ hoàn tiền;
+else (Không)
+  :Hoàn tác toàn bộ thay đổi (Rollback Transaction)\nvà thông báo thao tác thất bại;
+endif
+
+|Admin|
+:Xem kết quả xử lý sự cố;
+
+stop
+@enduml

@@ -10,7 +10,7 @@ skinparam defaultTextAlignment center
 actor "Quản trị viên\n(Admin)" as AD
 boundary "Giao diện Quản trị\n(Frontend Next.js)" as UI
 control "API Quản trị Đánh giá\n(Next.js App Router)" as API
-entity "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
+entity "Cơ sở dữ liệu\n(Docker PostgreSQL / Prisma)" as DB
 
 activate AD
 AD -> UI : Truy cập mục Quản lý đánh giá phim (/admin/reviews)
@@ -34,35 +34,44 @@ UI --> AD : Hiển thị hộp thoại xác nhận xóa đánh giá
 
 AD -> UI : Bấm nút "Xác nhận xóa"
 
-UI -> API : DELETE /api/reviews/{id}\n(Admin Session Token)
+UI -> API : DELETE /api/reviews/[id]\n(Admin Session Token)
 activate API
 
-API -> API : Xác thực quyền hạn ADMIN (FR-AUTH-03)
+API -> API : Xác thực quyền hạn requireAuth(['ADMIN']) (FR-AUTH-03)
 
 alt Không phải quyền ADMIN
     API --> UI : 403 Forbidden\n{ message: "Bạn không có quyền thực hiện thao tác này" }
     UI --> AD : Hiển thị cảnh báo từ chối truy cập
 else Quyền ADMIN hợp lệ
-    API -> DB : prisma.review.delete({ where: { id } })
+    API -> DB : prisma.review.findUnique({ where: { id: reviewId } })
     activate DB
-    DB --> API : Xác nhận xóa bản ghi đánh giá thành công
+    DB --> API : Trả về bản ghi review hoặc null
     deactivate DB
 
-    API -> DB : Tự động tính toán lại điểm trung bình của bộ phim liên quan:\nnewRating = round(AVG(rating), 1)\nprisma.movie.update({ where: { id: movieId }, data: { rating: newRating } })
-    activate DB
-    DB --> API : Xác nhận cập nhật điểm trung bình phim mới
-    deactivate DB
+    alt Không tìm thấy đánh giá -> 404 Not Found
+        API --> UI : 404 Not Found\n{ message: "Không tìm thấy bình luận cần xóa" }
+        UI --> AD : Hiển thị cảnh báo đánh giá không tồn tại
+    else Tìm thấy bản ghi đánh giá
+        API -> DB : prisma.review.delete({ where: { id: reviewId } })
+        activate DB
+        DB --> API : Xác nhận xóa bản ghi đánh giá thành công
+        deactivate DB
 
-    API -> DB : Ghi Audit Log hành động kiểm duyệt của Admin (NFR-INT-02)
-    activate DB
-    DB --> API : Xác nhận lưu log thành công
-    deactivate DB
+        API -> DB : Tự động tính toán lại điểm trung bình của bộ phim liên quan (FR-REV-03, BR-06):\nnewRating = round(AVG(rating), 1)\nprisma.movie.update({ where: { id: movieId }, data: { rating: newRating } })
+        activate DB
+        DB --> API : Xác nhận cập nhật movies.rating mới
+        deactivate DB
 
-    API --> UI : 200 OK\n{ success: true, message: "Đã xóa đánh giá vi phạm thành công", newRating }
-    deactivate API
+        API -> DB : Ghi AuditLog hành động kiểm duyệt của Admin (NFR-INT-02)
+        activate DB
+        DB --> API : Xác nhận lưu log thành công
+        deactivate DB
 
-    UI --> AD : Hiển thị Toast thông báo thành công & làm mới danh sách đánh giá
+        API --> UI : 200 OK\n{ success: true, message: "Đã xóa bình luận", newRating }
+        UI --> AD : Hiển thị Toast thông báo thành công & làm mới danh sách đánh giá
+    end
 end
+deactivate API
 
 deactivate UI
 deactivate AD

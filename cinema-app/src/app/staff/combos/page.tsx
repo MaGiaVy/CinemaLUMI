@@ -2,8 +2,6 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
-import Button from '@/components/ui/Button';
-import Badge from '@/components/ui/Badge';
 import Toast, { ToastMessage } from '@/components/ui/Toast';
 
 interface ComboItem {
@@ -88,7 +86,7 @@ export default function StaffCombosPage() {
   }, [fetchOrders]);
 
   const handleDeliverSingle = async (orderComboId: number, comboName: string) => {
-    if (!confirm(`Xác nhận khách đã nhận "${comboName}"? Sau khi nhận sẽ chặn phát lần 2.`)) {
+    if (!confirm(`Xác nhận khách đã nhận "${comboName}"? Sau khi nhận sẽ chặn phát lần 2 (BR-05).`)) {
       return;
     }
 
@@ -109,8 +107,8 @@ export default function StaffCombosPage() {
       }
 
       if (json.success) {
-        showToast(`Đã xác nhận giao: ${comboName}!`, 'success');
-        setAlertMessage({ type: 'success', text: `Đã xác nhận giao: ${comboName}!` });
+        showToast(`Đã xác nhận bàn giao: ${comboName}!`, 'success');
+        setAlertMessage({ type: 'success', text: `Đã xác nhận bàn giao: ${comboName}!` });
         await fetchOrders();
       } else {
         showToast(json.message || 'Lỗi khi giao combo', 'error');
@@ -162,259 +160,261 @@ export default function StaffCombosPage() {
   };
 
   return (
-    <div className="flex-1 bg-[#141414] p-6 lg:p-8 min-h-screen">
+    <div className="flex-1 p-4 lg:p-6 text-[#F8FAFC]">
       <Toast toasts={toasts} onRemove={removeToast} />
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#2D2D2D] pb-5">
-          <div>
-            <div className="flex items-center gap-3">
-              <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tight">
-                Quầy Giao Nhận Combo & Bắp Nước
-              </h1>
-              <span className="bg-[#FFB703]/20 border border-[#FFB703]/40 text-[#FFB703] text-xs font-semibold px-2.5 py-0.5 rounded-full">
-                CONCESSION COUNTER
-              </span>
+
+      <div className="max-w-[1440px] mx-auto space-y-5">
+
+        {/* 1. Header Bar Kệ Bắp Nước */}
+        <header className="bg-gradient-to-r from-[rgba(20,14,32,0.92)] to-[rgba(35,12,28,0.9)] backdrop-blur-2xl border border-[rgba(192,132,252,0.25)] rounded-2xl p-4 lg:px-6 lg:py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-[0_8px_32px_rgba(0,0,0,0.7),0_0_20px_rgba(88,28,135,0.2)]">
+          <div className="flex items-center gap-3.5">
+            <span className="bg-gradient-to-br from-[#E11D48] to-[#881337] text-white font-black text-xs tracking-wider px-3 py-1.5 rounded-lg shadow-[0_0_20px_rgba(225,29,72,0.6)] border border-[rgba(254,205,211,0.35)]">
+              ✦ CONCESSION
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <Link href="/staff" className="text-xs text-[#94A3B8] hover:text-white transition-colors">
+                  Dashboard
+                </Link>
+                <span className="text-[#64748B] text-xs">/</span>
+                <h1 className="text-sm lg:text-base font-extrabold text-[#F8FAFC] tracking-wide">
+                  KỆ GIAO BẮP NƯỚC & ĐIỀU PHỐI ĐƠN HÀNG (CONCESSION QUEUE)
+                </h1>
+              </div>
+              <p className="text-xs text-[#94A3B8] mt-0.5">
+                Kiểm tra đơn hàng, xác nhận bàn giao một chạm và chống gian lận nhận lần 2 (BR-05)
+              </p>
             </div>
-            <p className="text-[#A3A3A3] text-sm mt-1">
-              Kiểm tra đơn hàng, xác nhận phát bắp nước và chống nhận lần hai
-            </p>
           </div>
-          <div className="flex items-center gap-3">
-            <Button
-              variant="secondary"
-              size="sm"
+
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
               onClick={fetchOrders}
               disabled={loading}
+              className="px-3.5 py-1.5 rounded-xl bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.12)] text-[#F8FAFC] text-xs font-bold border border-[rgba(192,132,252,0.25)] transition-all flex items-center gap-2"
             >
-              🔄 {loading ? 'Đang cập nhật...' : 'Làm mới'}
-            </Button>
-            <Link href="/staff/pos">
-              <Button variant="primary" size="sm" className="bg-[#E63946] hover:bg-[#D90429]">
-                🎟️ Bán tại quầy (POS)
-              </Button>
+              <span>{loading ? 'Đang cập nhật...' : 'Làm mới'}</span>
+            </button>
+            <Link
+              href="/staff/pos"
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#E11D48] to-[#881337] text-white text-xs font-black shadow-[0_0_15px_rgba(225,29,72,0.4)] hover:scale-105 transition-all no-underline"
+            >
+              Mở Quầy POS
             </Link>
           </div>
-        </div>
+        </header>
 
         {/* Thông báo Alert */}
         {alertMessage && (
           <div
-            className={`p-4 rounded-xl border-2 border-l-[6px] flex items-center justify-between text-sm shadow-xl font-medium ${
+            className={`p-3.5 rounded-xl border flex items-center justify-between text-xs font-semibold shadow-lg transition-all ${
               alertMessage.type === 'success'
-                ? 'bg-[#0E2517] border-[#2ECC71] text-white shadow-[#2ECC71]/20'
-                : 'bg-[#2D0F14] border-[#E63946] text-white shadow-[#E63946]/20'
+                ? 'bg-[rgba(34,197,94,0.15)] border-[rgba(34,197,94,0.4)] text-[#86EFAC]'
+                : 'bg-[rgba(225,29,72,0.18)] border-[rgba(225,29,72,0.45)] text-[#FDA4AF]'
             }`}
           >
-            <span>{alertMessage.type === 'success' ? '✅' : '⚠️'} {alertMessage.text}</span>
+            <span>{alertMessage.text}</span>
             <button
               type="button"
               onClick={() => setAlertMessage(null)}
-              className="text-white hover:opacity-75 font-bold"
+              className="font-bold hover:opacity-75 ml-3"
             >
               ✕
             </button>
           </div>
         )}
 
-        {/* Thanh tìm kiếm & Bộ lọc */}
-        <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl p-5 shadow-lg space-y-4">
+        {/* 2. Thanh Tìm Kiếm & Bộ Lọc Trạng Thái */}
+        <section className="bg-[radial-gradient(circle_at_0%_0%,rgba(136,19,55,0.25)_0%,transparent_50%),radial-gradient(circle_at_100%_100%,rgba(88,28,135,0.3)_0%,transparent_60%),rgba(15,11,25,0.85)] backdrop-blur-2xl border border-[rgba(192,132,252,0.22)] rounded-2xl p-4 lg:p-5 shadow-[0_10px_40px_rgba(0,0,0,0.85)] space-y-3.5">
           <form
             onSubmit={(e) => {
               e.preventDefault();
               fetchOrders();
             }}
-            className="flex flex-col sm:flex-row gap-3"
+            className="flex flex-col sm:flex-row gap-2.5"
           >
-            <div className="relative flex-1">
-              <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#737373] text-base">
-                🔍
-              </span>
-              <input
-                type="text"
-                placeholder="Nhập số điện thoại khách, tên khách, mã thanh toán hoặc mã vé..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="w-full bg-[#141414] border border-[#404040] focus:border-[#FFB703] rounded-xl pl-10 pr-4 py-3 text-white text-sm outline-none transition-colors"
-              />
-            </div>
-            <Button type="submit" variant="primary" size="md" className="bg-[#FFB703] hover:bg-[#FCA311] text-black font-bold">
-              Tra cứu đơn
-            </Button>
+            <input
+              type="text"
+              placeholder="Nhập số điện thoại khách, tên khách, mã giao dịch hoặc mã vé..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="flex-1 bg-[rgba(8,6,14,0.85)] border border-[rgba(192,132,252,0.25)] rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-[#E11D48] transition-colors"
+            />
+            <button
+              type="submit"
+              className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-[#581C87] to-[#7E22CE] text-white text-xs font-extrabold shadow-[0_0_15px_rgba(147,51,234,0.4)] hover:scale-105 transition-all"
+            >
+              Tra Cứu Đơn
+            </button>
           </form>
 
-          {/* Filter Tabs */}
-          <div className="flex items-center gap-2 pt-2 border-t border-[#2D2D2D]">
-            <span className="text-xs text-[#737373] mr-2">Trạng thái:</span>
-            {[
-              { id: 'pending', label: '🟡 Chờ giao cho khách' },
-              { id: 'delivered', label: '🟢 Đã giao nhận' },
-              { id: 'all', label: '📋 Tất cả đơn bắp nước' },
-            ].map((tab) => (
-              <button
-                key={tab.id}
-                type="button"
-                onClick={() => setStatusFilter(tab.id as any)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                  statusFilter === tab.id
-                    ? 'bg-[#FFB703] text-black shadow-md'
-                    : 'bg-[#2D2D2D] text-[#A3A3A3] hover:text-white'
-                }`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </div>
-        </div>
-
-        {/* Danh sách các đơn bắp nước */}
-        <div className="space-y-4">
-          {loading ? (
-            <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl p-12 text-center text-[#737373]">
-              <div className="inline-block animate-spin text-3xl mb-3">🔄</div>
-              <p>Đang tìm kiếm dữ liệu bắp nước...</p>
-            </div>
-          ) : orders.length === 0 ? (
-            <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl p-12 text-center text-[#737373]">
-              <div className="text-4xl mb-3">🍿</div>
-              <p className="text-white font-medium">Không tìm thấy đơn bắp nước nào phù hợp</p>
-              <p className="text-xs text-[#737373] mt-1">Thử thay đổi từ khóa hoặc chuyển sang tab trạng thái khác</p>
-            </div>
-          ) : (
-            orders.map((order) => {
-              const pendingCount = order.combos.filter((c) => !c.isDelivered).length;
-              const isAllDelivered = pendingCount === 0;
-
-              return (
-                <div
-                  key={order.paymentId}
-                  className={`bg-[#1E1E1E] border rounded-2xl p-5 lg:p-6 transition-all shadow-md ${
-                    isAllDelivered ? 'border-[#2D2D2D] opacity-80' : 'border-[#FFB703]/30 hover:border-[#FFB703]/60'
+          {/* Bộ lọc trạng thái đơn */}
+          <div className="flex items-center justify-between pt-2 border-t border-[rgba(192,132,252,0.12)]">
+            <span className="text-[11px] text-[#94A3B8]">Lọc theo tiến độ giao:</span>
+            <div className="flex bg-[rgba(8,6,14,0.7)] p-1 rounded-xl border border-[rgba(192,132,252,0.18)]">
+              {[
+                { id: 'pending', label: 'Chờ Giao Cho Khách' },
+                { id: 'delivered', label: 'Đã Bàn Giao' },
+                { id: 'all', label: 'Tất Cả Đơn Bắp Nước' },
+              ].map((tab) => (
+                <button
+                  key={tab.id}
+                  type="button"
+                  onClick={() => setStatusFilter(tab.id as any)}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                    statusFilter === tab.id
+                      ? 'bg-gradient-to-r from-[#E11D48] to-[#881337] text-white shadow-[0_0_12px_rgba(225,29,72,0.5)]'
+                      : 'text-[#94A3B8] hover:text-white'
                   }`}
                 >
-                  {/* Order Header */}
-                  <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-[#2D2D2D] pb-4 mb-4">
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* 3. Lưới Đơn Hàng Bắp Nước Thời Gian Thực */}
+        <div>
+          {loading ? (
+            <div className="bg-[rgba(15,11,25,0.8)] border border-[rgba(192,132,252,0.2)] rounded-2xl py-20 text-center text-[#94A3B8]">
+              <div className="hourglass-spin text-2xl mb-2">⏳</div>
+              <p className="text-xs">Đang đồng bộ hàng đợi bắp nước...</p>
+            </div>
+          ) : orders.length === 0 ? (
+            <div className="bg-[rgba(15,11,25,0.8)] border border-[rgba(192,132,252,0.2)] rounded-2xl py-20 text-center text-[#94A3B8]">
+              <p className="text-sm font-bold text-white">Hiện không có đơn bắp nước nào cần xử lý</p>
+              <p className="text-xs mt-1">Đơn hàng mới từ quầy POS và Mobile App sẽ tự động hiển thị tại đây.</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {orders.map((order) => {
+                const pendingCount = order.combos.filter((c) => !c.isDelivered).length;
+                const isAllDelivered = pendingCount === 0;
+
+                return (
+                  <div
+                    key={order.paymentId}
+                    className={`rounded-2xl p-4 lg:p-5 transition-all flex flex-col justify-between border ${
+                      isAllDelivered
+                        ? 'bg-[radial-gradient(circle_at_0%_0%,rgba(88,28,135,0.15)_0%,transparent_60%),rgba(16,12,26,0.7)] border-[rgba(192,132,252,0.12)] opacity-70'
+                        : 'bg-[radial-gradient(circle_at_0%_0%,rgba(88,28,135,0.3)_0%,transparent_60%),radial-gradient(circle_at_100%_100%,rgba(225,29,72,0.25)_0%,transparent_60%),rgba(16,12,26,0.92)] border-[rgba(225,29,72,0.6)] shadow-[0_0_25px_rgba(225,29,72,0.3)]'
+                    }`}
+                  >
                     <div>
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono font-bold text-white text-base">
-                          {order.transactionCode}
+                      {/* Header Đơn Hàng */}
+                      <div className="flex justify-between items-start border-b border-[rgba(255,255,255,0.08)] pb-3 mb-3">
+                        <div>
+                          <div className="font-mono font-black text-sm text-[#F8FAFC]">
+                            {order.transactionCode}
+                          </div>
+                          <div className="text-[10px] text-[#94A3B8] mt-0.5">
+                            Đặt lúc: {new Date(order.createdAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })} · {order.paymentMethod}
+                          </div>
+                        </div>
+
+                        {/* Huy hiệu trạng thái */}
+                        <span
+                          className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${
+                            isAllDelivered
+                              ? 'bg-[rgba(255,255,255,0.06)] border-[rgba(255,255,255,0.15)] text-[#94A3B8]'
+                              : order.deliveryStatus === 'PARTIALLY_DELIVERED'
+                              ? 'bg-[rgba(245,158,11,0.2)] border-[#F59E0B] text-[#FDE68A]'
+                              : 'bg-[rgba(225,29,72,0.25)] border-[#E11D48] text-[#FDA4AF] shadow-[0_0_10px_rgba(225,29,72,0.4)]'
+                          }`}
+                        >
+                          {isAllDelivered
+                            ? 'ĐÃ GIAO'
+                            : order.deliveryStatus === 'PARTIALLY_DELIVERED'
+                            ? `GIAO DỞ (${pendingCount} CHỜ)`
+                            : `ĐANG CHUẨN BỊ (${pendingCount} MỤC)`}
                         </span>
-                        {isAllDelivered ? (
-                          <Badge variant="green">ĐÃ GIAO ĐỦ</Badge>
-                        ) : order.deliveryStatus === 'PARTIALLY_DELIVERED' ? (
-                          <Badge variant="gold">ĐANG GIAO DỞ</Badge>
-                        ) : (
-                          <span className="bg-[#FFB703]/20 border border-[#FFB703]/40 text-[#FFB703] text-xs font-semibold px-2 py-0.5 rounded-full">
-                            CHỜ GIAO ({pendingCount} MỤC)
-                          </span>
+                      </div>
+
+                      {/* Khách hàng & Suất chiếu */}
+                      <div className="bg-[rgba(8,6,14,0.6)] rounded-xl p-2.5 text-xs border border-[rgba(192,132,252,0.15)] mb-3 space-y-1">
+                        <div className="flex justify-between">
+                          <span className="text-[#94A3B8]">Khách:</span>
+                          <strong className="text-white">{order.customer.name} ({order.customer.phone || 'N/A'})</strong>
+                        </div>
+                        {order.movieInfo && (
+                          <div className="flex justify-between text-[#FDA4AF]">
+                            <span>Phòng {order.movieInfo.room}:</span>
+                            <span className="truncate max-w-[170px]">{order.movieInfo.title} · Ghế {order.movieInfo.seats}</span>
+                          </div>
                         )}
                       </div>
-                      <p className="text-xs text-[#737373] mt-1">
-                        Đặt lúc: {new Date(order.createdAt).toLocaleTimeString('vi-VN')} {new Date(order.createdAt).toLocaleDateString('vi-VN')} • Thanh toán: {order.paymentMethod} • Tổng tiền: {order.totalAmount.toLocaleString('vi-VN')}đ
-                      </p>
+
+                      {/* Danh sách các phần bắp nước trong đơn */}
+                      <div className="space-y-2 mb-4">
+                        {order.combos.map((combo) => (
+                          <div
+                            key={combo.orderComboId}
+                            className="p-2.5 rounded-xl bg-[rgba(255,255,255,0.03)] border border-[rgba(255,255,255,0.06)] flex items-center justify-between gap-2"
+                          >
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5">
+                                <span className="font-extrabold text-xs text-[#F8FAFC] truncate">
+                                  {combo.name}
+                                </span>
+                                <span className="text-[10px] font-black bg-[rgba(255,255,255,0.08)] px-1.5 py-0.2 rounded text-[#FDA4AF]">
+                                  x{combo.quantity}
+                                </span>
+                              </div>
+                              <div className="text-[10px] text-[#94A3B8] mt-0.5">
+                                {(combo.price * combo.quantity).toLocaleString('vi-VN')} đ
+                              </div>
+                            </div>
+
+                            {/* Nút bấm giao lẻ từng món */}
+                            <div>
+                              {combo.isDelivered ? (
+                                <span className="text-[10px] font-bold text-[#86EFAC] bg-[rgba(34,197,94,0.15)] border border-[rgba(34,197,94,0.3)] px-2 py-1 rounded-md block text-center">
+                                  ĐÃ NHẬN
+                                </span>
+                              ) : (
+                                <button
+                                  type="button"
+                                  disabled={deliveringId === combo.orderComboId}
+                                  onClick={() => handleDeliverSingle(combo.orderComboId, combo.name)}
+                                  className="px-2.5 py-1 rounded-lg bg-[rgba(225,29,72,0.2)] hover:bg-[#E11D48] text-[#FDA4AF] hover:text-white border border-[rgba(225,29,72,0.4)] text-[10px] font-extrabold transition-all cursor-pointer"
+                                >
+                                  {deliveringId === combo.orderComboId ? '...' : 'Giao Món'}
+                                </button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
                     </div>
 
-                    <div className="flex items-center gap-3">
+                    {/* Nút hành động toàn đơn */}
+                    <div className="pt-2 border-t border-[rgba(255,255,255,0.08)]">
                       {!isAllDelivered ? (
-                        <Button
-                          variant="primary"
-                          size="sm"
-                          onClick={() => handleDeliverAll(order.paymentId)}
-                          disabled={deliveringPaymentId === order.paymentId}
-                          className="bg-[#2ECC71] hover:bg-[#27AE60] text-white font-bold text-xs"
-                        >
-                          {deliveringPaymentId === order.paymentId ? 'Đang xác nhận...' : '✅ Giao toàn bộ combo'}
-                        </Button>
-                      ) : (
                         <button
-                          disabled
-                          className="bg-[#262626] text-[#737373] border border-[#3A3A3A] text-xs font-semibold px-3 py-1.5 rounded-lg cursor-not-allowed opacity-75 flex items-center gap-1.5"
+                          type="button"
+                          disabled={deliveringPaymentId === order.paymentId}
+                          onClick={() => handleDeliverAll(order.paymentId)}
+                          className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#E11D48] to-[#9F1239] text-white text-xs font-black shadow-[0_0_15px_rgba(225,29,72,0.4)] hover:shadow-[0_0_25px_rgba(225,29,72,0.6)] hover:scale-[1.02] transition-all cursor-pointer"
                         >
-                          <span>🔒</span> Đã giao đủ toàn bộ
+                          {deliveringPaymentId === order.paymentId
+                            ? 'ĐANG XÁC NHẬN...'
+                            : 'XÁC NHẬN ĐÃ GIAO XONG TOÀN ĐƠN'}
                         </button>
+                      ) : (
+                        <div className="text-center py-2 text-xs font-bold text-[#64748B]">
+                          Đơn đã hoàn tất bàn giao (Khóa chặn BR-05)
+                        </div>
                       )}
                     </div>
                   </div>
-
-                  {/* Customer & Movie Details */}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[#141414] p-3.5 rounded-xl text-xs mb-4">
-                    <div>
-                      <span className="text-[#737373]">Khách hàng: </span>
-                      <span className="text-white font-semibold">{order.customer.name}</span>
-                      <span className="text-[#A3A3A3] ml-2">📞 {order.customer.phone}</span>
-                    </div>
-                    {order.movieInfo ? (
-                      <div>
-                        <span className="text-[#737373]">Suất chiếu: </span>
-                        <span className="text-[#FFB703] font-semibold">{order.movieInfo.title}</span>
-                        <span className="text-[#A3A3A3] ml-2">Phòng: {order.movieInfo.room} • Ghế: {order.movieInfo.seats}</span>
-                      </div>
-                    ) : (
-                      <div className="text-[#737373]">
-                        Đơn mua bắp nước độc lập tại quầy hoặc online
-                      </div>
-                    )}
-                  </div>
-
-                  {/* Combos list */}
-                  <div className="divide-y divide-[#2D2D2D]">
-                    {order.combos.map((combo) => (
-                      <div
-                        key={combo.orderComboId}
-                        className="py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-                      >
-                        <div className="flex items-center gap-3">
-                          <div className="w-12 h-12 bg-[#2D2D2D] rounded-xl flex items-center justify-center text-2xl flex-shrink-0">
-                            🍿
-                          </div>
-                          <div>
-                            <div className="flex items-center gap-2">
-                              <p className="text-white font-bold text-sm">{combo.name}</p>
-                              <span className="bg-[#333333] text-white text-xs px-2 py-0.5 rounded font-bold">
-                                x{combo.quantity}
-                              </span>
-                            </div>
-                            <p className="text-xs text-[#737373] mt-0.5">
-                              Đơn giá: {combo.price.toLocaleString('vi-VN')}đ • Thành tiền: {(combo.price * combo.quantity).toLocaleString('vi-VN')}đ
-                            </p>
-                          </div>
-                        </div>
-
-                        <div className="flex items-center gap-3 self-end sm:self-center">
-                          {combo.isDelivered ? (
-                            <div className="flex flex-col items-end gap-1">
-                              <button
-                                disabled
-                                className="inline-flex items-center gap-1.5 text-xs text-[#2ECC71] bg-[#2ECC71]/10 border border-[#2ECC71]/30 px-3 py-1.5 rounded-lg font-semibold cursor-not-allowed opacity-90"
-                              >
-                                <span>🔒</span> ĐÃ NHẬN (CHẶN PHÁT LẦN 2)
-                              </button>
-                              {combo.deliveredAt && (
-                                <p className="text-[10px] text-[#737373]">
-                                  Lúc: {new Date(combo.deliveredAt).toLocaleTimeString('vi-VN')} {new Date(combo.deliveredAt).toLocaleDateString('vi-VN')}
-                                </p>
-                              )}
-                            </div>
-                          ) : (
-                            <Button
-                              variant="secondary"
-                              size="sm"
-                              onClick={() => handleDeliverSingle(combo.orderComboId, combo.name)}
-                              disabled={deliveringId === combo.orderComboId}
-                              className="border-[#FFB703]/50 text-[#FFB703] hover:bg-[#FFB703] hover:text-black font-semibold text-xs"
-                            >
-                              {deliveringId === combo.orderComboId ? 'Đang xử lý...' : '🍿 Giao phần này'}
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              );
-            })
+                );
+              })}
+            </div>
           )}
         </div>
+
       </div>
     </div>
   );

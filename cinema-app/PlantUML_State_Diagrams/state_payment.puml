@@ -1,36 +1,69 @@
 @startuml state_payment
 skinparam monochrome true
 skinparam style strictuml
+skinparam shadowing false
 skinparam defaultFontName Arial
 skinparam defaultFontSize 12
 skinparam roundCorner 8
+skinparam padding 6
+skinparam nodesep 55
+skinparam ranksep 65
+skinparam ArrowThickness 1.2
 skinparam state {
     BorderThickness 1.5
-    ArrowThickness 1.2
+    AttributeFontSize 11
 }
+skinparam note {
+    BorderThickness 1
+    FontSize 11
+}
+hide empty description
 
-title SƠ ĐỒ TRẠNG THÁI GIAO DỊCH THANH TOÁN (PAYMENT TRANSACTION STATE MACHINE)
+title SƠ ĐỒ TRẠNG THÁI GIAO DỊCH THANH TOÁN
 
-[*] --> Pending : Khách xác nhận đặt hàng (POST /api/payments/initiate) hoặc Tạo đơn POS\n/ Sinh mã app_trans_id & tạo đơn ZaloPay Sandbox v2 (app_id: 2553) ký HMAC-SHA256 (ZALOPAY_KEY1)
+state "Đang chờ thanh toán\n(Pending)" as CHO_THANH_TOAN {
+}
+CHO_THANH_TOAN : entry / Khởi tạo mã giao dịch, tổng tiền từ máy chủ và giữ ghế 10 phút
+CHO_THANH_TOAN : do / Chờ tín hiệu xác nhận từ cổng ZaloPay hoặc VNPay
 
-Pending --> Success : Nhận Webhook IPN / Return ZaloPay Sandbox v2 hợp lệ\n(return_code == 1 && MAC HMAC-SHA256 với ZALOPAY_KEY2 hợp lệ)\nHOẶC Thu ngân POS xác nhận thu đủ tiền mặt/QR (FR-POS-01)\n/ Kích hoạt Ticket = Valid, Seat = OCCUPIED, ComboReservation = COMPLETED & tạo OrderCombo
+state "Thành công\n(Success)" as THANH_CONG {
+}
+THANH_CONG : entry / Chốt ghế Đã bán, tạo Vé Hợp lệ, xác nhận kho bắp nước\nvà tăng lượt sử dụng mã giảm giá (nếu có)
 
-Pending --> Failed : [Khách nhấn Hủy trên cổng ZaloPay Sandbox v2 / return_code != 1]\nhoặc [Quá hạn phiên giữ chỗ 10 phút: NOW() > reservedUntil]\nhoặc [Chữ ký MAC HMAC-SHA256 không hợp lệ]\n/ Hủy đơn hàng, giải phóng ghế về EMPTY, giải phóng ComboReservation = RELEASED
+state "Thất bại\n(Failed)" as THAT_BAI {
+}
+THAT_BAI : entry / Chấm dứt phiên chờ; không phát hành vé mới
 
-Success --> Refunded : Vé/Suất chiếu bị hủy do sự cố kỹ thuật của rạp (BR-04)\n& Khách xuất trình vé nhận tiền mặt tại quầy trong vòng 30 ngày (FR-CAN-02)\n/ Thu ngân xuất quỹ hoàn 100% tiền mặt, cập nhật refundStatus = REFUNDED_CASH & lưu AuditLog (BR-10)
+state "Đã hoàn tiền\n(Refunded)" as DA_HOAN_TIEN {
+}
+DA_HOAN_TIEN : entry / Ghi nhận hoàn trả 100% giá trị vé trong giao dịch
 
-Success --> [*] : Giao dịch hoàn tất thành công, ghi nhận doanh thu thực thu (Net Revenue)
-Failed --> [*] : Kết thúc giao dịch thất bại
-Refunded --> [*] : Hoàn tất đối soát hoàn tiền mặt
+[*] --> CHO_THANH_TOAN : Khách hàng khởi tạo thanh toán trực tuyến\n[Đúng quy định độ tuổi phim và mã giảm giá hợp lệ]\n/ Tạo đơn chờ thanh toán và gia hạn giữ ghế 10 phút
 
-note right of Pending
-  <b>RÀNG BUỘC THANH TOÁN (BR-09 & NFR-INT-01):</b>
-  - Timeout giữ ghế & tồn kho combo tối đa: <b>10 phút</b>.
-  - Tích hợp <b>ZaloPay Sandbox v2 (app_id: 2553)</b>:
-    + Khởi tạo đơn: Ký <b>HMAC-SHA256 (ZALOPAY_KEY1)</b>.
-    + Xác thực IPN Callback & Return URL: Kiểm tra <b>return_code == 1</b>
-      và chữ ký <b>HMAC-SHA256 (ZALOPAY_KEY2)</b> bằng <i>timingSafeEqual</i>,
-      đảm bảo tính lũy đẳng (Idempotency) trước khi chuyển sang <b>Success</b>.
+[*] --> THANH_CONG : Nhân viên bán vé hoặc bắp nước tại quầy\n[Đủ ghế trống và tồn kho bắp nước]\n/ Thu tiền mặt, thẻ hoặc chuyển khoản; chốt ngay Vé Hợp lệ hoặc Đơn Đã giao
+
+CHO_THANH_TOAN --> THANH_CONG : Nhận tín hiệu thanh toán thành công từ ZaloPay hoặc VNPay\n[Chữ ký bảo mật hợp lệ và không xung đột ghế]\n/ Phát hành Vé Hợp lệ, mở đơn bắp nước Chưa giao và gửi thư điện tử
+
+THANH_CONG --> THANH_CONG : Nhận lại tín hiệu xác nhận trùng lặp\n[Giao dịch đã Thành công trước đó]\n/ Bỏ qua xử lý trùng lặp, giữ nguyên dữ liệu hiện có
+
+CHO_THANH_TOAN --> THAT_BAI : Giao dịch bị hủy, báo lỗi hoặc quá hạn giữ chỗ\n[Cổng báo thất bại, chữ ký sai hoặc Khách hủy giữ ghế]\n/ Giải phóng ghế trống, hủy giữ kho bắp nước và cộng trả tồn kho
+
+CHO_THANH_TOAN --> THAT_BAI : Phát hiện xung đột ghế vào lúc xác nhận\n[Ghế đã có vé hiệu lực của giao dịch khác]\n/ Đánh dấu Thất bại, nhả các ghế không trùng và hoàn trả tồn kho bắp nước
+
+THANH_CONG --> DA_HOAN_TIEN : Nhân viên hoặc Quản trị viên ép hủy vé sự cố\n[Tất cả vé thuộc giao dịch này đều đã chuyển sang Đã hủy]\n/ Cập nhật trạng thái giao dịch sang Đã hoàn tiền
+
+THAT_BAI --> [*] : Kết thúc giao dịch thất bại
+THANH_CONG --> [*] : Hoàn tất giao dịch, ghi nhận doanh thu thực thu
+DA_HOAN_TIEN --> [*] : Hoàn tất đối soát hoàn tiền
+
+note as GhiChu
+  <b>QUY TẮC THANH TOÁN VÀ TOÀN VẸN DỮ LIỆU:</b>
+  1. Mọi đơn trực tuyến đều áp dụng thời hạn khóa tạm <b>10 phút</b> và chỉ chuyển sang <b>Thành công</b> khi xác thực đúng chữ ký bảo mật từ cổng thanh toán.
+  2. Cơ chế chống xử lý trùng lặp đảm bảo khi cổng thanh toán gửi phản hồi nhiều lần thì hệ thống không tạo lặp vé hay trừ kho nhiều lần.
+  3. Khi thanh toán thất bại hoặc phát hiện xung đột đặt trùng ghế, hệ thống đồng loạt nhả ghế về trống và cộng hoàn lại số lượng bắp nước đã giữ tạm.
 end note
+
+THAT_BAI -[hidden]-> GhiChu
+DA_HOAN_TIEN -[hidden]-> GhiChu
 
 @enduml

@@ -29,6 +29,31 @@ services:
       postgres:
         condition: service_healthy
 
+  # 3. Ứng Dụng Web Lumi Cinema (Next.js 16 Production Container)
+  web:
+    build:
+      context: ./cinema-app
+      dockerfile: Dockerfile
+    container_name: lumicinema_web
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    env_file:
+      - ./cinema-app/.env
+    environment:
+      DATABASE_URL: "postgresql://postgres:postgrespassword@postgres:5432/lumicinema?schema=public"
+      DIRECT_URL: "postgresql://postgres:postgrespassword@postgres:5432/lumicinema?schema=public"
+      NEXTAUTH_URL: "http://localhost:3000"
+      NEXTAUTH_SECRET: "lumicinema_cosmic_galaxy_secret_key_2026"
+      SMTP_HOST: "smtp.gmail.com"
+      SMTP_PORT: "587"
+      SMTP_USER: "giavyma265@gmail.com"
+      SMTP_PASSWORD: "dzqexmgcvlzgcrvi"
+      EMAIL_FROM: "LUMI CINEMA <lumi_cinema@gmail.com>"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
 volumes:
   lumicinema_pgdata:
     driver: local

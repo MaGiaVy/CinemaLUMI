@@ -15,12 +15,31 @@ interface ReleaseSeatsResponseData {
   seat_ids: number[];
 }
 
+function parseSeatIds(raw: unknown): number[] {
+  if (!raw) return [];
+  if (Array.isArray(raw)) {
+    return raw.map(x => Number(x)).filter(n => !isNaN(n) && n > 0);
+  }
+  if (typeof raw === 'string') {
+    try {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed)) {
+        return parsed.map(x => Number(x)).filter(n => !isNaN(n) && n > 0);
+      }
+    } catch {
+      return [];
+    }
+  }
+  return [];
+}
+
 /**
  * POST /api/seats/release
  * 
  * Hủy giữ chỗ các ghế (người dùng bấm bỏ chọn hoặc rời khỏi trang thanh toán):
  * - Bắt buộc xác thực người dùng.
  * - Nhận payload: { seat_ids: number[] }
+ * - Chống lỗ hổng IDOR: CUSTOMER chỉ được giải phóng ghế thuộc về đơn Pending của chính mình.
  * - Cập nhật các ghế trong danh sách về status = 'EMPTY' và reserved_until = null.
  * - Chỉ hủy những ghế đang ở trạng thái 'RESERVED' (không hủy các ghế đã 'OCCUPIED' / đã mua vé).
  */
@@ -54,9 +73,12 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Nếu là CUSTOMER, hủy kèm đơn thanh toán Pending liên quan (nếu có)
+    let targetSeatIdsToRelease = seat_ids;
+
+    // Chống lỗ hổng IDOR khi role là CUSTOMER
     if (user.role === 'CUSTOMER') {
-      const pendingPayment = await prisma.payment.findFirst({
+      // 1. Tìm các đơn thanh toán Pending của chính user.id
+      const userPendingPayments = await prisma.payment.findMany({
         where: {
           userId: user.id,
           status: 'Pending',
@@ -64,9 +86,69 @@ export async function POST(request: NextRequest) {
         orderBy: { createdAt: 'desc' },
       });
 
-      if (pendingPayment) {
-        await prisma.payment.update({
-          where: { id: pendingPayment.id },
+      const userSeatIds = new Set<number>();
+      const userMatchedPaymentIds: number[] = [];
+
+      for (const p of userPendingPayments) {
+        const pSeatIds = parseSeatIds(p.seatIds);
+        let hasMatch = false;
+        for (const sid of pSeatIds) {
+          userSeatIds.add(sid);
+          if (seat_ids.includes(sid)) {
+            hasMatch = true;
+          }
+        }
+        if (hasMatch) {
+          userMatchedPaymentIds.push(p.id);
+        }
+      }
+
+      // 2. Chặn IDOR: Kiểm tra xem có ghế nào thuộc đơn Pending của người dùng KHÁC không
+      const otherUserPendingPayments = await prisma.payment.findMany({
+        where: {
+          userId: { not: user.id },
+          status: 'Pending',
+        },
+        select: {
+          id: true,
+          seatIds: true,
+        },
+      });
+
+      const otherUserSeatIds = new Set<number>();
+      for (const p of otherUserPendingPayments) {
+        const sids = parseSeatIds(p.seatIds);
+        for (const sid of sids) {
+          otherUserSeatIds.add(sid);
+        }
+      }
+
+      const foreignSeats = seat_ids.filter(id => otherUserSeatIds.has(id));
+      if (foreignSeats.length > 0) {
+        throw new AppError(
+          403,
+          'Bạn không có quyền giải phóng ghế đang được khách hàng khác giữ chỗ thanh toán',
+          'FORBIDDEN_RELEASE_SEATS'
+        );
+      }
+
+      // 3. Lọc ra các ghế thực sự thuộc về đơn Pending của chính user
+      const ownedSeatIds = seat_ids.filter(id => userSeatIds.has(id));
+
+      if (ownedSeatIds.length === 0) {
+        throw new AppError(
+          403,
+          'Không tìm thấy phiên đặt vé hoặc đơn thanh toán hợp lệ chứa các ghế này để giải phóng',
+          'FORBIDDEN_SEAT_RELEASE'
+        );
+      }
+
+      targetSeatIdsToRelease = ownedSeatIds;
+
+      // Hủy các đơn thanh toán Pending liên quan của chính user
+      if (userMatchedPaymentIds.length > 0) {
+        await prisma.payment.updateMany({
+          where: { id: { in: userMatchedPaymentIds } },
           data: { status: 'Failed' },
         });
       }
@@ -75,7 +157,7 @@ export async function POST(request: NextRequest) {
     // Cập nhật các ghế đang RESERVED về trạng thái EMPTY và xóa thời gian giữ chỗ
     const updateResult = await prisma.seat.updateMany({
       where: {
-        id: { in: seat_ids },
+        id: { in: targetSeatIdsToRelease },
         status: 'RESERVED', // Chỉ nhả những ghế đang giữ chỗ tạm thời
       },
       data: {
@@ -86,7 +168,7 @@ export async function POST(request: NextRequest) {
 
     const responseData: ReleaseSeatsResponseData = {
       released_count: updateResult.count,
-      seat_ids,
+      seat_ids: targetSeatIdsToRelease,
     };
 
     return apiResponse<ReleaseSeatsResponseData>(

@@ -115,7 +115,8 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
   const [seatTicketTypes, setSeatTicketTypes] = useState<Record<number, 'Thường' | 'Trẻ em'>>({});
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isReserving, setIsReserving] = useState<boolean>(false);
-  const [isHoldActive, setIsHoldActive] = useState<boolean>(false);
+  const [_isHoldActive, setIsHoldActive] = useState<boolean>(false);
+  const [reservedUntil, setReservedUntil] = useState<string | null>(null);
   const [toasts, setToasts] = useState<ToastMessage[]>([]);
 
   // Toast Helpers
@@ -132,6 +133,7 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
   const handleHoldExpire = useCallback(() => {
     showToast('Thời gian chọn ghế (10 phút) đã hết hạn! Đang chuyển về trang chủ...', 'warning');
     setIsHoldActive(false);
+    setReservedUntil(null);
     setSelectedSeatIds([]);
     if (typeof window !== 'undefined') {
       window.sessionStorage.removeItem('lumi_booking_reservation');
@@ -217,6 +219,35 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
       isMounted = false;
     };
   }, [fetchSeats, fetchScreeningDetails]);
+
+  // Đồng bộ trạng thái giữ chỗ từ sessionStorage nếu còn hiệu lực
+  useEffect(() => {
+    if (typeof window !== 'undefined' && screeningId && !isNaN(screeningId)) {
+      const stored = window.sessionStorage.getItem('lumi_booking_reservation');
+      if (stored) {
+        try {
+          const data = JSON.parse(stored);
+          if (data.screeningId === screeningId && data.reservedUntil) {
+            const expTime = new Date(data.reservedUntil).getTime();
+            if (expTime > Date.now()) {
+              setReservedUntil(data.reservedUntil);
+              setIsHoldActive(true);
+              if (Array.isArray(data.seatIds) && data.seatIds.length > 0) {
+                setSelectedSeatIds(data.seatIds);
+              }
+              if (data.seatTicketTypes) {
+                setSeatTicketTypes(data.seatTicketTypes);
+              }
+            } else {
+              window.sessionStorage.removeItem('lumi_booking_reservation');
+            }
+          }
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }, [screeningId]);
 
   // Selected seats objects
   const selectedSeatsList = useMemo(() => {
@@ -306,7 +337,6 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
       const result: ReserveApiResponse = await response.json();
 
       if (!response.ok || !result.success) {
-        // Xử lý lỗi ghế bị người khác giành mất (E-03 / SEAT_ALREADY_RESERVED)
         const isConflict =
           result.code === 'SEAT_ALREADY_RESERVED' ||
           result.code === 'E-03' ||
@@ -322,7 +352,6 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
           showToast(result.error || result.message || 'Không thể giữ chỗ ghế. Vui lòng thử lại.', 'error');
         }
 
-        // Tự động làm mới danh sách ghế để loại bỏ ghế xung đột
         await fetchSeats();
         return;
       }
@@ -358,11 +387,12 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
           : []),
       ];
 
-      // Giữ chỗ thành công
       showToast('Giữ chỗ thành công! Bạn có 10 phút để chọn combo và thanh toán.', 'success');
       setIsHoldActive(true);
+      if (result.data?.reserved_until) {
+        setReservedUntil(result.data.reserved_until);
+      }
 
-      // Lưu thông tin giữ chỗ và loại vé vào sessionStorage để phục vụ các bước tiếp theo
       if (typeof window !== 'undefined') {
         window.sessionStorage.setItem(
           'lumi_booking_reservation',
@@ -382,7 +412,6 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
         );
       }
 
-      // Chuyển hướng sang trang chọn combo / thanh toán
       setTimeout(() => {
         router.push(
           `/screenings/${screeningId}/checkout/combo?seats=${selectedSeatIds.join(',')}&codes=${selectedSeatsList.map(s => s.code).join(',')}`
@@ -421,47 +450,45 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
         return d.toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit', hour12: false });
       }
     } catch {
-      // timeString may already be "18:30"
+      // timeString may already be formatted
     }
     return timeString;
   };
 
   return (
-    <div className="min-h-screen bg-[#1A1A1A] py-8">
-      {/* Toast notifications */}
+    <div className="min-h-screen bg-[#050508] text-[#F8FAFC] py-8 font-sans selection:bg-[#E11D48] selection:text-white">
       <Toast toasts={toasts} onRemove={removeToast} />
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6">
         {/* Step indicator */}
-        <div className="flex items-center gap-2 mb-8 overflow-x-auto pb-2">
+        <div className="flex items-center gap-2 mb-8 overflow-x-auto pb-2 scrollbar-none">
           {STEPS.map((step, i) => (
             <div key={step} className="flex items-center gap-2 flex-shrink-0">
               <div
-                className={`flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold transition-all ${
+                className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
                   i === 0
-                    ? 'bg-[#E63946] text-white shadow-lg shadow-[#E63946]/30'
-                    : 'bg-[#2D2D2D] text-[#808080] border border-[#404040]'
+                    ? 'bg-gradient-to-r from-[#E11D48] to-[#881337] text-white shadow-[0_0_15px_rgba(225,29,72,0.5)] border border-rose-500/40'
+                    : 'bg-[rgba(18,14,28,0.7)] text-[#94A3B8] border border-[rgba(192,132,252,0.15)]'
                 }`}
               >
                 <span
-                  className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold"
-                  style={{ background: 'rgba(255,255,255,0.2)' }}
+                  className="w-5 h-5 rounded-full flex items-center justify-center text-xs font-bold bg-white/20"
                 >
                   {i + 1}
                 </span>
                 {step}
               </div>
-              {i < STEPS.length - 1 && <span className="text-[#404040]">→</span>}
+              {i < STEPS.length - 1 && <span className="text-slate-600">→</span>}
             </div>
           ))}
         </div>
 
         {/* Movie Header Card */}
         {screening && (
-          <div className="bg-[#2D2D2D] border border-[#404040] rounded-2xl p-5 mb-8 shadow-xl">
+          <div className="bg-[rgba(18,14,28,0.75)] border border-[rgba(192,132,252,0.2)] rounded-2xl p-5 mb-8 shadow-xl backdrop-blur-xl">
             <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
               <div className="flex items-center gap-4">
-                <div className="relative w-16 h-22 sm:w-20 sm:h-28 rounded-xl overflow-hidden bg-[#1A1A1A] flex-shrink-0 border border-[#404040]">
+                <div className="relative w-16 h-22 sm:w-20 sm:h-28 rounded-xl overflow-hidden bg-[#0A0812] flex-shrink-0 border border-[rgba(192,132,252,0.25)]">
                   {screening.movie.poster ? (
                     <img
                       src={screening.movie.poster}
@@ -469,40 +496,46 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
                       className="w-full h-full object-cover"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-2xl">🎬</div>
+                    <div className="w-full h-full flex items-center justify-center text-rose-400 font-bold">
+                      ✦
+                    </div>
                   )}
                 </div>
 
                 <div>
                   <div className="flex items-center gap-2 mb-1.5 flex-wrap">
-                    <span className="text-xs bg-[#E63946] text-white px-2 py-0.5 rounded font-bold">
+                    <span className="text-xs bg-[#E11D48] text-white px-2 py-0.5 rounded-md font-bold shadow-sm">
                       {screening.movie.ageRating || 'P'}
                     </span>
-                    <span className="text-xs text-[#B3B3B3]">{screening.movie.genre}</span>
-                    <span className="text-xs text-[#808080]">• {screening.movie.duration} phút</span>
+                    <span className="text-xs text-[#94A3B8]">{screening.movie.genre}</span>
+                    <span className="text-xs text-slate-500">• {screening.movie.duration} phút</span>
                   </div>
 
-                  <h1 className="text-xl sm:text-2xl font-black text-white leading-tight">
+                  <h1 className="text-xl sm:text-2xl font-black text-[#F8FAFC] leading-tight">
                     {screening.movie.title}
                   </h1>
 
-                  <div className="flex items-center gap-3 sm:gap-6 mt-2 text-xs sm:text-sm text-[#B3B3B3] flex-wrap">
-                    <span className="flex items-center gap-1">
-                      📅 <strong className="text-white">{formatDateDisplay(screening.date)}</strong>
+                  <div className="flex items-center gap-3 sm:gap-6 mt-2 text-xs sm:text-sm text-[#94A3B8] flex-wrap">
+                    <span className="flex items-center gap-1.5">
+                      <span>Ngày:</span>
+                      <strong className="text-[#F8FAFC]">{formatDateDisplay(screening.date)}</strong>
                     </span>
-                    <span className="flex items-center gap-1">
-                      🕐 Suất: <strong className="text-[#FFB703] font-bold">{formatTimeDisplay(screening.startTime)}</strong>
+                    <span className="flex items-center gap-1.5">
+                      <span>Suất:</span>
+                      <strong className="text-[#FDA4AF] font-bold">{formatTimeDisplay(screening.startTime)}</strong>
                     </span>
-                    <span className="flex items-center gap-1">
-                      🎭 Phòng: <strong className="text-white">{screening.room}</strong>
+                    <span className="flex items-center gap-1.5">
+                      <span>Phòng:</span>
+                      <strong className="text-[#F8FAFC]">{screening.room}</strong>
                     </span>
                   </div>
                 </div>
               </div>
 
-              {/* Countdown Timer */}
-              <div className="w-full sm:w-auto flex sm:flex-col items-center sm:items-end justify-between border-t sm:border-t-0 pt-3 sm:pt-0 border-[#404040]">
+              {/* Countdown Timer (Đồng hồ cát xoay vũ trụ) */}
+              <div className="w-full sm:w-auto flex sm:flex-col items-center sm:items-end justify-between border-t sm:border-t-0 pt-3 sm:pt-0 border-[rgba(192,132,252,0.15)]">
                 <CountdownTimer
+                  targetTime={reservedUntil}
                   initialSeconds={HOLD_TIME_SECONDS}
                   isActive={true}
                   label="Thời gian giữ chỗ"
@@ -515,16 +548,17 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
 
         {/* Loading Skeleton */}
         {isLoading ? (
-          <div className="bg-[#2D2D2D] border border-[#404040] rounded-2xl p-16 text-center">
-            <div className="inline-block w-8 h-8 border-4 border-[#FFB703] border-t-transparent rounded-full animate-spin mb-4" />
-            <p className="text-white font-semibold">Đang tải sơ đồ ghế phòng chiếu...</p>
-            <p className="text-[#808080] text-xs mt-1">Áp dụng Lazy Evaluation dọn dẹp các ghế hết hạn</p>
+          <div className="bg-[rgba(18,14,28,0.7)] border border-[rgba(192,132,252,0.2)] rounded-2xl p-16 text-center backdrop-blur-xl">
+            {/* Loading với đồng hồ cát xoay */}
+            <div className="hourglass-spin text-3xl mb-3">⏳</div>
+            <p className="text-[#F8FAFC] font-semibold">Đang tải sơ đồ ghế phòng chiếu...</p>
+            <p className="text-[#94A3B8] text-xs mt-1">Đang kiểm tra và giải phóng ghế hết hạn theo thời gian thực</p>
           </div>
         ) : (
           <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
             {/* Seat Map Left Column */}
             <div className="lg:col-span-2">
-              <div className="bg-[#2D2D2D] border border-[#404040] rounded-2xl p-6 sm:p-8 shadow-xl">
+              <div className="bg-[rgba(18,14,28,0.7)] border border-[rgba(192,132,252,0.2)] rounded-2xl p-6 sm:p-8 shadow-xl backdrop-blur-xl">
                 <SeatMap
                   seats={seats}
                   selectedSeatIds={selectedSeatIds}
@@ -535,9 +569,9 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
 
             {/* Right Sidebar: Selected seats & Checkout CTA */}
             <div className="lg:col-span-1">
-              <div className="bg-[#2D2D2D] border border-[#404040] rounded-2xl p-6 shadow-xl sticky top-6">
-                <div className="flex items-center justify-between pb-4 border-b border-[#404040]">
-                  <h3 className="text-white font-bold text-lg flex items-center gap-2">
+              <div className="bg-[rgba(18,14,28,0.75)] border border-[rgba(192,132,252,0.2)] rounded-2xl p-6 shadow-xl sticky top-6 backdrop-blur-xl">
+                <div className="flex items-center justify-between pb-4 border-b border-[rgba(192,132,252,0.15)]">
+                  <h3 className="text-[#F8FAFC] font-bold text-lg flex items-center gap-2">
                     <span>Ghế đã chọn</span>
                     <Badge variant="gold">{selectedSeatIds.length}/{MAX_SEATS}</Badge>
                   </h3>
@@ -545,7 +579,7 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
                     <button
                       type="button"
                       onClick={() => setSelectedSeatIds([])}
-                      className="text-xs text-[#E63946] hover:underline"
+                      className="text-xs text-rose-400 hover:text-rose-300 hover:underline cursor-pointer"
                     >
                       Xóa tất cả
                     </button>
@@ -555,9 +589,11 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
                 {/* Empty State or Selected Seats List */}
                 {selectedSeatsList.length === 0 ? (
                   <div className="text-center py-10">
-                    <p className="text-4xl mb-3">🪑</p>
-                    <p className="text-white font-medium text-sm">Chưa có ghế nào được chọn</p>
-                    <p className="text-[#808080] text-xs mt-1 max-w-[220px] mx-auto">
+                    <div className="w-12 h-12 rounded-full bg-purple-500/10 border border-purple-500/30 flex items-center justify-center mx-auto mb-3 text-purple-300 font-bold">
+                      ✦
+                    </div>
+                    <p className="text-[#F8FAFC] font-medium text-sm">Chưa có ghế nào được chọn</p>
+                    <p className="text-[#94A3B8] text-xs mt-1 max-w-[220px] mx-auto">
                       Nhấn vào các ghế trống trên sơ đồ bên trái để tiến hành chọn chỗ ngồi
                     </p>
                   </div>
@@ -569,21 +605,21 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
                       return (
                         <div
                           key={seat.id}
-                          className="flex items-center justify-between bg-[#383838] border border-[#484848] rounded-xl px-3.5 py-2.5 transition-all hover:border-[#FFB703]"
+                          className="flex items-center justify-between bg-[rgba(15,11,26,0.8)] border border-[rgba(192,132,252,0.2)] rounded-xl px-3.5 py-2.5 transition-all hover:border-[rgba(192,132,252,0.4)]"
                         >
                           <div className="flex items-center gap-3 flex-1 min-w-0 pr-2">
-                            <span className="w-8 h-8 bg-[#FFB703] rounded-lg flex items-center justify-center text-[#1A1A1A] font-black text-xs shadow-md shrink-0">
+                            <span className="w-8 h-8 bg-gradient-to-tr from-[#E11D48] to-[#881337] rounded-lg flex items-center justify-center text-white font-black text-xs shadow-md shrink-0 border border-rose-500/40">
                               {seat.code}
                             </span>
                             <div className="flex-1 min-w-0">
                               <div className="flex items-center gap-1.5">
-                                <span className="text-white text-sm font-bold">Ghế {seat.code}</span>
+                                <span className="text-[#F8FAFC] text-sm font-bold">Ghế {seat.code}</span>
                                 {isAdultOnly ? (
-                                  <span className="text-[10px] bg-red-950/60 text-red-400 px-1.5 py-0.5 rounded border border-red-800/40">
+                                  <span className="text-[10px] bg-rose-950/60 text-rose-300 px-1.5 py-0.5 rounded border border-rose-800/40">
                                     Khóa T18
                                   </span>
                                 ) : currentType === 'Trẻ em' ? (
-                                  <span className="text-[10px] bg-blue-900/40 text-blue-300 px-1.5 py-0.5 rounded border border-blue-700/40">
+                                  <span className="text-[10px] bg-indigo-900/40 text-indigo-300 px-1.5 py-0.5 rounded border border-indigo-700/40">
                                     Trẻ em
                                   </span>
                                 ) : null}
@@ -596,8 +632,8 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
                                   onClick={() => handleSetSeatTicketType(seat.id, 'Thường')}
                                   className={`text-[10px] px-2 py-0.5 rounded font-semibold transition ${
                                     currentType === 'Thường'
-                                      ? 'bg-red-600 text-white shadow'
-                                      : 'bg-[#2A2A2A] text-[#888] hover:text-white'
+                                      ? 'bg-gradient-to-r from-[#E11D48] to-[#9F1239] text-white shadow'
+                                      : 'bg-[rgba(18,14,28,0.7)] text-[#94A3B8] hover:text-white border border-[rgba(192,132,252,0.15)]'
                                   }`}
                                 >
                                   Người lớn
@@ -609,10 +645,10 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
                                   onClick={() => handleSetSeatTicketType(seat.id, 'Trẻ em')}
                                   className={`text-[10px] px-2 py-0.5 rounded font-semibold transition ${
                                     isAdultOnly
-                                      ? 'opacity-30 cursor-not-allowed bg-[#222] text-[#555]'
+                                      ? 'opacity-30 cursor-not-allowed bg-[rgba(18,14,28,0.4)] text-slate-600'
                                       : currentType === 'Trẻ em'
-                                      ? 'bg-blue-600 text-white shadow'
-                                      : 'bg-[#2A2A2A] text-[#888] hover:text-white'
+                                      ? 'bg-indigo-600 text-white shadow'
+                                      : 'bg-[rgba(18,14,28,0.7)] text-[#94A3B8] hover:text-white border border-[rgba(192,132,252,0.15)]'
                                   }`}
                                 >
                                   Trẻ em (-50%)
@@ -622,14 +658,14 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
                           </div>
 
                           <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-[#FFB703] text-sm font-bold">
+                            <span className="text-[#FDA4AF] text-sm font-bold">
                               {price.toLocaleString('vi-VN')}đ
                             </span>
                             <button
                               type="button"
                               onClick={() => handleToggleSeat(seat)}
                               aria-label={`Xóa ghế ${seat.code}`}
-                              className="w-6 h-6 rounded-full flex items-center justify-center text-[#808080] hover:text-[#E63946] hover:bg-[#E63946]/10 transition-colors"
+                              className="w-6 h-6 rounded-full flex items-center justify-center text-[#94A3B8] hover:text-rose-400 hover:bg-rose-500/10 transition-colors"
                             >
                               ✕
                             </button>
@@ -641,23 +677,23 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
                 )}
 
                 {/* Calculation Summary */}
-                <div className="border-t border-[#404040] pt-4 mt-2 space-y-2">
-                  <div className="flex justify-between text-sm text-[#B3B3B3]">
+                <div className="border-t border-[rgba(192,132,252,0.15)] pt-4 mt-2 space-y-2">
+                  <div className="flex justify-between text-sm text-[#94A3B8]">
                     <span>Số lượng ghế:</span>
-                    <span className="text-white font-bold">{selectedSeatIds.length} ghế</span>
+                    <span className="text-[#F8FAFC] font-bold">{selectedSeatIds.length} ghế</span>
                   </div>
 
                   {/* Phân loại vé Người lớn & Trẻ em */}
                   {selectedSeatIds.length > 0 && (
-                    <div className="bg-[#242424] rounded-lg p-2.5 space-y-1 text-xs border border-[#383838]">
-                      <div className="flex justify-between text-[#AAA]">
+                    <div className="bg-[rgba(15,11,26,0.8)] rounded-xl p-2.5 space-y-1 text-xs border border-[rgba(192,132,252,0.15)]">
+                      <div className="flex justify-between text-[#94A3B8]">
                         <span>Vé Người lớn (100%):</span>
-                        <span className="text-white font-medium">
+                        <span className="text-[#F8FAFC] font-medium">
                           {selectedSeatsList.filter(s => (isAdultOnly || (seatTicketTypes[s.id] || 'Thường') === 'Thường')).length} vé
                         </span>
                       </div>
                       {!isAdultOnly && selectedSeatsList.some(s => seatTicketTypes[s.id] === 'Trẻ em') && (
-                        <div className="flex justify-between text-blue-400">
+                        <div className="flex justify-between text-indigo-300">
                           <span>Vé Trẻ em (50%):</span>
                           <span className="font-semibold">
                             {selectedSeatsList.filter(s => seatTicketTypes[s.id] === 'Trẻ em').length} vé
@@ -665,16 +701,16 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
                         </div>
                       )}
                       {isAdultOnly && (
-                        <p className="text-[11px] text-yellow-500/80 pt-0.5">
-                          ⚠️ Phim nhãn T18: Áp dụng 100% vé Người lớn
+                        <p className="text-[11px] text-amber-300/80 pt-0.5">
+                          ✦ Phim nhãn T18: Áp dụng 100% vé Người lớn
                         </p>
                       )}
                     </div>
                   )}
 
-                  <div className="flex justify-between items-baseline pt-2 border-t border-[#383838]">
-                    <span className="text-white font-bold">Tạm tính:</span>
-                    <span className="text-2xl font-black text-[#FFB703]">
+                  <div className="flex justify-between items-baseline pt-2 border-t border-[rgba(192,132,252,0.12)]">
+                    <span className="text-[#F8FAFC] font-bold">Tạm tính:</span>
+                    <span className="text-2xl font-black text-[#F8FAFC]">
                       {totalPrice.toLocaleString('vi-VN')}đ
                     </span>
                   </div>
@@ -686,11 +722,11 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
                     fullWidth
                     disabled={selectedSeatIds.length === 0 || isReserving}
                     onClick={handleReserveSeats}
-                    className="h-12 text-base font-bold shadow-lg shadow-[#E63946]/30 flex items-center justify-center gap-2"
+                    className="h-12 text-base font-bold shadow-[0_0_20px_rgba(225,29,72,0.45)] flex items-center justify-center gap-2"
                   >
                     {isReserving ? (
                       <>
-                        <span className="inline-block w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                        <span className="hourglass-spin text-base">⏳</span>
                         <span>Đang giữ chỗ 10 phút...</span>
                       </>
                     ) : (
@@ -702,7 +738,7 @@ export default function SeatSelectionPage({ params }: SeatSelectionPageProps) {
                 <div className="mt-4 text-center">
                   <Link
                     href={`/movies/${screening?.movie.id || ''}`}
-                    className="text-xs text-[#808080] hover:text-white transition-colors"
+                    className="text-xs text-[#94A3B8] hover:text-[#F8FAFC] transition-colors"
                   >
                     ← Quay lại chi tiết phim
                   </Link>

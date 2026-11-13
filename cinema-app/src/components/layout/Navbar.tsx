@@ -27,7 +27,7 @@ export default function Navbar({
   const loggedIn = status === 'authenticated' && !!session?.user;
   const user = session?.user as { name?: string | null; email?: string | null; role?: string } | undefined;
   const userRole = user?.role?.toLowerCase() || null;
-  const userName = user?.name || user?.email || 'Người dùng';
+  const userName = user?.name || user?.email || 'Khách hàng';
 
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
@@ -47,24 +47,24 @@ export default function Navbar({
   ];
 
   return (
-    <nav className="sticky top-0 z-40 bg-[#1A1A1A]/95 backdrop-blur-md border-b border-[#404040]">
+    <nav className="sticky top-0 z-50 bg-[rgba(8,6,14,0.75)] backdrop-blur-xl border-b border-[rgba(192,132,252,0.15)]">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 flex items-center justify-between h-16">
-        {/* Logo */}
+        {/* Logo Thiên Hà */}
         <Link
           href="/"
-          className="flex items-center gap-2 group"
+          className="flex items-center gap-2.5 group"
           style={{ textDecoration: 'none' }}
         >
-          <div className="w-8 h-8 bg-[#E63946] rounded-lg flex items-center justify-center text-white font-black text-lg shadow-md">
-            L
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-tr from-[#E11D48] to-[#581C87] border border-rose-500/40 flex items-center justify-center text-[#F8FAFC] font-black text-sm shadow-[0_0_12px_rgba(225,29,72,0.4)] group-hover:shadow-[0_0_18px_rgba(225,29,72,0.6)] transition-all">
+            ✦
           </div>
-          <span className="font-black text-xl text-white group-hover:text-[#E63946] transition-colors tracking-tight">
-            LUMI <span className="text-[#E63946]">CINEMA</span>
+          <span className="font-black text-lg sm:text-xl tracking-tight text-[#F8FAFC]">
+            LUMI <span className="bg-gradient-to-r from-[#E11D48] via-[#C084FC] to-[#FDA4AF] bg-clip-text text-transparent">CINEMA</span>
           </span>
         </Link>
 
         {/* Desktop Nav links */}
-        <div className="hidden md:flex items-center gap-1">
+        <div className="hidden md:flex items-center gap-1.5">
           {navLinks.map((link) => {
             const isActive =
               link.href === '/'
@@ -75,10 +75,10 @@ export default function Navbar({
               <Link
                 key={link.label}
                 href={link.href}
-                className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                className={`px-3.5 py-1.5 rounded-xl text-sm font-medium transition-all ${
                   isActive
-                    ? 'text-white bg-[#2D2D2D]'
-                    : 'text-[#B3B3B3] hover:text-white hover:bg-[#2D2D2D]'
+                    ? 'text-[#F8FAFC] bg-[rgba(192,132,252,0.18)] border border-[rgba(192,132,252,0.25)] shadow-[0_0_12px_rgba(88,28,135,0.3)]'
+                    : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[rgba(192,132,252,0.08)]'
                 }`}
                 style={{ textDecoration: 'none' }}
               >
@@ -87,23 +87,23 @@ export default function Navbar({
             );
           })}
 
-          {/* Quick links to Admin/Staff when user has those roles */}
+          {/* Quick links to Admin/Staff with clean typography (No Emojis) */}
           {userRole === 'admin' && (
             <Link
               href="/admin"
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#E63946]/20 text-[#E63946] hover:bg-[#E63946] hover:text-white transition-colors ml-2"
+              className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-rose-500/15 text-rose-300 border border-rose-500/30 hover:bg-rose-500/25 transition-all ml-2"
               style={{ textDecoration: 'none' }}
             >
-              🔧 Quản trị
+              ✦ Quản trị
             </Link>
           )}
           {userRole === 'staff' && (
             <Link
               href="/staff"
-              className="px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#2ECC71]/20 text-[#2ECC71] hover:bg-[#2ECC71] hover:text-white transition-colors ml-2"
+              className="px-3 py-1.5 rounded-xl text-xs font-semibold bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 hover:bg-emerald-500/25 transition-all ml-2"
               style={{ textDecoration: 'none' }}
             >
-              💼 Nhân viên
+              ✦ Nhân viên
             </Link>
           )}
         </div>
@@ -111,28 +111,28 @@ export default function Navbar({
         {/* Desktop Auth status */}
         <div className="hidden md:flex items-center gap-3">
           {status === 'loading' ? (
-            <div className="w-20 h-8 bg-[#2D2D2D] rounded-lg animate-pulse" />
+            <div className="w-20 h-8 bg-[rgba(18,14,28,0.7)] rounded-xl animate-pulse" />
           ) : loggedIn ? (
             <div className="flex items-center gap-3">
               <Link
                 href="/tickets"
-                className="text-[#B3B3B3] hover:text-white text-sm transition-colors"
+                className="text-[#94A3B8] hover:text-[#F8FAFC] text-sm transition-colors"
                 style={{ textDecoration: 'none' }}
               >
                 Vé của tôi
               </Link>
-              <div className="flex items-center gap-2 bg-[#2D2D2D] border border-[#404040] rounded-full px-3 py-1.5 cursor-pointer hover:border-[#525252] transition-colors">
-                <div className="w-6 h-6 bg-[#E63946] rounded-full flex items-center justify-center text-white text-xs font-bold">
+              <div className="flex items-center gap-2.5 bg-[rgba(18,14,28,0.75)] border border-[rgba(192,132,252,0.2)] rounded-full px-3 py-1 shadow-sm">
+                <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-[#E11D48] to-[#581C87] flex items-center justify-center text-[#F8FAFC] text-xs font-bold">
                   {userName.charAt(0).toUpperCase()}
                 </div>
-                <span className="text-white text-sm font-medium">{userName}</span>
+                <span className="text-[#F8FAFC] text-xs font-medium max-w-[120px] truncate">{userName}</span>
                 {userRole && (
-                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                  <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
                     userRole === 'admin'
-                      ? 'bg-[#E63946]/20 text-[#E63946]'
+                      ? 'bg-rose-500/20 text-rose-300 border border-rose-500/30'
                       : userRole === 'staff'
-                        ? 'bg-[#2ECC71]/20 text-[#2ECC71]'
-                        : 'bg-blue-500/20 text-blue-400'
+                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/30'
+                        : 'bg-indigo-500/20 text-indigo-300 border border-indigo-500/30'
                   }`}>
                     {userRole.toUpperCase()}
                   </span>
@@ -141,23 +141,23 @@ export default function Navbar({
               <button
                 type="button"
                 onClick={handleLogout}
-                className="text-[#B3B3B3] hover:text-[#E63946] text-sm transition-colors cursor-pointer bg-transparent border-none"
+                className="text-[#94A3B8] hover:text-rose-400 text-xs transition-colors cursor-pointer bg-transparent border-none"
               >
                 Đăng xuất
               </button>
             </div>
           ) : (
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <Link
                 href="/login"
-                className="text-[#B3B3B3] hover:text-white text-sm px-4 py-2 transition-colors"
+                className="text-[#F8FAFC] hover:text-white text-xs sm:text-sm px-3.5 py-2 rounded-xl bg-[rgba(18,14,28,0.6)] border border-[rgba(192,132,252,0.2)] hover:bg-[rgba(192,132,252,0.12)] transition-all"
                 style={{ textDecoration: 'none' }}
               >
                 Đăng nhập
               </Link>
               <Link
                 href="/signup"
-                className="bg-[#E63946] text-white text-sm px-4 py-2 rounded-lg hover:bg-[#C62B36] transition-colors font-semibold shadow-md active:scale-95"
+                className="bg-gradient-to-r from-[#E11D48] to-[#581C87] text-[#F8FAFC] text-xs sm:text-sm px-4 py-2 rounded-xl hover:from-[#F43F5E] hover:to-[#6B21A8] transition-all font-semibold shadow-md border border-rose-500/30 shadow-rose-950/40 active:scale-95"
                 style={{ textDecoration: 'none' }}
               >
                 Đăng ký
@@ -171,7 +171,7 @@ export default function Navbar({
           <button
             type="button"
             onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="p-2 rounded-lg text-[#B3B3B3] hover:text-white hover:bg-[#2D2D2D] focus:outline-none cursor-pointer"
+            className="p-2 rounded-xl text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[rgba(192,132,252,0.1)] focus:outline-none cursor-pointer"
             aria-label="Toggle Menu"
           >
             {mobileMenuOpen ? (
@@ -189,13 +189,15 @@ export default function Navbar({
 
       {/* Mobile Drawer Menu (Responsive) */}
       {mobileMenuOpen && (
-        <div className="md:hidden border-t border-[#333333] bg-[#141414] px-4 pt-3 pb-6 flex flex-col gap-2 animate-fadeIn">
+        <div className="md:hidden border-t border-[rgba(192,132,252,0.15)] bg-[rgba(10,8,18,0.96)] backdrop-blur-2xl px-4 pt-3 pb-6 flex flex-col gap-2">
           {navLinks.map((link) => (
             <Link
               key={link.label}
               href={link.href}
-              className={`px-3 py-2.5 rounded-lg text-sm font-medium ${
-                pathname === link.href ? 'text-white bg-[#262626]' : 'text-[#B3B3B3] hover:text-white hover:bg-[#262626]'
+              className={`px-3 py-2.5 rounded-xl text-sm font-medium ${
+                pathname === link.href
+                  ? 'text-[#F8FAFC] bg-[rgba(192,132,252,0.15)] border border-[rgba(192,132,252,0.2)]'
+                  : 'text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[rgba(192,132,252,0.08)]'
               }`}
               style={{ textDecoration: 'none' }}
             >
@@ -206,41 +208,35 @@ export default function Navbar({
           {userRole === 'admin' && (
             <Link
               href="/admin"
-              className="px-3 py-2.5 rounded-lg text-sm font-semibold text-[#E63946] bg-[#E63946]/10 hover:bg-[#E63946]/20"
+              className="px-3 py-2.5 rounded-xl text-sm font-semibold text-rose-300 bg-rose-500/10 border border-rose-500/20 hover:bg-rose-500/20"
               style={{ textDecoration: 'none' }}
             >
-              🔧 Quản trị hệ thống (Admin)
+              ✦ Quản trị hệ thống (Admin)
             </Link>
           )}
 
           {userRole === 'staff' && (
             <Link
               href="/staff"
-              className="px-3 py-2.5 rounded-lg text-sm font-semibold text-[#2ECC71] bg-[#2ECC71]/10 hover:bg-[#2ECC71]/20"
+              className="px-3 py-2.5 rounded-xl text-sm font-semibold text-emerald-300 bg-emerald-500/10 border border-emerald-500/20 hover:bg-emerald-500/20"
               style={{ textDecoration: 'none' }}
             >
-              💼 Quầy vé nhân viên (Staff)
+              ✦ Quầy vé nhân viên (Staff)
             </Link>
           )}
 
-          <div className="pt-3 border-t border-[#2D2D2D] mt-2">
+          <div className="pt-3 border-t border-[rgba(192,132,252,0.15)] mt-2">
             {status === 'loading' ? (
               <div className="px-3 py-2 text-sm text-slate-400">Đang tải...</div>
             ) : loggedIn ? (
               <div className="flex flex-col gap-2">
                 <div className="flex items-center gap-2 px-3 py-2 text-sm text-slate-300">
-                  <div className="w-6 h-6 bg-[#E63946] rounded-full flex items-center justify-center text-white text-xs font-bold">
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-[#E11D48] to-[#581C87] flex items-center justify-center text-white text-xs font-bold">
                     {userName.charAt(0).toUpperCase()}
                   </div>
-                  <span>{userName}</span>
+                  <span className="text-[#F8FAFC] text-xs font-medium">{userName}</span>
                   {userRole && (
-                    <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                      userRole === 'admin'
-                        ? 'bg-[#E63946]/20 text-[#E63946]'
-                        : userRole === 'staff'
-                          ? 'bg-[#2ECC71]/20 text-[#2ECC71]'
-                          : 'bg-blue-500/20 text-blue-400'
-                    }`}>
+                    <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
                       {userRole.toUpperCase()}
                     </span>
                   )}
@@ -248,7 +244,7 @@ export default function Navbar({
                 <button
                   type="button"
                   onClick={handleLogout}
-                  className="w-full text-left px-3 py-2.5 rounded-lg text-sm font-semibold text-rose-400 hover:bg-rose-500/10 cursor-pointer"
+                  className="w-full text-left px-3 py-2.5 rounded-xl text-sm font-semibold text-rose-400 hover:bg-rose-500/10 cursor-pointer"
                 >
                   Đăng xuất
                 </button>
@@ -257,14 +253,14 @@ export default function Navbar({
               <div className="flex flex-col gap-2">
                 <Link
                   href="/login"
-                  className="w-full text-center py-2.5 rounded-lg text-sm text-slate-200 border border-slate-700 hover:bg-slate-800"
+                  className="w-full text-center py-2.5 rounded-xl text-sm text-[#F8FAFC] bg-[rgba(18,14,28,0.7)] border border-[rgba(192,132,252,0.2)] hover:bg-[rgba(192,132,252,0.12)]"
                   style={{ textDecoration: 'none' }}
                 >
                   Đăng nhập
                 </Link>
                 <Link
                   href="/signup"
-                  className="w-full text-center py-2.5 rounded-lg text-sm font-semibold text-white bg-[#E63946] hover:bg-[#C62B36]"
+                  className="w-full text-center py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-[#E11D48] to-[#581C87] hover:from-[#F43F5E] hover:to-[#6B21A8]"
                   style={{ textDecoration: 'none' }}
                 >
                   Đăng ký tài khoản

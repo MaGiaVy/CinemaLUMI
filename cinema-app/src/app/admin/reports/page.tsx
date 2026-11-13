@@ -3,8 +3,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import Image from 'next/image';
-import Button from '@/components/ui/Button';
-import Badge from '@/components/ui/Badge';
 import Toast, { ToastMessage } from '@/components/ui/Toast';
 import { ScreeningRevenueReportItem } from '@/app/api/admin/reports/revenue/route';
 
@@ -178,374 +176,381 @@ export default function AdminReportsPage() {
   };
 
   return (
-    <div className="flex-1 bg-[#141414] p-6 lg:p-8 min-h-screen text-white overflow-y-auto">
+    <div className="flex-1 p-6 lg:p-8 space-y-6 max-w-[1600px] w-full mx-auto">
       {/* Toast Notification Container */}
       <Toast toasts={toasts} onRemove={removeToast} />
 
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#2D2D2D] pb-5">
-          <div>
-            <div className="flex items-center gap-3">
-              <Link
-                href="/admin"
-                className="text-[#A3A3A3] hover:text-white transition-colors text-sm font-medium"
-              >
-                ← Dashboard
-              </Link>
-              <span className="text-[#404040]">/</span>
-              <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tight">
-                Báo Cáo Doanh Thu Theo Suất Chiếu (UC-19)
-              </h1>
+      {/* Header */}
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-white/[0.08]">
+        <div>
+          <div className="flex items-center gap-3">
+            <Link
+              href="/admin"
+              className="text-[#94a3b8] hover:text-white transition-colors text-xs font-bold"
+              style={{ textDecoration: 'none' }}
+            >
+              ← Dashboard
+            </Link>
+            <span className="text-white/20">/</span>
+            <h1 className="text-xl lg:text-2xl font-black text-[#f8fafc] tracking-tight uppercase">
+              Báo Cáo Doanh Thu Kế Toán (BR-10 · UC-19)
+            </h1>
+          </div>
+          <p className="text-[#94a3b8] text-xs mt-1">
+            Phân tích chi tiết doanh thu thực thu, tiền hoàn lại theo BR-04 và tỷ lệ lấp đầy phòng chiếu
+          </p>
+        </div>
+
+        <div className="flex items-center gap-2.5">
+          <button
+            type="button"
+            onClick={handleExportCSV}
+            className="px-4 py-2 bg-gradient-to-r from-[#e11d48] to-[#9f1239] border border-[#fecdd3]/40 text-white text-xs font-black rounded-lg shadow-[0_0_20px_rgba(225,29,72,0.5)] hover:shadow-[0_0_30px_rgba(225,29,72,0.8)] transition-all cursor-pointer uppercase tracking-wider"
+          >
+            Xuất Excel / CSV
+          </button>
+          <button
+            type="button"
+            onClick={() => addToast('info', 'Tính năng xuất file PDF đang hoàn thiện bản in')}
+            className="px-4 py-2 bg-white/[0.05] hover:bg-white/[0.08] border border-[#c084fc]/25 text-[#f8fafc] text-xs font-bold rounded-lg transition-all cursor-pointer"
+          >
+            Xuất PDF
+          </button>
+        </div>
+      </header>
+
+      {/* Filter Form Card */}
+      <div
+        className="rounded-2xl p-5 border border-[#c084fc]/20 backdrop-blur-2xl shadow-[0_10px_35px_rgba(0,0,0,0.6)]"
+        style={{
+          background:
+            'radial-gradient(circle at 0% 0%, rgba(136, 19, 55, 0.18) 0%, transparent 60%), rgba(15, 11, 26, 0.85)',
+        }}
+      >
+        <form onSubmit={handleApplyFilter} className="space-y-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div>
+              <label className="block text-[11px] font-bold text-[#c084fc] uppercase tracking-wider mb-1.5">
+                Từ ngày
+              </label>
+              <input
+                type="date"
+                value={fromDate}
+                onChange={(e) => setFromDate(e.target.value)}
+                className="w-full bg-[#0a0812]/80 border border-[#c084fc]/20 focus:border-[#e11d48] rounded-xl px-3 py-2 text-[#f8fafc] text-xs outline-none transition-colors"
+              />
             </div>
-            <p className="text-[#A3A3A3] text-sm mt-1">
-              Phân tích chi tiết doanh thu, số lượng vé bán và tỷ lệ lấp đầy phòng chiếu
+
+            <div>
+              <label className="block text-[11px] font-bold text-[#c084fc] uppercase tracking-wider mb-1.5">
+                Đến ngày
+              </label>
+              <input
+                type="date"
+                value={toDate}
+                onChange={(e) => setToDate(e.target.value)}
+                className="w-full bg-[#0a0812]/80 border border-[#c084fc]/20 focus:border-[#e11d48] rounded-xl px-3 py-2 text-[#f8fafc] text-xs outline-none transition-colors"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-[#c084fc] uppercase tracking-wider mb-1.5">
+                Lọc theo phim
+              </label>
+              <select
+                value={movieId}
+                onChange={(e) => setMovieId(e.target.value)}
+                className="w-full bg-[#0a0812]/80 border border-[#c084fc]/20 focus:border-[#e11d48] rounded-xl px-3 py-2 text-[#f8fafc] text-xs outline-none transition-colors"
+              >
+                <option value="all">Tất cả phim</option>
+                {moviesList.map((m) => (
+                  <option key={m.id} value={m.id}>
+                    {m.title}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-[#c084fc] uppercase tracking-wider mb-1.5">
+                Phòng chiếu
+              </label>
+              <select
+                value={roomNumber}
+                onChange={(e) => setRoomNumber(e.target.value)}
+                className="w-full bg-[#0a0812]/80 border border-[#c084fc]/20 focus:border-[#e11d48] rounded-xl px-3 py-2 text-[#f8fafc] text-xs outline-none transition-colors"
+              >
+                <option value="all">Tất cả phòng chiếu</option>
+                <option value="Cinema 01">Cinema 01 (Laser 4K)</option>
+                <option value="Cinema 02">Cinema 02 (Dolby Atmos)</option>
+                <option value="Cinema 03">Cinema 03 (Standard 2D)</option>
+                <option value="Cinema 04">Cinema 04 (Laser 4K)</option>
+                <option value="Cinema 05">Cinema 05 (VIP Cosmos)</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Quick Presets & Submit */}
+          <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-white/[0.08]">
+            <div className="flex flex-wrap items-center gap-2 text-xs">
+              <span className="text-[#94a3b8] text-[11px]">Chọn nhanh:</span>
+              <button
+                type="button"
+                onClick={() => setQuickDate('today')}
+                className="bg-white/[0.04] hover:bg-white/[0.08] text-[#f8fafc] px-3 py-1 rounded-md text-[11px] font-bold border border-white/[0.08] transition-colors cursor-pointer"
+              >
+                Hôm nay
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuickDate('7days')}
+                className="bg-white/[0.04] hover:bg-white/[0.08] text-[#f8fafc] px-3 py-1 rounded-md text-[11px] font-bold border border-white/[0.08] transition-colors cursor-pointer"
+              >
+                7 Ngày qua
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuickDate('month')}
+                className="bg-white/[0.04] hover:bg-white/[0.08] text-[#f8fafc] px-3 py-1 rounded-md text-[11px] font-bold border border-white/[0.08] transition-colors cursor-pointer"
+              >
+                Tháng này
+              </button>
+              <button
+                type="button"
+                onClick={() => setQuickDate('all')}
+                className="bg-white/[0.04] hover:bg-white/[0.08] text-[#f8fafc] px-3 py-1 rounded-md text-[11px] font-bold border border-white/[0.08] transition-colors cursor-pointer"
+              >
+                Toàn thời gian
+              </button>
+            </div>
+
+            <div>
+              <button
+                type="submit"
+                disabled={loading}
+                className="px-4 py-2 bg-gradient-to-r from-[#e11d48] to-[#9f1239] border border-[#fecdd3]/40 text-white text-xs font-black rounded-lg shadow-[0_0_15px_rgba(225,29,72,0.4)] hover:shadow-[0_0_25px_rgba(225,29,72,0.7)] transition-all cursor-pointer disabled:opacity-50"
+              >
+                {loading ? 'Đang trích xuất...' : 'ÁP DỤNG BỘ LỌC'}
+              </button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      {/* Summary Stats of Current Filter (5 Cards Bento) */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+        <div className="rounded-xl p-4 bg-[#0a0812]/80 border border-[#c084fc]/20 backdrop-blur-xl">
+          <span className="text-[#a78bfa] text-[10px] font-black uppercase tracking-wider block">
+            DOANH THU THỰC THU
+          </span>
+          <span className="text-[#86efac] font-black text-xl lg:text-2xl mt-1 block tracking-tight">
+            {totalNetRevenue.toLocaleString('vi-VN')} đ
+          </span>
+          <span className="text-[10px] text-[#94a3b8] mt-1 block">Sau khi trừ các vé hoàn</span>
+        </div>
+
+        <div className="rounded-xl p-4 bg-[#0a0812]/80 border border-[#c084fc]/20 backdrop-blur-xl">
+          <span className="text-[#a78bfa] text-[10px] font-black uppercase tracking-wider block">
+            DOANH THU GỘP
+          </span>
+          <span className="text-[#fda4af] font-black text-xl lg:text-2xl mt-1 block tracking-tight">
+            {totalGrossRevenue.toLocaleString('vi-VN')} đ
+          </span>
+          <span className="text-[10px] text-[#94a3b8] mt-1 block">Tổng bán vé ban đầu</span>
+        </div>
+
+        <div className="rounded-xl p-4 bg-[#0a0812]/80 border border-[#c084fc]/20 backdrop-blur-xl">
+          <span className="text-[#a78bfa] text-[10px] font-black uppercase tracking-wider block">
+            TIỀN ĐÃ HOÀN LẠI (BR-04)
+          </span>
+          <span className="text-[#f43f5e] font-black text-xl lg:text-2xl mt-1 block tracking-tight">
+            {totalRefunded.toLocaleString('vi-VN')} đ
+          </span>
+          <span className="text-[10px] text-[#94a3b8] mt-1 block">{totalCancelledTickets} vé hủy / bồi hoàn</span>
+        </div>
+
+        <div className="rounded-xl p-4 bg-[#0a0812]/80 border border-[#c084fc]/20 backdrop-blur-xl">
+          <span className="text-[#a78bfa] text-[10px] font-black uppercase tracking-wider block">
+            VÉ HỢP LỆ / ĐÃ BÁN
+          </span>
+          <span className="text-[#c084fc] font-black text-xl lg:text-2xl mt-1 block tracking-tight">
+            {totalTickets.toLocaleString('vi-VN')} vé
+          </span>
+          <span className="text-[10px] text-[#94a3b8] mt-1 block">{reports.length} suất chiếu</span>
+        </div>
+
+        <div className="rounded-xl p-4 bg-[#0a0812]/80 border border-[#c084fc]/20 backdrop-blur-xl">
+          <span className="text-[#a78bfa] text-[10px] font-black uppercase tracking-wider block">
+            TỶ LỆ LẤP ĐẦY
+          </span>
+          <span className="text-white font-black text-xl lg:text-2xl mt-1 block tracking-tight">
+            {overallFillRate}%
+          </span>
+          <span className="text-[10px] text-[#94a3b8] mt-1 block">Bình quân toàn rạp</span>
+        </div>
+      </div>
+
+      {/* Detailed Table Bento Card */}
+      <div className="rounded-2xl border border-[#c084fc]/25 bg-[#0a0812]/85 backdrop-blur-2xl overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.8)]">
+        <div className="p-5 border-b border-white/[0.08] flex items-center justify-between">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[#e11d48] text-sm">✦</span>
+              <h2 className="text-white font-black text-sm uppercase tracking-wider">
+                BẢNG DỮ LIỆU SUẤT CHIẾU & DOANH THU CHI TIẾT
+              </h2>
+            </div>
+            <p className="text-[#94a3b8] text-xs mt-0.5">
+              Hiển thị từng suất chiếu với doanh thu và tỷ lệ lấp đầy chính xác
             </p>
           </div>
-
-          <div className="flex items-center gap-2">
-            <Button variant="secondary" size="sm" onClick={handleExportCSV}>
-              📊 Xuất Excel / CSV
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => addToast('info', 'Tính năng xuất file PDF đang hoàn thiện bản in')}
-            >
-              📄 Xuất PDF
-            </Button>
-          </div>
+          <span className="text-xs text-[#94a3b8]">
+            Số bản ghi: <strong className="text-white">{reports.length}</strong>
+          </span>
         </div>
 
-        {/* Filter Form Card */}
-        <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl p-5 lg:p-6 shadow-xl">
-          <form onSubmit={handleApplyFilter} className="space-y-4">
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-              <div>
-                <label className="block text-xs font-semibold text-[#A3A3A3] uppercase mb-1.5">
-                  Từ ngày
-                </label>
-                <input
-                  type="date"
-                  value={fromDate}
-                  onChange={(e) => setFromDate(e.target.value)}
-                  className="w-full bg-[#141414] border border-[#404040] focus:border-[#E63946] rounded-xl px-3 py-2 text-white text-sm outline-none transition-colors"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-[#A3A3A3] uppercase mb-1.5">
-                  Đến ngày
-                </label>
-                <input
-                  type="date"
-                  value={toDate}
-                  onChange={(e) => setToDate(e.target.value)}
-                  className="w-full bg-[#141414] border border-[#404040] focus:border-[#E63946] rounded-xl px-3 py-2 text-white text-sm outline-none transition-colors"
-                />
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-[#A3A3A3] uppercase mb-1.5">
-                  Lọc theo phim
-                </label>
-                <select
-                  value={movieId}
-                  onChange={(e) => setMovieId(e.target.value)}
-                  className="w-full bg-[#141414] border border-[#404040] focus:border-[#E63946] rounded-xl px-3 py-2 text-white text-sm outline-none transition-colors"
-                >
-                  <option value="all">Tất cả phim</option>
-                  {moviesList.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      {m.title}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold text-[#A3A3A3] uppercase mb-1.5">
-                  Phòng chiếu
-                </label>
-                <select
-                  value={roomNumber}
-                  onChange={(e) => setRoomNumber(e.target.value)}
-                  className="w-full bg-[#141414] border border-[#404040] focus:border-[#E63946] rounded-xl px-3 py-2 text-white text-sm outline-none transition-colors"
-                >
-                  <option value="all">Tất cả phòng chiếu</option>
-                  <option value="Cinema 01">Cinema 01</option>
-                  <option value="Cinema 02">Cinema 02</option>
-                  <option value="Cinema 03">Cinema 03</option>
-                  <option value="Cinema 04">Cinema 04</option>
-                  <option value="Cinema 05">Cinema 05</option>
-                </select>
-              </div>
-            </div>
-
-            {/* Quick Presets & Submit */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[#2D2D2D]">
-              <div className="flex flex-wrap items-center gap-2 text-xs">
-                <span className="text-[#737373]">Chọn nhanh:</span>
-                <button
-                  type="button"
-                  onClick={() => setQuickDate('today')}
-                  className="bg-[#2A2A2A] hover:bg-[#383838] text-white px-2.5 py-1 rounded-md transition-colors"
-                >
-                  Hôm nay
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setQuickDate('7days')}
-                  className="bg-[#2A2A2A] hover:bg-[#383838] text-white px-2.5 py-1 rounded-md transition-colors"
-                >
-                  7 Ngày qua
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setQuickDate('month')}
-                  className="bg-[#2A2A2A] hover:bg-[#383838] text-white px-2.5 py-1 rounded-md transition-colors"
-                >
-                  Tháng này
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setQuickDate('all')}
-                  className="bg-[#2A2A2A] hover:bg-[#383838] text-white px-2.5 py-1 rounded-md transition-colors"
-                >
-                  Toàn thời gian
-                </button>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <Button type="submit" variant="primary" size="sm" disabled={loading}>
-                  {loading ? 'Đang trích xuất...' : '🔍 Áp dụng bộ lọc'}
-                </Button>
-              </div>
-            </div>
-          </form>
-        </div>
-
-        {/* Summary Stats of Current Filter */}
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
-          <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4">
-            <span className="text-[#A3A3A3] text-xs font-medium uppercase tracking-wider block">
-              DOANH THU THỰC THU
-            </span>
-            <span className="text-[#2ECC71] font-black text-xl lg:text-2xl mt-1 block">
-              {totalNetRevenue.toLocaleString('vi-VN')} đ
-            </span>
-            <span className="text-[11px] text-[#737373] mt-1 block">Sau khi trừ các vé hoàn</span>
+        {error && (
+          <div className="p-4 bg-[#e11d48]/15 border-b border-[#e11d48]/30 text-[#fda4af] text-xs">
+            {error}
           </div>
+        )}
 
-          <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4">
-            <span className="text-[#A3A3A3] text-xs font-medium uppercase tracking-wider block">
-              DOANH THU GỘP
-            </span>
-            <span className="text-[#FFB703] font-black text-xl lg:text-2xl mt-1 block">
-              {totalGrossRevenue.toLocaleString('vi-VN')} đ
-            </span>
-            <span className="text-[11px] text-[#737373] mt-1 block">Tổng bán vé ban đầu</span>
+        {loading ? (
+          <div className="py-20 text-center text-[#94a3b8] text-xs">
+            Đang trích xuất dữ liệu báo cáo...
           </div>
-
-          <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4">
-            <span className="text-[#A3A3A3] text-xs font-medium uppercase tracking-wider block">
-              TIỀN ĐÃ HOÀN LẠI
-            </span>
-            <span className="text-[#E63946] font-black text-xl lg:text-2xl mt-1 block">
-              {totalRefunded.toLocaleString('vi-VN')} đ
-            </span>
-            <span className="text-[11px] text-[#737373] mt-1 block">{totalCancelledTickets} vé hủy/bồi hoàn</span>
+        ) : reports.length === 0 ? (
+          <div className="py-20 text-center text-[#94a3b8]">
+            <p className="text-white font-bold text-sm">Không có dữ liệu suất chiếu</p>
+            <p className="text-xs mt-1">Thử thay đổi bộ lọc ngày hoặc chọn phim khác</p>
           </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-white/[0.08] text-[11px] font-bold text-[#c084fc] uppercase tracking-wider bg-white/[0.02]">
+                  <th className="px-5 py-3.5">Mã Suất</th>
+                  <th className="px-5 py-3.5">Phim Chiếu</th>
+                  <th className="px-5 py-3.5">Thời Gian</th>
+                  <th className="px-5 py-3.5">Phòng Chiếu</th>
+                  <th className="px-5 py-3.5">Vé Bán / Tổng Ghế</th>
+                  <th className="px-5 py-3.5">Tỷ Lệ Lấp Đầy</th>
+                  <th className="px-5 py-3.5 text-right">Tiền Đã Hoàn</th>
+                  <th className="px-5 py-3.5 text-right">Doanh Thu Thực Thu</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.06]">
+                {reports.map((r) => {
+                  return (
+                    <tr key={r.screening_id} className="hover:bg-white/[0.03] transition-colors">
+                      <td className="px-5 py-4 font-mono font-bold text-white text-xs">
+                        #{r.screening_id}
+                      </td>
 
-          <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4">
-            <span className="text-[#A3A3A3] text-xs font-medium uppercase tracking-wider block">
-              VÉ HỢP LỆ / ĐÃ BÁN
-            </span>
-            <span className="text-[#0088FF] font-black text-xl lg:text-2xl mt-1 block">
-              {totalTickets.toLocaleString('vi-VN')} vé
-            </span>
-            <span className="text-[11px] text-[#737373] mt-1 block">{reports.length} suất chiếu</span>
-          </div>
-
-          <div className="bg-[#1E1E1E] border border-[#333333] rounded-xl p-4">
-            <span className="text-[#A3A3A3] text-xs font-medium uppercase tracking-wider block">
-              TỶ LỆ LẤP ĐẦY
-            </span>
-            <span className="text-white font-black text-xl lg:text-2xl mt-1 block">
-              {overallFillRate}%
-            </span>
-            <span className="text-[11px] text-[#737373] mt-1 block">Bình quân toàn rạp</span>
-          </div>
-        </div>
-
-        {/* Detailed Table */}
-        <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl overflow-hidden shadow-xl">
-          <div className="p-5 border-b border-[#2D2D2D] flex items-center justify-between">
-            <div>
-              <h2 className="text-white font-bold text-base flex items-center gap-2">
-                <span>📋</span> Bảng Dữ Liệu Suất Chiếu & Doanh Thu Chi Tiết
-              </h2>
-              <p className="text-[#A3A3A3] text-xs mt-0.5">
-                Hiển thị từng suất chiếu với doanh thu và tỷ lệ lấp đầy chính xác
-              </p>
-            </div>
-            <span className="text-xs text-[#A3A3A3]">
-              Số bản ghi: <strong className="text-white">{reports.length}</strong>
-            </span>
-          </div>
-
-          {error && (
-            <div className="p-4 bg-[#E63946]/10 border-b border-[#E63946]/20 text-[#E63946] text-sm">
-              ⚠️ {error}
-            </div>
-          )}
-
-          {loading ? (
-            <div className="py-20 text-center text-[#737373]">
-              <div className="inline-block animate-spin text-3xl mb-3">⏳</div>
-              <p className="text-sm font-medium">Đang trích xuất dữ liệu báo cáo...</p>
-            </div>
-          ) : reports.length === 0 ? (
-            <div className="py-20 text-center text-[#737373]">
-              <p className="text-4xl mb-3">📊</p>
-              <p className="text-white font-bold text-base">Không có dữ liệu suất chiếu</p>
-              <p className="text-xs mt-1">Thử thay đổi bộ lọc ngày hoặc chọn phim khác</p>
-            </div>
-          ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-[#2D2D2D] text-xs font-semibold text-[#A3A3A3] uppercase tracking-wider bg-[#191919]">
-                    <th className="px-5 py-3.5">Mã Suất</th>
-                    <th className="px-5 py-3.5">Phim Chiếu</th>
-                    <th className="px-5 py-3.5">Thời Gian</th>
-                    <th className="px-5 py-3.5">Phòng Chiếu</th>
-                    <th className="px-5 py-3.5">Vé Bán / Tổng Ghế</th>
-                    <th className="px-5 py-3.5">Tỷ Lệ Lấp Đầy</th>
-                    <th className="px-5 py-3.5 text-right">Tiền Đã Hoàn</th>
-                    <th className="px-5 py-3.5 text-right">Doanh Thu Thực Thu</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-[#2D2D2D]">
-                  {reports.map((r) => {
-                    const fillRateBadge =
-                      r.fill_rate >= 70
-                        ? 'green'
-                        : r.fill_rate >= 30
-                        ? 'gold'
-                        : 'gray';
-
-                    return (
-                      <tr key={r.screening_id} className="hover:bg-[#252525] transition-colors">
-                        <td className="px-5 py-4 font-mono font-bold text-white text-xs">
-                          #{r.screening_id}
-                        </td>
-
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-3">
-                            {r.movie.poster && (
-                              <div className="relative w-9 h-13 rounded overflow-hidden flex-shrink-0 bg-[#252525]">
-                                <Image
-                                  src={r.movie.poster}
-                                  alt={r.movie.title}
-                                  fill
-                                  sizes="36px"
-                                  className="object-cover"
-                                />
-                              </div>
-                            )}
-                            <div>
-                              <div className="font-semibold text-white max-w-xs truncate">
-                                {r.movie.title}
-                              </div>
-                              <div className="text-xs text-[#737373]">
-                                {r.movie.genre} • {r.movie.duration}p
-                              </div>
-                            </div>
-                          </div>
-                        </td>
-
-                        <td className="px-5 py-4 whitespace-nowrap">
-                          <div className="text-white font-medium">
-                            {new Date(r.start_time).toLocaleTimeString('vi-VN', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}{' '}
-                            -{' '}
-                            {new Date(r.end_time).toLocaleTimeString('vi-VN', {
-                              hour: '2-digit',
-                              minute: '2-digit',
-                            })}
-                          </div>
-                          <div className="text-xs text-[#A3A3A3]">{r.date}</div>
-                        </td>
-
-                        <td className="px-5 py-4 whitespace-nowrap">
-                          <span className="font-mono text-white bg-[#2A2A2A] px-2 py-0.5 rounded text-xs">
-                            {r.room}
-                          </span>
-                        </td>
-
-                        <td className="px-5 py-4 whitespace-nowrap">
-                          <div className="text-white font-semibold">
-                            {r.tickets_sold} / {r.total_seats} ghế
-                          </div>
-                          <div className="text-xs text-[#737373]">
-                            Còn trống: {r.empty_seats}
-                            {(r.cancelled_tickets ?? 0) > 0 && (
-                              <span className="text-[#E63946] ml-1.5 font-medium">
-                                • {r.cancelled_tickets} vé hủy
-                              </span>
-                            )}
-                          </div>
-                        </td>
-
-                        <td className="px-5 py-4 whitespace-nowrap">
-                          <div className="flex items-center gap-2">
-                            <div className="w-16 h-2 bg-[#2D2D2D] rounded-full overflow-hidden">
-                              <div
-                                className={`h-full rounded-full ${
-                                  r.fill_rate >= 70
-                                    ? 'bg-[#2ECC71]'
-                                    : r.fill_rate >= 30
-                                    ? 'bg-[#FFB703]'
-                                    : 'bg-[#525252]'
-                                }`}
-                                style={{ width: `${Math.min(100, r.fill_rate)}%` }}
+                      <td className="px-5 py-4">
+                        <div className="flex items-center gap-3">
+                          {r.movie.poster && (
+                            <div className="relative w-8 h-11 rounded overflow-hidden flex-shrink-0 bg-[#1f192b] border border-[#c084fc]/20">
+                              <Image
+                                src={r.movie.poster}
+                                alt={r.movie.title}
+                                fill
+                                sizes="32px"
+                                className="object-cover"
                               />
                             </div>
-                            <Badge variant={fillRateBadge}>{r.fill_rate_percentage}</Badge>
-                          </div>
-                        </td>
-
-                        <td className="px-5 py-4 text-right whitespace-nowrap text-sm">
-                          {(r.refunded_amount ?? 0) > 0 ? (
-                            <span className="text-[#E63946] font-bold">
-                              -{(r.refunded_amount ?? 0).toLocaleString('vi-VN')} đ
-                            </span>
-                          ) : (
-                            <span className="text-[#737373]">0 đ</span>
                           )}
-                        </td>
-
-                        <td className="px-5 py-4 text-right whitespace-nowrap">
-                          <div className="font-black text-[#2ECC71] text-base">
-                            {(r.net_revenue ?? r.total_revenue).toLocaleString('vi-VN')} đ
-                          </div>
-                          {(r.gross_revenue ?? r.total_revenue) !== (r.net_revenue ?? r.total_revenue) && (
-                            <div className="text-[11px] text-[#737373]">
-                              Gộp: {(r.gross_revenue ?? r.total_revenue).toLocaleString('vi-VN')} đ
+                          <div>
+                            <div className="font-bold text-white max-w-xs truncate">
+                              {r.movie.title}
                             </div>
+                            <div className="text-[10px] text-[#94a3b8] mt-0.5">
+                              {r.movie.genre} • {r.movie.duration}p
+                            </div>
+                          </div>
+                        </div>
+                      </td>
+
+                      <td className="px-5 py-4 whitespace-nowrap">
+                        <div className="text-white font-medium">
+                          {new Date(r.start_time).toLocaleTimeString('vi-VN', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}{' '}
+                          -{' '}
+                          {new Date(r.end_time).toLocaleTimeString('vi-VN', {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                          })}
+                        </div>
+                        <div className="text-[10px] text-[#94a3b8]">{r.date}</div>
+                      </td>
+
+                      <td className="px-5 py-4 whitespace-nowrap">
+                        <span className="font-mono text-white bg-white/[0.06] border border-white/[0.1] px-2.5 py-1 rounded text-xs">
+                          {r.room}
+                        </span>
+                      </td>
+
+                      <td className="px-5 py-4 whitespace-nowrap">
+                        <div className="text-white font-semibold">
+                          {r.tickets_sold} / {r.total_seats} ghế
+                        </div>
+                        <div className="text-[10px] text-[#94a3b8] mt-0.5">
+                          Còn trống: {r.empty_seats}
+                          {(r.cancelled_tickets ?? 0) > 0 && (
+                            <span className="text-[#fda4af] ml-1.5 font-bold">
+                              • {r.cancelled_tickets} vé hủy
+                            </span>
                           )}
-                        </td>
-                      </tr>
-                    );
-                  })}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+                        </div>
+                      </td>
+
+                      <td className="px-5 py-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 h-1.5 bg-white/[0.08] rounded-full overflow-hidden">
+                            <div
+                              className={`h-full rounded-full ${
+                                r.fill_rate >= 70
+                                  ? 'bg-gradient-to-r from-[#881337] to-[#e11d48]'
+                                  : r.fill_rate >= 30
+                                  ? 'bg-gradient-to-r from-purple-800 to-[#c084fc]'
+                                  : 'bg-white/20'
+                              }`}
+                              style={{ width: `${Math.min(100, r.fill_rate)}%` }}
+                            />
+                          </div>
+                          <span className="text-xs font-bold text-white">{r.fill_rate_percentage}</span>
+                        </div>
+                      </td>
+
+                      <td className="px-5 py-4 text-right whitespace-nowrap">
+                        {(r.refunded_amount ?? 0) > 0 ? (
+                          <span className="text-[#f43f5e] font-bold">
+                            -{(r.refunded_amount ?? 0).toLocaleString('vi-VN')} đ
+                          </span>
+                        ) : (
+                          <span className="text-[#64748b]">0 đ</span>
+                        )}
+                      </td>
+
+                      <td className="px-5 py-4 text-right whitespace-nowrap">
+                        <div className="font-black text-[#86efac] text-sm">
+                          {(r.net_revenue ?? r.total_revenue).toLocaleString('vi-VN')} đ
+                        </div>
+                        {(r.gross_revenue ?? r.total_revenue) !== (r.net_revenue ?? r.total_revenue) && (
+                          <div className="text-[10px] text-[#94a3b8]">
+                            Gộp: {(r.gross_revenue ?? r.total_revenue).toLocaleString('vi-VN')} đ
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
       </div>
     </div>
   );

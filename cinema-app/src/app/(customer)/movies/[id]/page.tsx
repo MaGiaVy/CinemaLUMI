@@ -140,17 +140,14 @@ function MovieDetailContent() {
 
   // Callback khi submit đánh giá thành công
   const handleReviewSubmitted = (newReview: ReviewResponseItem) => {
-    // Thêm hoặc cập nhật đánh giá trong state
     setReviews(prev => {
       const filtered = prev.filter(r => r.userId !== newReview.userId && r.id !== newReview.id);
       return [newReview, ...filtered];
     });
-
-    // Cập nhật lại thông tin điểm của phim
     fetchMovieData();
   };
 
-  // Gom nhóm danh sách suất chiếu theo ngày (chuẩn múi giờ Việt Nam Asia/Ho_Chi_Minh)
+  // Gom nhóm danh sách suất chiếu theo ngày
   const uniqueDates = useMemo(() => {
     if (!movie?.screenings || movie.screenings.length === 0) return [];
     const dateMap = new Map<string, string>();
@@ -177,10 +174,10 @@ function MovieDetailContent() {
 
   if (isLoadingMovie) {
     return (
-      <div className="min-h-screen bg-[#111217] text-white flex items-center justify-center py-20">
+      <div className="min-h-screen bg-[#050508] text-[#F8FAFC] flex items-center justify-center py-20 font-sans">
         <div className="flex flex-col items-center gap-3">
-          <div className="w-8 h-8 border-3 border-red-500 border-t-transparent rounded-full animate-spin" />
-          <p className="text-gray-400 text-sm">Đang tải thông tin phim...</p>
+          <div className="w-8 h-8 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+          <p className="text-[#94A3B8] text-sm">Đang tải thông tin phim...</p>
         </div>
       </div>
     );
@@ -188,16 +185,18 @@ function MovieDetailContent() {
 
   if (!movie) {
     return (
-      <div className="min-h-screen bg-[#111217] text-white py-16 px-4">
-        <div className="max-w-md mx-auto bg-[#1A1C24] border border-[#2B2E3D] rounded-2xl p-8 text-center shadow-2xl">
-          <span className="text-5xl block mb-4">🎬</span>
-          <h2 className="text-xl font-bold text-white mb-2">Phim không tồn tại</h2>
-          <p className="text-gray-400 text-sm mb-6">
+      <div className="min-h-screen bg-[#050508] text-[#F8FAFC] py-20 px-4 font-sans">
+        <div className="max-w-md mx-auto bg-[rgba(18,14,28,0.7)] border border-[rgba(192,132,252,0.2)] rounded-2xl p-8 text-center backdrop-blur-md shadow-2xl">
+          <div className="w-12 h-12 rounded-full bg-rose-500/10 border border-rose-500/30 flex items-center justify-center mx-auto mb-4 text-rose-400 font-bold text-lg">
+            ✕
+          </div>
+          <h2 className="text-xl font-bold text-[#F8FAFC] mb-2">Phim không tồn tại</h2>
+          <p className="text-[#94A3B8] text-sm mb-6">
             Không tìm thấy thông tin bộ phim yêu cầu hoặc phim đã ngừng chiếu.
           </p>
           <Link
             href="/"
-            className="inline-block py-2.5 px-6 bg-[#E63946] hover:bg-[#C62B36] text-white text-sm font-semibold rounded-xl transition"
+            className="inline-block py-2.5 px-6 bg-gradient-to-r from-[#E11D48] to-[#9F1239] text-white text-sm font-semibold rounded-xl shadow-lg transition"
           >
             ← Về trang chủ
           </Link>
@@ -219,30 +218,36 @@ function MovieDetailContent() {
     <>
       <Toast toasts={toasts} onRemove={removeToast} />
 
-      <div className="min-h-screen bg-[#111217] text-white">
-        {/* Banner Hero */}
-        <div className="relative h-72 sm:h-96 w-full overflow-hidden bg-black/60">
+      <div className="min-h-screen bg-[#050508] text-[#F8FAFC] font-sans selection:bg-[#E11D48] selection:text-white">
+        {/* Banner Backdrop Hòa Quyện Không Gian */}
+        <div className="relative h-72 sm:h-96 w-full overflow-hidden bg-[#0A0812]">
           <img
             src={posterUrl}
             alt={movie.title}
-            className="w-full h-full object-cover blur-md scale-105 opacity-30"
+            className="w-full h-full object-cover blur-lg scale-110 opacity-35"
           />
-          <div className="absolute inset-0 bg-gradient-to-t from-[#111217] via-[#111217]/60 to-transparent" />
-          <div className="absolute inset-0 bg-gradient-to-r from-[#111217] via-[#111217]/40 to-transparent" />
+          {/* Tinh vân màu nền */}
+          <div className="absolute -top-20 left-1/3 w-96 h-96 bg-[#581C87]/30 rounded-full blur-[100px] pointer-events-none" />
+          <div className="absolute bottom-0 right-1/4 w-80 h-80 bg-[#881337]/25 rounded-full blur-[90px] pointer-events-none" />
+
+          {/* Gradients chuyển màu êm dịu */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#050508] via-[#050508]/75 to-transparent" />
+          <div className="absolute inset-0 bg-gradient-to-r from-[#050508] via-[#050508]/60 to-transparent" />
         </div>
 
         {/* Khối Nội Dung Chính (Poster + Info) */}
         <div className="max-w-6xl mx-auto px-4 sm:px-6 -mt-44 sm:-mt-56 relative z-10">
           <div className="flex flex-col md:flex-row gap-8 items-start mb-12">
-            {/* Poster nổi bật */}
-            <div className="relative w-48 sm:w-60 rounded-2xl overflow-hidden shadow-2xl border-2 border-[#2F3243] flex-shrink-0 bg-black/50 mx-auto md:mx-0">
+            {/* Poster nổi bật với hiệu ứng hào quang phát xung (Nebula Pulse) */}
+            <div className="relative w-48 sm:w-60 rounded-2xl overflow-hidden shadow-[0_15px_40px_rgba(88,28,135,0.45)] border border-[rgba(192,132,252,0.3)] flex-shrink-0 bg-[#0A0812] mx-auto md:mx-0 group">
+              <div className="absolute -inset-1 bg-gradient-to-tr from-[#E11D48] via-[#581C87] to-[#C084FC] rounded-2xl blur-md opacity-40 group-hover:opacity-75 transition duration-500 animate-pulse pointer-events-none" />
               <img
                 src={posterUrl}
                 alt={movie.title}
-                className="w-full h-auto object-cover aspect-[2/3]"
+                className="w-full h-auto object-cover aspect-[2/3] relative z-10"
               />
               {movie.ageRating && (
-                <div className="absolute top-2 left-2 bg-red-600 text-white font-black text-xs px-2 py-0.5 rounded shadow">
+                <div className="absolute top-2 left-2 z-20 bg-[#E11D48] text-white font-black text-xs px-2 py-0.5 rounded-md shadow-md">
                   {movie.ageRating}
                 </div>
               )}
@@ -253,7 +258,7 @@ function MovieDetailContent() {
               {/* Thể loại & Trạng thái */}
               <div className="flex flex-wrap gap-2 justify-center md:justify-start">
                 {genres.map(g => (
-                  <Badge key={g} variant="red" size="md">
+                  <Badge key={g} variant="purple" size="md">
                     {g}
                   </Badge>
                 ))}
@@ -263,35 +268,35 @@ function MovieDetailContent() {
               </div>
 
               {/* Tên phim */}
-              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-white tracking-tight">
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black text-[#F8FAFC] tracking-tight drop-shadow-md">
                 {movie.title}
               </h1>
 
               {/* Rating sao & Thời lượng */}
-              <div className="flex flex-wrap items-center gap-4 justify-center md:justify-start text-sm text-gray-300">
+              <div className="flex flex-wrap items-center gap-4 justify-center md:justify-start text-sm text-[#94A3B8]">
                 <div className="flex items-center gap-2">
                   <StarRating value={Math.round(avgRatingNumber)} readonly size="sm" />
-                  <span className="text-[#FFB703] font-bold text-lg">{avgRatingNumber.toFixed(1)}</span>
-                  <span className="text-gray-400 text-xs">({reviews.length} đánh giá)</span>
+                  <span className="text-[#FDA4AF] font-bold text-lg">{avgRatingNumber.toFixed(1)}</span>
+                  <span className="text-slate-400 text-xs">({reviews.length} đánh giá)</span>
                 </div>
                 <span>•</span>
-                <span>⏱️ {movie.duration} phút</span>
+                <span>Thời lượng: {movie.duration} phút</span>
                 <span>•</span>
-                <span>📅 Khởi chiếu: {formatDate(movie.releaseDate)}</span>
+                <span>Khởi chiếu: {formatDate(movie.releaseDate)}</span>
               </div>
 
               {/* Đạo diễn & Diễn viên */}
-              <div className="text-xs text-gray-400 space-y-1">
+              <div className="text-xs text-[#94A3B8] space-y-1">
                 {movie.director && (
                   <p>
-                    <span className="text-gray-500">Đạo diễn:</span>{' '}
-                    <span className="text-gray-200 font-medium">{movie.director}</span>
+                    <span className="text-slate-400">Đạo diễn:</span>{' '}
+                    <span className="text-[#F8FAFC] font-medium">{movie.director}</span>
                   </p>
                 )}
                 {movie.cast && (
                   <p>
-                    <span className="text-gray-500">Diễn viên:</span>{' '}
-                    <span className="text-gray-200 font-medium">{movie.cast}</span>
+                    <span className="text-slate-400">Diễn viên:</span>{' '}
+                    <span className="text-[#F8FAFC] font-medium">{movie.cast}</span>
                   </p>
                 )}
               </div>
@@ -300,7 +305,7 @@ function MovieDetailContent() {
               {movie.description && (
                 <div>
                   <p
-                    className={`text-gray-300 text-sm leading-relaxed ${
+                    className={`text-slate-300 text-sm leading-relaxed ${
                       !isDescriptionExpanded ? 'line-clamp-3' : ''
                     }`}
                   >
@@ -308,37 +313,37 @@ function MovieDetailContent() {
                   </p>
                   <button
                     onClick={() => setIsDescriptionExpanded(prev => !prev)}
-                    className="text-[#E63946] text-xs font-semibold mt-1 hover:underline cursor-pointer"
+                    className="text-[#FDA4AF] text-xs font-semibold mt-1.5 hover:underline cursor-pointer"
                   >
                     {isDescriptionExpanded ? 'Thu gọn ▲' : 'Đọc thêm ▼'}
                   </button>
                 </div>
               )}
 
-              {/* Giá vé tham khảo & Link chỉnh sửa phim */}
+              {/* Giá vé tham khảo */}
               <div className="flex flex-wrap items-center gap-4 pt-2 justify-center md:justify-start">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs text-gray-400">Giá vé tiêu chuẩn:</span>
-                  <span className="text-xl font-bold text-[#FFB703]">
+                  <span className="text-xs text-[#94A3B8]">Giá vé tiêu chuẩn:</span>
+                  <span className="text-xl font-bold text-[#F8FAFC]">
                     {Number(movie.ticketPrice || 120000).toLocaleString('vi-VN')} đ
                   </span>
                 </div>
                 <Link
                   href={`/admin/movies/${movie.id}/edit`}
-                  className="px-3 py-1 bg-[#252836] hover:bg-[#34384c] text-white text-xs font-semibold rounded-lg border border-[#40455c] transition-colors inline-flex items-center gap-1.5"
+                  className="px-3 py-1 bg-[rgba(18,14,28,0.7)] hover:bg-[rgba(30,24,48,0.9)] text-[#F8FAFC] text-xs font-semibold rounded-xl border border-[rgba(192,132,252,0.2)] transition-colors inline-flex items-center gap-1.5"
                 >
-                  <span>✏️</span> Chỉnh sửa phim (Admin)
+                  ✦ Chỉnh sửa phim (Admin)
                 </Link>
               </div>
             </div>
           </div>
 
-          {/* Phần 1: Lịch Chiếu & Suất Chiếu */}
+          {/* Phần 1: Lịch Chiếu & Suất Chiếu Dạng Viên Nhộng */}
           <div className="mb-14">
-            <div className="flex items-center justify-between mb-6 pb-3 border-b border-[#252836]">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">🎟️</span>
-                <h2 className="text-xl sm:text-2xl font-black text-white">Lịch Chiếu & Đặt Vé</h2>
+            <div className="flex items-center justify-between mb-6 pb-3 border-b border-[rgba(192,132,252,0.15)]">
+              <div className="flex items-center gap-2.5">
+                <span className="text-rose-400 font-bold text-lg">✦</span>
+                <h2 className="text-xl sm:text-2xl font-black text-[#F8FAFC]">Lịch Chiếu & Đặt Vé</h2>
               </div>
             </div>
 
@@ -352,8 +357,8 @@ function MovieDetailContent() {
                       onClick={() => setSelectedDateIndex(idx)}
                       className={`px-5 py-2.5 rounded-xl text-sm font-semibold transition-all whitespace-nowrap cursor-pointer ${
                         selectedDateIndex === idx
-                          ? 'bg-[#E63946] text-white shadow-lg shadow-red-600/30'
-                          : 'bg-[#1A1C24] text-gray-400 hover:text-white hover:bg-[#252836] border border-[#2B2E3D]'
+                          ? 'bg-gradient-to-r from-[#E11D48] to-[#881337] text-[#F8FAFC] shadow-[0_0_15px_rgba(225,29,72,0.5)] border border-rose-500/40'
+                          : 'bg-[rgba(18,14,28,0.7)] text-[#94A3B8] hover:text-[#F8FAFC] hover:bg-[rgba(192,132,252,0.1)] border border-[rgba(192,132,252,0.15)]'
                       }`}
                     >
                       {item.label}
@@ -361,34 +366,34 @@ function MovieDetailContent() {
                   ))}
                 </div>
 
-                {/* Danh sách thẻ suất chiếu */}
+                {/* Danh sách thẻ suất chiếu dạng viên nhộng kính mờ */}
                 {filteredScreenings.length > 0 ? (
                   <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
                     {filteredScreenings.map(s => (
                       <div
                         key={s.id}
-                        className="bg-[#1A1C24] border border-[#252836] hover:border-[#3E4259] rounded-2xl p-4.5 transition shadow-lg flex flex-col justify-between"
+                        className="bg-[rgba(18,14,28,0.7)] border border-[rgba(192,132,252,0.18)] hover:border-[rgba(192,132,252,0.4)] rounded-2xl p-4.5 transition-all shadow-lg flex flex-col justify-between backdrop-blur-md"
                       >
                         <div>
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-2xl font-black text-white font-mono">
+                            <span className="text-2xl font-black text-[#F8FAFC] font-mono">
                               {formatTime(s.startTime)}
                             </span>
                             <Badge variant="gold" size="sm">
                               Phòng {s.room}
                             </Badge>
                           </div>
-                          <p className="text-xs text-gray-400 mb-3">
+                          <p className="text-xs text-[#94A3B8] mb-3">
                             Kết thúc: ~{formatTime(s.endTime)}
                           </p>
-                          <div className="text-sm font-bold text-[#FFB703] mb-4">
+                          <div className="text-sm font-bold text-[#F8FAFC] mb-4">
                             {Number(s.price || movie.ticketPrice).toLocaleString('vi-VN')} đ
                           </div>
                         </div>
 
                         <Link
                           href={`/screenings/${s.id}/seats`}
-                          className="w-full block py-2.5 bg-gradient-to-r from-red-600 to-red-500 hover:from-red-500 hover:to-red-400 text-white text-xs font-bold text-center rounded-xl transition shadow"
+                          className="w-full block py-2.5 bg-gradient-to-r from-[#E11D48] to-[#881337] hover:from-[#F43F5E] hover:to-[#9F1239] text-[#F8FAFC] text-xs font-bold text-center rounded-xl transition shadow-[0_0_12px_rgba(225,29,72,0.35)] border border-rose-500/30"
                         >
                           Chọn ghế ngồi →
                         </Link>
@@ -396,33 +401,33 @@ function MovieDetailContent() {
                     ))}
                   </div>
                 ) : (
-                  <div className="bg-[#1A1C24] border border-[#252836] rounded-2xl p-8 text-center text-gray-400 text-sm">
+                  <div className="bg-[rgba(18,14,28,0.6)] border border-[rgba(192,132,252,0.15)] rounded-2xl p-8 text-center text-[#94A3B8] text-sm">
                     Không có suất chiếu cho ngày này.
                   </div>
                 )}
               </div>
             ) : (
-              <div className="bg-[#1A1C24] border border-[#252836] rounded-2xl p-10 text-center">
-                <span className="text-4xl block mb-2">📅</span>
-                <p className="text-gray-400 text-sm">Hiện chưa có lịch chiếu cho bộ phim này.</p>
+              <div className="bg-[rgba(18,14,28,0.6)] border border-[rgba(192,132,252,0.15)] rounded-2xl p-10 text-center">
+                <div className="w-10 h-10 rounded-full bg-purple-500/10 border border-purple-500/30 flex items-center justify-center mx-auto mb-2 text-purple-300 font-bold">
+                  ✦
+                </div>
+                <p className="text-[#94A3B8] text-sm">Hiện chưa có lịch chiếu cho bộ phim này.</p>
               </div>
             )}
           </div>
 
           {/* Phần 2: Đánh Giá & Bình Luận (ReviewForm + ReviewList) */}
           <div className="mb-16">
-            <div className="flex items-center justify-between mb-6 pb-3 border-b border-[#252836]">
-              <div className="flex items-center gap-2">
-                <span className="text-2xl">⭐</span>
-                <h2 className="text-xl sm:text-2xl font-black text-white">
+            <div className="flex items-center justify-between mb-6 pb-3 border-b border-[rgba(192,132,252,0.15)]">
+              <div className="flex items-center gap-2.5">
+                <span className="text-rose-400 font-bold text-lg">✦</span>
+                <h2 className="text-xl sm:text-2xl font-black text-[#F8FAFC]">
                   Đánh Giá & Nhận Xét ({reviews.length})
                 </h2>
               </div>
             </div>
 
-            {/* Bố cục 2 khối: Form đánh giá bên trên, Danh sách bình luận bên dưới */}
             <div className="space-y-8">
-              {/* Component ReviewForm: Form nhập số sao & bình luận (chỉ hiển thị khi đã đăng nhập, bắt lỗi 403) */}
               <ReviewForm
                 movieId={movieId}
                 movieTitle={movie.title}
@@ -430,9 +435,8 @@ function MovieDetailContent() {
                 onShowToast={showToast}
               />
 
-              {/* Component ReviewList: Hiển thị danh sách đánh giá của phim */}
               <div>
-                <h3 className="text-base font-bold text-white mb-4">
+                <h3 className="text-base font-bold text-[#F8FAFC] mb-4">
                   Tất cả đánh giá từ khán giả ({reviews.length})
                 </h3>
                 <ReviewList reviews={reviews} isLoading={isLoadingReviews} />
@@ -449,10 +453,10 @@ export default function MovieDetailPage() {
   return (
     <Suspense
       fallback={
-        <div className="min-h-screen bg-[#111217] text-white flex items-center justify-center">
+        <div className="min-h-screen bg-[#050508] text-[#F8FAFC] flex items-center justify-center font-sans">
           <div className="flex items-center gap-3">
-            <div className="w-5 h-5 border-2 border-red-500 border-t-transparent rounded-full animate-spin" />
-            <span>Đang tải thông tin phim...</span>
+            <div className="w-5 h-5 border-2 border-rose-500 border-t-transparent rounded-full animate-spin" />
+            <span className="text-sm text-[#94A3B8]">Đang tải thông tin phim...</span>
           </div>
         </div>
       }

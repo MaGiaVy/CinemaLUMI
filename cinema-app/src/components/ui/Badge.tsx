@@ -8,12 +8,12 @@ interface BadgeProps {
 
 export default function Badge({ children, variant = 'gray', size = 'sm' }: BadgeProps) {
   const variants = {
-    green: 'bg-[#2ECC71]/20 text-[#2ECC71] border border-[#2ECC71]/30',
-    red: 'bg-[#E63946]/20 text-[#E63946] border border-[#E63946]/30',
-    gold: 'bg-[#FFB703]/20 text-[#FFB703] border border-[#FFB703]/30',
-    blue: 'bg-[#0088FF]/20 text-[#0088FF] border border-[#0088FF]/30',
-    gray: 'bg-[#404040]/60 text-[#B3B3B3] border border-[#525252]',
-    purple: 'bg-purple-500/20 text-purple-400 border border-purple-500/30',
+    green: 'bg-emerald-500/15 text-emerald-400 border border-emerald-500/30',
+    red: 'bg-rose-500/15 text-rose-400 border border-rose-500/30',
+    gold: 'bg-fuchsia-500/15 text-[#FDA4AF] border border-fuchsia-500/30 shadow-[0_0_8px_rgba(253,164,175,0.15)]',
+    blue: 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/30',
+    gray: 'bg-slate-800/40 text-slate-300 border border-slate-700/50',
+    purple: 'bg-purple-500/15 text-purple-300 border border-purple-500/30',
   };
 
   const sizes = {
@@ -22,7 +22,7 @@ export default function Badge({ children, variant = 'gray', size = 'sm' }: Badge
   };
 
   return (
-    <span className={`inline-flex items-center font-semibold rounded uppercase tracking-wide ${variants[variant]} ${sizes[size]}`}>
+    <span className={`inline-flex items-center font-semibold rounded-md uppercase tracking-wider ${variants[variant]} ${sizes[size]}`}>
       {children}
     </span>
   );

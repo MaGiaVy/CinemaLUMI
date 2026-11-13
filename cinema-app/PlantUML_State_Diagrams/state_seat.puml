@@ -1,37 +1,65 @@
 @startuml state_seat
 skinparam monochrome true
 skinparam style strictuml
+skinparam shadowing false
 skinparam defaultFontName Arial
 skinparam defaultFontSize 12
 skinparam roundCorner 8
+skinparam padding 6
+skinparam nodesep 55
+skinparam ranksep 65
+skinparam ArrowThickness 1.2
 skinparam state {
     BorderThickness 1.5
-    ArrowThickness 1.2
+    AttributeFontSize 11
 }
+skinparam note {
+    BorderThickness 1
+    FontSize 11
+}
+hide empty description
 
-title SƠ ĐỒ TRẠNG THÁI GHẾ THEO SUẤT CHIẾU (SCREENING SEAT STATE MACHINE)
+title SƠ ĐỒ TRẠNG THÁI GHẾ THEO SUẤT CHIẾU
 
-[*] --> EMPTY : Tạo suất chiếu mới (POST /api/admin/screenings - FR-ADM-03)\n/ Khởi tạo mặc định 50 ghế STANDARD trống (A1-E10 - BR-01), reservedUntil = null
+state "Ghế trống\n(EMPTY)" as GHE_TRONG {
+}
+GHE_TRONG : entry / Xóa thời hạn giữ chỗ; mở cho phép chọn trên sơ đồ
 
-EMPTY --> RESERVED : Khách hoặc Staff chọn ghế (POST /api/seats/reserve - FR-BOK-02)\n[status == EMPTY && Tối đa 8 ghế/lần]\n/ Khóa nguyên tử: reservedUntil = NOW() + 10 phút
+state "Đang giữ chỗ\n(RESERVED)" as DANG_GIU_CHO {
+}
+DANG_GIU_CHO : entry / Đặt thời hạn giữ chỗ = Hiện tại + 10 phút
+DANG_GIU_CHO : do / Đếm ngược 10 phút; trả về trống động nếu đã quá hạn
+DANG_GIU_CHO : exit / Hủy khóa giữ chỗ tạm thời
 
-RESERVED --> EMPTY : [Quá hạn 10 phút chưa thanh toán: NOW() > reservedUntil]\nhoặc Khách bỏ chọn ghế / Thanh toán Failed\n/ Giải phóng ghế về trạng thái trống (status = EMPTY, reservedUntil = null)
+state "Đã bán\n(OCCUPIED)" as DA_BAN {
+}
+DA_BAN : entry / Xóa thời hạn giữ chỗ; khóa ghế gắn với Vé Hợp lệ (Valid)
 
-RESERVED --> OCCUPIED : Đơn hàng thanh toán thành công (ZaloPay Sandbox v2 IPN / Tiền mặt POS)\n[Payment == Success && Vượt qua Partial Unique Index unique_active_ticket]\n/ Xác nhận bán vé chính thức, xóa reservedUntil = null, gắn Ticket (Valid)
+[*] --> GHE_TRONG : Quản trị viên tạo suất chiếu mới\n/ Khởi tạo mặc định 50 ghế chuẩn từ A1 đến E10
 
-OCCUPIED --> EMPTY : [Vé xem phim bị hủy hợp lệ trước giờ chiếu]\n(Khách hủy trước >= 2h hoặc Rạp hủy sự cố trước giờ chiếu)\n[Ticket -> Cancelled] / Giải phóng ghế (status = EMPTY, reservedUntil = null) để khách khác đặt lại
+GHE_TRONG --> DANG_GIU_CHO : Khách hàng hoặc Nhân viên chọn ghế\n[Ghế đang trống hoặc hết hạn giữ; tối đa 8 ghế mỗi lần]\n/ Khóa nguyên tử ghế trong 10 phút
 
-OCCUPIED --> [*] : Suất chiếu kết thúc (Screening == ENDED)\n/ Lưu trữ lịch sử ghế ngồi phục vụ thống kê tỷ lệ lấp đầy
-EMPTY --> [*] : Suất chiếu kết thúc hoặc bị hủy (ENDED / CANCELLED)
+DANG_GIU_CHO --> GHE_TRONG : Hết 10 phút, Khách bỏ chọn hoặc Thanh toán thất bại\n[Quá thời hạn giữ chỗ hoặc hủy giao dịch hợp lệ]\n/ Giải phóng về Ghế trống; hủy đơn thanh toán chờ (nếu có)
 
-note right of RESERVED
-  <b>CƠ CHẾ KHÓA GHẾ & CHỐNG TRÙNG VÉ (BR-01, FR-BOK-02):</b>
-  - Giới hạn giữ tối đa <b>08 ghế/giao dịch</b> trong <b>10 phút</b>.
-  - Chống tranh chấp đồng thời (Race Condition) bằng
-    ACID Transaction & Lazy Release khi quá hạn 10 phút.
-  - Ràng buộc <b>Partial Unique Index (unique_active_ticket)</b>:
-    <i>ON tickets(screening_id, seat_id) WHERE status != 'Cancelled'</i>
-    chặn tuyệt đối phát sinh 2 vé hiệu lực trên cùng 1 ghế.
+DANG_GIU_CHO --> DA_BAN : Thanh toán trực tuyến thành công\n[Giao dịch Thành công và không trùng vé hiệu lực khác]\n/ Chốt ghế Đã bán và phát hành Vé Hợp lệ (Valid)
+
+GHE_TRONG --> DA_BAN : Nhân viên bán vé trực tiếp tại quầy\n[Ghế trống hoặc đã quá hạn giữ chỗ 10 phút]\n/ Thu tiền và chốt ngay ghế Đã bán cùng Vé Hợp lệ
+
+DA_BAN --> GHE_TRONG : Vé gắn với ghế bị hủy hợp lệ\n[Khách hủy trước 2 giờ, Nhân viên ép hủy hoặc Đóng suất có vé]\n/ Chuyển vé sang Đã hủy và mở bán lại ghế trống
+
+DA_BAN --> [*] : Suất chiếu kết thúc\n/ Lưu trữ lịch sử phục vụ thống kê tỷ lệ lấp đầy
+
+GHE_TRONG --> [*] : Suất chiếu kết thúc hoặc bị xóa\n/ Kết thúc vòng đời ghế
+
+note as GhiChu
+  <b>QUY TẮC KHÓA GHẾ VÀ CHỐNG ĐẶT TRÙNG VÉ:</b>
+  1. Mỗi giao dịch giữ chỗ trực tuyến được chọn tối đa <b>8 ghế</b> với thời hạn tạm giữ <b>10 phút</b>.
+  2. Khi người dùng mở sơ đồ ghế hoặc chọn giữ chỗ, các ghế quá hạn 10 phút tự động được giải phóng ngay lập tức (kết hợp tác vụ quét định kỳ).
+  3. Tại quầy vé, Nhân viên có thể bán trực tiếp từ <b>Ghế trống</b> (hoặc ghế giữ chỗ đã quá hạn) sang <b>Đã bán</b> trong một giao dịch nguyên tử.
+  4. Ràng buộc chỉ mục duy nhất trên các vé còn hiệu lực ngăn tuyệt đối việc phát hành hai vé cho cùng một ghế trong cùng suất chiếu.
 end note
+
+DA_BAN -[hidden]-> GhiChu
+GHE_TRONG -[hidden]-> GhiChu
 
 @enduml

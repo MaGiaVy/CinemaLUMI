@@ -36,7 +36,6 @@ export default function SignUpPage() {
   const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
 
-    // 1. Kiểm tra đầu vào phía Client
     if (!form.fullName.trim() || !form.email.trim() || !form.password) {
       showToast('Vui lòng điền đầy đủ các thông tin bắt buộc', 'warning');
       return;
@@ -60,7 +59,6 @@ export default function SignUpPage() {
     setLoading(true);
 
     try {
-      // 2. Gửi request POST tới /api/auth/signup
       const res = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: {
@@ -76,14 +74,12 @@ export default function SignUpPage() {
 
       const data = await res.json();
 
-      // 3. Xử lý lỗi (email trùng hoặc validate thất bại từ server)
       if (!res.ok || !data.success) {
         showToast(data.message || 'Đăng ký thất bại. Vui lòng thử lại.', 'error');
         setLoading(false);
         return;
       }
 
-      // 4. Đăng ký thành công -> Thông báo Toast và chuyển hướng sang /login
       showToast(
         data.message || 'Đăng ký tài khoản thành công! Đang chuyển đến trang đăng nhập...',
         'success'
@@ -102,24 +98,30 @@ export default function SignUpPage() {
     <>
       <Toast toasts={toasts} onRemove={removeToast} />
 
-      <div className="min-h-screen bg-[#1A1A1A] flex items-center justify-center p-6 md:p-8">
-        <div className="w-full max-w-md bg-[#2D2D2D]/60 border border-[#404040] rounded-2xl p-8 backdrop-blur-sm shadow-2xl">
+      <div className="min-h-screen bg-[#050508] text-[#F8FAFC] flex items-center justify-center p-6 md:p-8 font-sans selection:bg-[#E11D48] selection:text-white relative overflow-hidden">
+        {/* Tinh vân nền */}
+        <div className="absolute top-1/3 left-1/3 w-96 h-96 bg-[#581C87]/25 rounded-full blur-[130px] pointer-events-none" />
+        <div className="absolute bottom-1/3 right-1/3 w-96 h-96 bg-[#881337]/25 rounded-full blur-[130px] pointer-events-none" />
+
+        <div className="w-full max-w-md bg-[rgba(18,14,28,0.75)] border border-[rgba(192,132,252,0.22)] rounded-3xl p-8 sm:p-10 backdrop-blur-2xl shadow-[0_15px_50px_rgba(0,0,0,0.8)] relative z-10">
           {/* Logo */}
-          <div className="flex items-center gap-2 mb-6">
-            <div className="w-9 h-9 bg-[#E63946] rounded-xl flex items-center justify-center text-white font-black text-xl shadow-md">
-              L
+          <div className="flex items-center gap-2.5 mb-6">
+            <div className="w-9 h-9 bg-gradient-to-tr from-[#E11D48] to-[#581C87] rounded-xl flex items-center justify-center text-white font-black text-base shadow-[0_0_15px_rgba(225,29,72,0.4)] border border-rose-500/30">
+              ✦
             </div>
             <span className="font-black text-2xl text-white tracking-wide">
-              LUMI <span className="text-[#E63946]">CINEMA</span>
+              LUMI <span className="bg-gradient-to-r from-[#E11D48] via-[#C084FC] to-[#FDA4AF] bg-clip-text text-transparent">CINEMA</span>
             </span>
           </div>
 
-          <h1 className="text-3xl font-black text-white mb-2">Tạo tài khoản</h1>
-          <p className="text-[#B3B3B3] text-sm mb-6">
+          <h1 className="text-2xl sm:text-3xl font-black text-[#F8FAFC] mb-2 tracking-tight">
+            Tạo tài khoản
+          </h1>
+          <p className="text-[#94A3B8] text-sm mb-6">
             Đã có tài khoản?{' '}
             <Link
               href="/login"
-              className="text-[#E63946] hover:underline font-semibold"
+              className="text-[#FDA4AF] hover:underline font-semibold"
             >
               Đăng nhập ngay
             </Link>
@@ -127,8 +129,8 @@ export default function SignUpPage() {
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-[#B3B3B3] text-sm font-medium mb-1.5">
-                Họ và tên <span className="text-[#E63946]">*</span>
+              <label className="block text-[#94A3B8] text-xs font-semibold uppercase tracking-wider mb-1.5">
+                Họ và tên <span className="text-[#E11D48]">*</span>
               </label>
               <input
                 type="text"
@@ -137,13 +139,14 @@ export default function SignUpPage() {
                 onChange={setField('fullName')}
                 required
                 disabled={loading}
+                className="w-full bg-[rgba(10,8,18,0.9)] border border-[rgba(192,132,252,0.2)] rounded-xl px-4 py-2.5 text-sm text-[#F8FAFC] placeholder-slate-500 focus:outline-none focus:border-[#E11D48] focus:shadow-[0_0_15px_rgba(225,29,72,0.35)] transition"
               />
             </div>
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <div>
-                <label className="block text-[#B3B3B3] text-sm font-medium mb-1.5">
-                  Email <span className="text-[#E63946]">*</span>
+                <label className="block text-[#94A3B8] text-xs font-semibold uppercase tracking-wider mb-1.5">
+                  Email <span className="text-[#E11D48]">*</span>
                 </label>
                 <input
                   type="email"
@@ -152,10 +155,11 @@ export default function SignUpPage() {
                   onChange={setField('email')}
                   required
                   disabled={loading}
+                  className="w-full bg-[rgba(10,8,18,0.9)] border border-[rgba(192,132,252,0.2)] rounded-xl px-4 py-2.5 text-sm text-[#F8FAFC] placeholder-slate-500 focus:outline-none focus:border-[#E11D48] focus:shadow-[0_0_15px_rgba(225,29,72,0.35)] transition"
                 />
               </div>
               <div>
-                <label className="block text-[#B3B3B3] text-sm font-medium mb-1.5">
+                <label className="block text-[#94A3B8] text-xs font-semibold uppercase tracking-wider mb-1.5">
                   Số điện thoại
                 </label>
                 <input
@@ -164,14 +168,15 @@ export default function SignUpPage() {
                   value={form.phone}
                   onChange={setField('phone')}
                   disabled={loading}
+                  className="w-full bg-[rgba(10,8,18,0.9)] border border-[rgba(192,132,252,0.2)] rounded-xl px-4 py-2.5 text-sm text-[#F8FAFC] placeholder-slate-500 focus:outline-none focus:border-[#E11D48] focus:shadow-[0_0_15px_rgba(225,29,72,0.35)] transition"
                 />
               </div>
             </div>
 
             <div>
-              <label className="block text-[#B3B3B3] text-sm font-medium mb-1.5">
-                Mật khẩu <span className="text-[#E63946]">*</span>{' '}
-                <span className="text-[#737373] text-xs font-normal">
+              <label className="block text-[#94A3B8] text-xs font-semibold uppercase tracking-wider mb-1.5">
+                Mật khẩu <span className="text-[#E11D48]">*</span>{' '}
+                <span className="text-slate-500 text-xs font-normal lowercase">
                   (tối thiểu 6 ký tự)
                 </span>
               </label>
@@ -183,12 +188,13 @@ export default function SignUpPage() {
                 minLength={6}
                 required
                 disabled={loading}
+                className="w-full bg-[rgba(10,8,18,0.9)] border border-[rgba(192,132,252,0.2)] rounded-xl px-4 py-2.5 text-sm text-[#F8FAFC] placeholder-slate-500 focus:outline-none focus:border-[#E11D48] focus:shadow-[0_0_15px_rgba(225,29,72,0.35)] transition"
               />
             </div>
 
             <div>
-              <label className="block text-[#B3B3B3] text-sm font-medium mb-1.5">
-                Xác nhận mật khẩu <span className="text-[#E63946]">*</span>
+              <label className="block text-[#94A3B8] text-xs font-semibold uppercase tracking-wider mb-1.5">
+                Xác nhận mật khẩu <span className="text-[#E11D48]">*</span>
               </label>
               <input
                 type="password"
@@ -197,9 +203,10 @@ export default function SignUpPage() {
                 onChange={setField('confirm')}
                 required
                 disabled={loading}
+                className="w-full bg-[rgba(10,8,18,0.9)] border border-[rgba(192,132,252,0.2)] rounded-xl px-4 py-2.5 text-sm text-[#F8FAFC] placeholder-slate-500 focus:outline-none focus:border-[#E11D48] focus:shadow-[0_0_15px_rgba(225,29,72,0.35)] transition"
               />
               {form.confirm && form.password !== form.confirm && (
-                <p className="text-[#E63946] text-xs mt-1 font-medium">
+                <p className="text-rose-400 text-xs mt-1 font-medium">
                   Mật khẩu xác nhận không khớp
                 </p>
               )}
@@ -211,16 +218,16 @@ export default function SignUpPage() {
                 checked={agreed}
                 onChange={e => setAgreed(e.target.checked)}
                 disabled={loading}
-                className="mt-1 h-4 w-4 rounded accent-[#E63946] cursor-pointer"
+                className="mt-1 h-4 w-4 rounded accent-[#E11D48] cursor-pointer"
                 style={{ width: 'auto' }}
               />
-              <span className="text-[#B3B3B3] text-xs leading-relaxed">
+              <span className="text-[#94A3B8] text-xs leading-relaxed">
                 Tôi đồng ý với{' '}
-                <span className="text-[#0088FF] hover:underline cursor-pointer">
+                <span className="text-[#FDA4AF] hover:underline cursor-pointer">
                   Điều khoản sử dụng
                 </span>{' '}
                 và{' '}
-                <span className="text-[#0088FF] hover:underline cursor-pointer">
+                <span className="text-[#FDA4AF] hover:underline cursor-pointer">
                   Chính sách bảo mật
                 </span>{' '}
                 của Lumi Cinema.
@@ -232,15 +239,23 @@ export default function SignUpPage() {
               fullWidth
               size="lg"
               disabled={loading || !agreed || (form.confirm.length > 0 && form.password !== form.confirm)}
+              className="font-bold shadow-[0_0_20px_rgba(225,29,72,0.45)] mt-2"
             >
-              {loading ? 'Đang tạo tài khoản...' : 'Tạo tài khoản'}
+              {loading ? (
+                <div className="flex items-center gap-2">
+                  <span className="hourglass-spin text-sm">⏳</span>
+                  <span>Đang tạo tài khoản...</span>
+                </div>
+              ) : (
+                'Tạo tài khoản'
+              )}
             </Button>
           </form>
 
           <div className="mt-6 text-center">
             <Link
               href="/"
-              className="text-[#B3B3B3] text-sm hover:text-white transition-colors"
+              className="text-[#94A3B8] text-xs hover:text-[#F8FAFC] transition-colors"
             >
               ← Quay về trang chủ
             </Link>

@@ -1,0 +1,217 @@
+@startuml ERD_LumiCinema
+!theme plain
+skinparam roundcorner 8
+skinparam linetype ortho
+skinparam shadowing false
+skinparam handwritten false
+skinparam class {
+    BackgroundColor #FFFFFF
+    ArrowColor #2563EB
+    BorderColor #1E293B
+}
+
+' ==========================================
+' CSDL LUMICINEMA - THỰC THỂ & BẢNG (12 BẢNG)
+' ==========================================
+
+entity "users" as users {
+    * **user_id** : INT <<PK, generated>>
+    --
+    * email : VARCHAR(255) <<unique>>
+    * password : VARCHAR(255)
+    * name : VARCHAR(100)
+    phone : VARCHAR(20)
+    * role : ENUM ('CUSTOMER', 'STAFF', 'ADMIN')
+    * created_at : TIMESTAMP
+    * updated_at : TIMESTAMP
+}
+
+entity "movies" as movies {
+    * **movie_id** : INT <<PK, generated>>
+    --
+    * title : VARCHAR(255)
+    slug : VARCHAR(255) <<unique>>
+    description : TEXT
+    * duration : INT
+    * release_date : DATE
+    end_date : DATE
+    age_rating : VARCHAR(20)
+    * poster : VARCHAR(500)
+    trailer : VARCHAR(500)
+    rating : DECIMAL(3,1)
+    * genre : VARCHAR(100)
+    director : VARCHAR(100)
+    cast : TEXT
+    * status : ENUM ('SHOWING', 'UPCOMING', 'ENDED')
+    * ticket_price : DECIMAL(10,2)
+    * is_deleted : BOOLEAN
+    * created_at : TIMESTAMP
+    * updated_at : TIMESTAMP
+}
+
+entity "screenings" as screenings {
+    * **screening_id** : INT <<PK, generated>>
+    --
+    # **movie_id** : INT <<FK>>
+    * room : VARCHAR(50)
+    room_number : INT
+    * start_time : TIMESTAMP
+    * end_time : TIMESTAMP
+    * date : DATE
+    * price : DECIMAL(10,2)
+    * status : ENUM ('UPCOMING', 'SHOWING', 'ENDED')
+    * created_at : TIMESTAMP
+    * updated_at : TIMESTAMP
+}
+
+entity "seats" as seats {
+    * **seat_id** : INT <<PK, generated>>
+    --
+    # **screening_id** : INT <<FK>>
+    room : VARCHAR(50)
+    * row : VARCHAR(5)
+    * number : INT
+    * code : VARCHAR(10)
+    * type : ENUM ('STANDARD', 'VIP', 'COUPLE')
+    * status : ENUM ('EMPTY', 'RESERVED', 'OCCUPIED')
+    reserved_until : TIMESTAMP
+    * created_at : TIMESTAMP
+    * updated_at : TIMESTAMP
+}
+
+entity "pricing" as pricing {
+    * **pricing_id** : INT <<PK, generated>>
+    --
+    * ticket_type : VARCHAR(50) <<unique>>
+    * label : VARCHAR(100)
+    * percentage : INT
+    * base_price : DECIMAL(10,2)
+    description : TEXT
+    * created_at : TIMESTAMP
+    * updated_at : TIMESTAMP
+}
+
+entity "coupons" as coupons {
+    * **coupon_id** : INT <<PK, generated>>
+    --
+    * code : VARCHAR(50) <<unique>>
+    * discount_type : ENUM ('PERCENT', 'FIXED_AMOUNT')
+    * discount_value : DECIMAL(10,2)
+    * min_amount : DECIMAL(10,2)
+    * max_usage : INT
+    * used_count : INT
+    * expiry_date : DATE
+    # applicable_movie_id : INT <<FK, nullable>>
+    # user_id : INT <<FK, nullable>>
+    * created_at : TIMESTAMP
+    * updated_at : TIMESTAMP
+}
+
+entity "combos" as combos {
+    * **combo_id** : INT <<PK, generated>>
+    --
+    * name : VARCHAR(100)
+    description : TEXT
+    * price : DECIMAL(10,2)
+    image : VARCHAR(500)
+    * stock : INT
+    * status : ENUM ('ACTIVE', 'INACTIVE')
+    reserved_until : TIMESTAMP
+    * created_at : TIMESTAMP
+    * updated_at : TIMESTAMP
+}
+
+entity "combo_reservations" as combo_reservations {
+    * **reservation_id** : INT <<PK, generated>>
+    --
+    # **combo_id** : INT <<FK>>
+    # user_id : INT <<FK, nullable>>
+    * quantity : INT
+    * status : VARCHAR(20)
+    * reserved_until : TIMESTAMP
+    * created_at : TIMESTAMP
+    * updated_at : TIMESTAMP
+}
+
+entity "payments" as payments {
+    * **payment_id** : INT <<PK, generated>>
+    --
+    # **user_id** : INT <<FK>>
+    screening_id : INT
+    seat_ids : JSON
+    coupon_code : VARCHAR(50)
+    ticket_items : JSON
+    * amount : DECIMAL(10,2)
+    payment_method : ENUM ('VNPay', 'Momo', 'Cash', 'BankCard', 'ZaloPay')
+    transaction_code : VARCHAR(100)
+    * status : ENUM ('Pending', 'Success', 'Failed', 'Refunded')
+    * created_at : TIMESTAMP
+    * updated_at : TIMESTAMP
+}
+
+entity "tickets" as tickets {
+    * **ticket_id** : INT <<PK, generated>>
+    --
+    # **user_id** : INT <<FK>>
+    # screening_id : INT <<FK, nullable>>
+    # seat_id : INT <<FK, nullable>>
+    # payment_id : INT <<FK>>
+    * ticket_type : VARCHAR(50)
+    * price : DECIMAL(10,2)
+    * purchase_date : TIMESTAMP
+    * status : ENUM ('Valid', 'Used', 'Cancelled')
+    cancellation_reason : TEXT
+    * created_at : TIMESTAMP
+    * updated_at : TIMESTAMP
+}
+
+entity "order_combos" as order_combos {
+    * **order_combo_id** : INT <<PK, generated>>
+    --
+    # **payment_id** : INT <<FK>>
+    # **combo_id** : INT <<FK>>
+    * quantity : INT
+    * price : DECIMAL(10,2)
+    * is_delivered : BOOLEAN
+    delivered_at : TIMESTAMP
+    * created_at : TIMESTAMP
+    * updated_at : TIMESTAMP
+}
+
+entity "reviews" as reviews {
+    * **review_id** : INT <<PK, generated>>
+    --
+    # **user_id** : INT <<FK>>
+    # **movie_id** : INT <<FK>>
+    * rating : INT
+    comment : TEXT
+    * created_at : TIMESTAMP
+    * updated_at : TIMESTAMP
+}
+
+' ==========================================
+' QUAN HỆ KHÓA NGOẠI (CROW'S FOOT NOTATION)
+' ==========================================
+
+users ||--o{ tickets : "has"
+users ||--o{ payments : "makes"
+users ||--o{ reviews : "writes"
+users ||--o{ coupons : "owns"
+users ||--o{ combo_reservations : "reserves"
+
+movies ||--o{ screenings : "schedules"
+movies ||--o{ reviews : "rated_by"
+movies ||--o{ coupons : "applicable_to"
+
+screenings ||--|{ seats : "contains"
+screenings ||--o{ tickets : "books"
+
+seats ||--o{ tickets : "reserved_in"
+
+payments ||--|{ tickets : "pays_for"
+payments ||--o{ order_combos : "includes"
+
+combos ||--o{ order_combos : "ordered_in"
+combos ||--o{ combo_reservations : "held_in"
+
+@enduml

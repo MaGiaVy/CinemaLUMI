@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { prisma } from '@/lib/prisma';
-import { processZaloPayPaymentSuccess } from '../zalopay-ipn/route';
+import { processZaloPayPaymentSuccess, processZaloPayPaymentFailure } from '../zalopay-ipn/route';
 
 export const dynamic = 'force-dynamic';
 
@@ -46,12 +46,18 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  // Đồng bộ trạng thái đơn hàng ngay lập tức nếu thanh toán thành công
+  // Đồng bộ trạng thái đơn hàng ngay lập tức
   if (isSuccess && appTransId) {
     try {
       await processZaloPayPaymentSuccess(appTransId, paidAmount);
     } catch (err) {
-      console.error('[ZaloPay Return] Lỗi đồng bộ trạng thái đơn hàng:', err);
+      console.error('[ZaloPay Return] Lỗi đồng bộ trạng thái đơn hàng thành công:', err);
+    }
+  } else if (!isSuccess && appTransId) {
+    try {
+      await processZaloPayPaymentFailure(appTransId);
+    } catch (err) {
+      console.error('[ZaloPay Return] Lỗi giải phóng tài nguyên khi đơn hàng thất bại:', err);
     }
   }
 

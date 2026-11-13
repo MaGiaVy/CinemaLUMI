@@ -141,10 +141,20 @@ export async function POST(request: NextRequest) {
       throw new AppError(400, 'Một hoặc nhiều ghế đã chọn không thuộc về suất chiếu này', 'INVALID_SEATS');
     }
 
-    const occupiedSeats = seats.filter(s => s.status === SeatStatus.OCCUPIED);
-    if (occupiedSeats.length > 0) {
-      const occupiedCodes = occupiedSeats.map(s => s.code).join(', ');
-      throw new AppError(400, `Ghế [${occupiedCodes}] đã được bán trước đó. Vui lòng chọn ghế khác!`, 'SEATS_OCCUPIED');
+    const now = new Date();
+    const unavailableSeats = seats.filter(s => {
+      if (s.status === SeatStatus.OCCUPIED) return true;
+      if (s.status === SeatStatus.RESERVED && s.reservedUntil && new Date(s.reservedUntil) > now) return true;
+      return false;
+    });
+
+    if (unavailableSeats.length > 0) {
+      const unavailableCodes = unavailableSeats.map(s => s.code).join(', ');
+      throw new AppError(
+        400,
+        `Ghế [${unavailableCodes}] đã có người mua hoặc đang được khách hàng online giữ chỗ thanh toán`,
+        'SEATS_UNAVAILABLE'
+      );
     }
 
     // 3. Tính tiền vé
@@ -243,14 +253,31 @@ export async function POST(request: NextRequest) {
         },
       });
 
-      // 6.2. Cập nhật ghế sang OCCUPIED
-      await tx.seat.updateMany({
-        where: { id: { in: seat_ids } },
+      // 6.2. Cập nhật ghế sang OCCUPIED (chặn tranh chấp nếu ghế đang được khách online giữ)
+      const seatUpdate = await tx.seat.updateMany({
+        where: {
+          id: { in: seat_ids },
+          OR: [
+            { status: SeatStatus.EMPTY },
+            {
+              status: SeatStatus.RESERVED,
+              reservedUntil: { lte: now },
+            },
+          ],
+        },
         data: {
           status: SeatStatus.OCCUPIED,
           reservedUntil: null,
         },
       });
+
+      if (seatUpdate.count !== seat_ids.length) {
+        throw new AppError(
+          400,
+          'Một hoặc nhiều ghế đã có người mua hoặc đang được khách hàng online giữ chỗ thanh toán',
+          'SEATS_UNAVAILABLE'
+        );
+      }
 
       // 6.3. Trừ kho combo và lưu OrderCombo
       if (comboBreakdown.length > 0) {

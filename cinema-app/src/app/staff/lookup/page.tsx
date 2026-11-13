@@ -4,10 +4,9 @@ import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
-import Badge from '@/components/ui/Badge';
-import Button from '@/components/ui/Button';
 import Modal from '@/components/ui/Modal';
 import Toast, { ToastMessage } from '@/components/ui/Toast';
+import { QRCodeSVG } from 'qrcode.react';
 import { StaffTicketSearchResult } from '@/app/api/staff/tickets/search/route';
 import { StaffCancelTicketResult } from '@/app/api/staff/tickets/[id]/cancel-with-voucher/route';
 
@@ -28,7 +27,10 @@ function TicketLookupContent() {
   const [activeStatusFilter, setActiveStatusFilter] = useState<'ALL' | 'Valid' | 'Used' | 'Cancelled'>('ALL');
   const [tickets, setTickets] = useState<StaffTicketSearchResult[]>([]);
   const [loading, setLoading] = useState(false);
-  const [_hasSearched, setHasSearched] = useState(false);
+  const [checkingInId, setCheckingInId] = useState<number | null>(null);
+
+  // Vé được chọn làm tâm điểm hiển thị trên khung quét
+  const [focusedTicket, setFocusedTicket] = useState<StaffTicketSearchResult | null>(null);
 
   // Modal hủy vé
   const [selectedTicketForCancel, setSelectedTicketForCancel] = useState<StaffTicketSearchResult | null>(null);
@@ -36,7 +38,7 @@ function TicketLookupContent() {
   const [selectedReason, setSelectedReason] = useState(INCIDENT_REASONS[0]);
   const [customReason, setCustomReason] = useState('');
   const [refundMethod, setRefundMethod] = useState<'CASH' | 'VOUCHER'>('CASH');
-  const [issueVoucher, setIssueVoucher] = useState(false);
+  const [_issueVoucher, setIssueVoucher] = useState(false);
   const [staffNotes, setStaffNotes] = useState('');
   const [cancelling, setCancelling] = useState(false);
 
@@ -62,7 +64,6 @@ function TicketLookupContent() {
   // Hàm gọi API tìm kiếm vé
   const handleSearchTickets = useCallback(async (searchQuery = query, status = activeStatusFilter) => {
     setLoading(true);
-    setHasSearched(true);
     try {
       const params = new URLSearchParams();
       if (searchQuery.trim()) {
@@ -77,9 +78,15 @@ function TicketLookupContent() {
 
       if (json.success && Array.isArray(json.data)) {
         setTickets(json.data);
+        if (json.data.length > 0) {
+          setFocusedTicket(json.data[0]);
+        } else {
+          setFocusedTicket(null);
+        }
       } else {
         setTickets([]);
-        addToast('error', json.message || 'Không tìm thấy vé');
+        setFocusedTicket(null);
+        addToast('error', json.message || 'Không tìm thấy vé phù hợp');
       }
     } catch (err) {
       console.error('Lỗi khi tìm kiếm vé:', err);
@@ -89,7 +96,6 @@ function TicketLookupContent() {
     }
   }, [query, activeStatusFilter]);
 
-  // Tự động tìm kiếm nếu có query ban đầu từ URL hoặc tải danh sách vé mới nhất
   useEffect(() => {
     handleSearchTickets(initialQuery, activeStatusFilter);
   }, [initialQuery, handleSearchTickets, activeStatusFilter]);
@@ -110,7 +116,7 @@ function TicketLookupContent() {
     setCancelModalOpen(true);
   };
 
-  // Thực hiện gọi API ép hủy vé
+  // Thực hiện gọi API ép hủy vé (UC-15)
   const handleConfirmCancel = async () => {
     if (!selectedTicketForCancel) return;
 
@@ -144,7 +150,6 @@ function TicketLookupContent() {
         setCancelSuccessResult(json.data);
         setResultModalOpen(true);
 
-        // Cập nhật lại danh sách vé ngay lập tức
         await handleSearchTickets(query, activeStatusFilter);
       } else {
         addToast('error', json.message || json.error || 'Hủy vé không thành công');
@@ -159,6 +164,7 @@ function TicketLookupContent() {
 
   // Thực hiện check-in soát vé
   const handleCheckIn = async (ticketId: number) => {
+    setCheckingInId(ticketId);
     try {
       const res = await fetch(`/api/tickets/${ticketId}/mark-used`, {
         method: 'PATCH',
@@ -173,415 +179,371 @@ function TicketLookupContent() {
     } catch (err) {
       console.error('Lỗi soát vé:', err);
       addToast('error', 'Lỗi máy chủ khi soát vé');
+    } finally {
+      setCheckingInId(null);
     }
   };
 
   return (
-    <div className="flex-1 bg-[#141414] p-6 lg:p-8 min-h-screen">
-      {/* Toast Notification Container */}
+    <div className="flex-1 p-4 lg:p-6 text-[#F8FAFC]">
       <Toast toasts={toasts} onRemove={removeToast} />
 
-      <div className="max-w-6xl mx-auto space-y-6">
-        {/* Header */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 border-b border-[#2D2D2D] pb-5">
-          <div>
-            <div className="flex items-center gap-3">
-              <Link
-                href="/staff"
-                className="text-[#A3A3A3] hover:text-white transition-colors text-sm font-medium"
-              >
-                ← Dashboard
-              </Link>
-              <span className="text-[#404040]">/</span>
-              <h1 className="text-2xl lg:text-3xl font-black text-white tracking-tight">
-                Tra Cứu & Xử Lý Sự Cố Vé (UC-15)
-              </h1>
+      <div className="max-w-[1440px] mx-auto space-y-5">
+
+        {/* 1. Header Bar Soát Vé */}
+        <header className="bg-gradient-to-r from-[rgba(20,14,32,0.92)] to-[rgba(35,12,28,0.9)] backdrop-blur-2xl border border-[rgba(192,132,252,0.25)] rounded-2xl p-4 lg:px-6 lg:py-4 flex flex-col md:flex-row md:items-center justify-between gap-4 shadow-[0_8px_32px_rgba(0,0,0,0.7),0_0_20px_rgba(88,28,135,0.2)]">
+          <div className="flex items-center gap-3.5">
+            <span className="bg-gradient-to-br from-[#E11D48] to-[#881337] text-white font-black text-xs tracking-wider px-3 py-1.5 rounded-lg shadow-[0_0_20px_rgba(225,29,72,0.6)] border border-[rgba(254,205,211,0.35)]">
+              ✦ SCANNER
+            </span>
+            <div>
+              <div className="flex items-center gap-2">
+                <Link href="/staff" className="text-xs text-[#94A3B8] hover:text-white transition-colors">
+                  Dashboard
+                </Link>
+                <span className="text-[#64748B] text-xs">/</span>
+                <h1 className="text-sm lg:text-base font-extrabold text-[#F8FAFC] tracking-wide">
+                  TRẠM SOÁT VÉ ĐIỆN TỬ LASER · CỔNG VÀO PHÒNG CHIẾU
+                </h1>
+              </div>
+              <p className="text-xs text-[#94A3B8] mt-0.5">
+                Kiểm tra chữ ký số HMAC-SHA256 (BR-09) · Tra cứu mã vé, số điện thoại và xử lý sự cố (UC-15)
+              </p>
             </div>
-            <p className="text-[#A3A3A3] text-sm mt-1">
-              Tìm kiếm vé qua SĐT, Email, Mã vé. Hỗ trợ soát vé và hủy/hoàn vé đền bù 100% cho khách hàng tại quầy.
-            </p>
           </div>
 
           <div className="flex items-center gap-2">
-            <Button
-              variant="secondary"
-              size="sm"
+            <button
+              type="button"
               onClick={() => handleSearchTickets(query, activeStatusFilter)}
               disabled={loading}
+              className="px-3.5 py-1.5 rounded-xl bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.12)] text-[#F8FAFC] text-xs font-bold border border-[rgba(192,132,252,0.25)] transition-all flex items-center gap-2"
             >
-              🔄 {loading ? 'Đang tải...' : 'Làm mới'}
-            </Button>
+              <span>{loading ? 'Đang tải...' : 'Làm mới'}</span>
+            </button>
+            <Link
+              href="/staff/pos"
+              className="px-3.5 py-1.5 rounded-xl bg-gradient-to-r from-[#E11D48] to-[#881337] text-white text-xs font-black shadow-[0_0_15px_rgba(225,29,72,0.4)] hover:scale-105 transition-all no-underline"
+            >
+              Mở Quầy POS
+            </Link>
           </div>
-        </div>
+        </header>
 
-        {/* Search Box Card */}
-        <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl p-5 lg:p-6 shadow-xl">
-          <form onSubmit={handleSubmitSearch} className="space-y-4">
-            <div className="flex flex-col sm:flex-row gap-3">
-              <div className="relative flex-1">
-                <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#737373] text-base">
-                  🔍
-                </span>
+        {/* 2. KHUNG QUÉT LASER & KẾT QUẢ XÁC THỰC (COSMIC COCKPIT SCANNER) */}
+        <section className="bg-[radial-gradient(circle_at_0%_0%,rgba(136,19,55,0.25)_0%,transparent_50%),radial-gradient(circle_at_100%_100%,rgba(88,28,135,0.3)_0%,transparent_60%),rgba(15,11,25,0.85)] backdrop-blur-2xl border border-[rgba(192,132,252,0.22)] rounded-2xl p-5 lg:p-6 shadow-[0_10px_40px_rgba(0,0,0,0.85)]">
+          <div className="flex justify-between items-center mb-4">
+            <span className="text-xs font-black tracking-widest text-[#C084FC] uppercase flex items-center gap-1.5">
+              <span className="text-[#E11D48] text-sm font-black">✦</span>
+              BUỒNG QUÉT TIA LASER NHẬN DIỆN VÉ THỜI GIAN THỰC
+            </span>
+            <span className="text-[11px] text-[#FDA4AF]">
+              Tia quét Laser Velvet Red chu kỳ 2.5 giây
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-center">
+            {/* Cột Trái: Camera Viewfinder with Laser Sweep */}
+            <div className="bg-[radial-gradient(circle_at_50%_20%,rgba(225,29,72,0.25)_0%,transparent_60%),rgba(15,11,25,0.85)] border border-[rgba(192,132,252,0.25)] rounded-2xl p-5 flex flex-col items-center shadow-[0_10px_40px_rgba(0,0,0,0.8)]">
+              <div className="font-extrabold text-xs tracking-wider text-[#F8FAFC] uppercase">
+                ĐƯA MÃ QR VÉ VÀO KHUNG QUÉT
+              </div>
+              <div className="text-[11px] text-[#94A3B8] mt-1">
+                Camera tự động giải mã chữ ký điện tử trong 0.2 giây
+              </div>
+
+              {/* Viewfinder with laser line */}
+              <div className="w-60 h-60 sm:w-64 sm:h-64 border-2 border-dashed border-[rgba(192,132,252,0.4)] rounded-2xl relative overflow-hidden bg-black/60 flex items-center justify-center my-4 shadow-[inset_0_0_30px_rgba(0,0,0,0.8)]">
+                {/* Laser Sweep Beam */}
+                <div className="laser-line" />
+                <div className="text-3xl text-[#E11D48]/30 font-black">✦</div>
+                <div className="absolute bottom-3 text-[10px] font-bold text-[#94A3B8] tracking-widest uppercase">
+                  RADAR LASER 4K
+                </div>
+              </div>
+
+              {/* Manual Ticket Code Input */}
+              <form onSubmit={handleSubmitSearch} className="w-full flex gap-2">
                 <input
                   type="text"
-                  placeholder="Nhập số điện thoại, email, mã vé (#LMC-...), mã ghế (A1) hoặc tên khách..."
+                  placeholder="Nhập mã vé thủ công (#LMC-...) nếu QR mờ..."
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
-                  className="w-full bg-[#141414] border border-[#404040] focus:border-[#E63946] rounded-xl pl-10 pr-10 py-3 text-white text-sm outline-none transition-colors"
+                  className="flex-1 bg-[rgba(8,6,14,0.85)] border border-[rgba(192,132,252,0.3)] rounded-xl px-3.5 py-2.5 text-xs text-white outline-none focus:border-[#E11D48] transition-colors"
                 />
-                {query && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setQuery('');
-                      handleSearchTickets('', activeStatusFilter);
-                    }}
-                    className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#737373] hover:text-white text-sm"
-                  >
-                    ✕
-                  </button>
-                )}
-              </div>
-              <Button type="submit" variant="primary" size="md" disabled={loading}>
-                {loading ? 'Đang tìm...' : 'Tìm kiếm'}
-              </Button>
+                <button
+                  type="submit"
+                  disabled={loading}
+                  className="bg-gradient-to-r from-[#581C87] to-[#7E22CE] text-white px-4 py-2.5 rounded-xl text-xs font-extrabold shadow-[0_0_15px_rgba(147,51,234,0.4)] hover:scale-105 transition-all"
+                >
+                  {loading ? 'Quét...' : 'Tra Cứu'}
+                </button>
+              </form>
             </div>
 
-            {/* Filter Status Tabs */}
-            <div className="flex flex-wrap items-center justify-between gap-3 pt-3 border-t border-[#2D2D2D]">
-              <div className="flex items-center gap-1.5 overflow-x-auto pb-1 sm:pb-0">
-                <span className="text-xs text-[#737373] mr-2">Lọc trạng thái:</span>
-                {(
-                  [
-                    { key: 'ALL', label: 'Tất cả vé' },
-                    { key: 'Valid', label: 'Hợp lệ' },
-                    { key: 'Used', label: 'Đã sử dụng' },
-                    { key: 'Cancelled', label: 'Đã hủy' },
-                  ] as const
-                ).map((tab) => (
-                  <button
-                    key={tab.key}
-                    type="button"
-                    onClick={() => {
-                      setActiveStatusFilter(tab.key);
-                      handleSearchTickets(query, tab.key);
-                    }}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-all ${
-                      activeStatusFilter === tab.key
-                        ? 'bg-[#E63946] text-white shadow-md'
-                        : 'bg-[#2A2A2A] text-[#A3A3A3] hover:text-white hover:bg-[#333333]'
+            {/* Cột Phải: Thẻ kết quả xác thực hợp lệ */}
+            {focusedTicket ? (
+              <div
+                className={`rounded-2xl p-5 lg:p-6 transition-all shadow-[0_0_30px_rgba(34,197,94,0.2)] ${
+                  focusedTicket.status === 'Valid'
+                    ? 'bg-[radial-gradient(circle_at_10%_10%,rgba(34,197,94,0.18)_0%,transparent_50%),radial-gradient(circle_at_90%_90%,rgba(88,28,135,0.3)_0%,transparent_60%),rgba(15,11,25,0.92)] border-2 border-[rgba(74,222,128,0.5)]'
+                    : focusedTicket.status === 'Used'
+                    ? 'bg-[radial-gradient(circle_at_10%_10%,rgba(56,189,248,0.15)_0%,transparent_50%),rgba(15,11,25,0.92)] border border-[rgba(56,189,248,0.4)]'
+                    : 'bg-[radial-gradient(circle_at_10%_10%,rgba(225,29,72,0.15)_0%,transparent_50%),rgba(15,11,25,0.92)] border border-[rgba(225,29,72,0.4)]'
+                }`}
+              >
+                <div className="flex justify-between items-center border-b border-[rgba(255,255,255,0.1)] pb-3 mb-3.5">
+                  <div>
+                    <div className="text-[11px] font-extrabold tracking-wider text-[#86EFAC] uppercase">
+                      KẾT QUẢ XÁC THỰC CHỮ KÝ SỐ
+                    </div>
+                    <div className="text-lg font-black text-white mt-0.5">
+                      {focusedTicket.status === 'Valid'
+                        ? 'VÉ HỢP LỆ (VALID)'
+                        : focusedTicket.status === 'Used'
+                        ? 'VÉ ĐÃ SỬ DỤNG (USED)'
+                        : 'VÉ ĐÃ HỦY (CANCELLED)'}
+                    </div>
+                  </div>
+                  <span
+                    className={`px-3 py-1.5 rounded-full font-black text-xs tracking-wider border ${
+                      focusedTicket.status === 'Valid'
+                        ? 'bg-[rgba(34,197,94,0.25)] border-[#22C55E] text-[#86EFAC] shadow-[0_0_12px_rgba(34,197,94,0.5)]'
+                        : focusedTicket.status === 'Used'
+                        ? 'bg-[rgba(56,189,248,0.2)] border-[#38BDF8] text-[#7DD3FC]'
+                        : 'bg-[rgba(225,29,72,0.2)] border-[#E11D48] text-[#FDA4AF]'
                     }`}
                   >
-                    {tab.label}
-                  </button>
-                ))}
-              </div>
+                    {focusedTicket.status === 'Valid'
+                      ? '● CHO PHÉP VÀO RẠP'
+                      : focusedTicket.status === 'Used'
+                      ? '● ĐÃ VÀO PHÒNG'
+                      : '● KHÔNG HỢP LỆ'}
+                  </span>
+                </div>
 
-              {/* Sample Search Pills */}
-              <div className="flex flex-wrap items-center gap-1.5 text-xs">
-                <span className="text-[#737373]">Mẫu thử:</span>
-                {['0901234567', 'khachhang@lumi.vn', '#LMC-000003', 'A1'].map((sample) => (
+                <div className="space-y-2 text-xs">
+                  <div className="flex justify-between py-1 border-b border-[rgba(255,255,255,0.05)]">
+                    <span className="text-[#94A3B8]">Mã vé:</span>
+                    <strong className="text-white font-mono">{focusedTicket.ticket_code || `#LMC-${focusedTicket.id}`}</strong>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-[rgba(255,255,255,0.05)]">
+                    <span className="text-[#94A3B8]">Phim:</span>
+                    <strong className="text-[#F8FAFC]">{focusedTicket.movie?.title || 'Phim rạp'}</strong>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-[rgba(255,255,255,0.05)]">
+                    <span className="text-[#94A3B8]">Phòng chiếu:</span>
+                    <strong className="text-[#FDA4AF]">{focusedTicket.screening?.room || 'Phòng chiếu'} (Laser 4K)</strong>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-[rgba(255,255,255,0.05)]">
+                    <span className="text-[#94A3B8]">Suất chiếu:</span>
+                    <strong className="text-white">
+                      {focusedTicket.screening?.start_time
+                        ? new Date(focusedTicket.screening.start_time).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })
+                        : ''}{' '}
+                      · Hôm nay
+                    </strong>
+                  </div>
+                  <div className="flex justify-between py-1 border-b border-[rgba(255,255,255,0.05)]">
+                    <span className="text-[#94A3B8]">Số ghế:</span>
+                    <strong className="text-[#C084FC] text-sm font-black font-mono">
+                      {focusedTicket.seat?.code || 'N/A'} ({focusedTicket.seat?.type || 'Standard'})
+                    </strong>
+                  </div>
+                  <div className="flex justify-between py-1">
+                    <span className="text-[#94A3B8]">Khách hàng:</span>
+                    <span className="text-[#CBD5E1]">
+                      {focusedTicket.customer?.name} ({focusedTicket.customer?.phone || 'Chưa có SĐT'})
+                    </span>
+                  </div>
+                </div>
+
+                {/* Nút hành động xác nhận vào rạp */}
+                {focusedTicket.status === 'Valid' ? (
                   <button
-                    key={sample}
                     type="button"
-                    onClick={() => {
-                      setQuery(sample);
-                      handleSearchTickets(sample, activeStatusFilter);
-                    }}
-                    className="bg-[#0088FF]/10 text-[#0088FF] hover:bg-[#0088FF]/20 px-2 py-0.5 rounded text-[11px] font-mono transition-colors"
+                    disabled={checkingInId === focusedTicket.id}
+                    onClick={() => handleCheckIn(focusedTicket.id)}
+                    className="w-full bg-gradient-to-r from-[#22C55E] to-[#15803D] border border-[#86EFAC] text-white py-3 rounded-xl font-black text-xs tracking-wider mt-4 cursor-pointer shadow-[0_0_20px_rgba(34,197,94,0.45)] hover:shadow-[0_0_30px_rgba(34,197,94,0.7)] hover:scale-[1.02] transition-all disabled:opacity-50"
                   >
-                    {sample}
+                    {checkingInId === focusedTicket.id
+                      ? 'ĐANG XÁC NHẬN...'
+                      : 'XÁC NHẬN CHO KHÁCH VÀO PHÒNG'}
                   </button>
-                ))}
+                ) : (
+                  <div className="mt-4 p-2.5 rounded-xl bg-[rgba(255,255,255,0.04)] text-center text-xs text-[#94A3B8]">
+                    Vé không ở trạng thái hợp lệ để soát vé vào rạp.
+                  </div>
+                )}
               </div>
-            </div>
-          </form>
-        </div>
-
-        {/* Results List */}
-        <div>
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-bold text-white flex items-center gap-2">
-              <span>📋</span> Danh Sách Vé Tìm Thấy ({tickets.length})
-            </h2>
-            {query && (
-              <span className="text-xs text-[#A3A3A3]">
-                Kết quả tìm kiếm cho: <span className="text-[#0088FF] font-medium">{query}</span>
-              </span>
+            ) : (
+              <div className="bg-[rgba(15,11,25,0.75)] border border-[rgba(192,132,252,0.2)] rounded-2xl p-8 text-center flex flex-col items-center justify-center min-h-[300px]">
+                <div className="text-3xl text-[#C084FC] opacity-40 mb-3">✦</div>
+                <h3 className="text-sm font-bold text-white">Chưa Chọn Vé Xác Thực</h3>
+                <p className="text-xs text-[#94A3B8] max-w-xs mt-1">
+                  Đưa mã QR vé vào khung quét camera hoặc nhập mã vé / số điện thoại vào ô tra cứu để kiểm tra.
+                </p>
+              </div>
             )}
           </div>
+        </section>
 
+        {/* 3. BẢNG TRA CỨU & XỬ LÝ SỰ CỐ VÉ (UC-15) */}
+        <section className="bg-[radial-gradient(circle_at_0%_0%,rgba(136,19,55,0.25)_0%,transparent_50%),radial-gradient(circle_at_100%_100%,rgba(88,28,135,0.3)_0%,transparent_60%),rgba(15,11,25,0.85)] backdrop-blur-2xl border border-[rgba(192,132,252,0.22)] rounded-2xl p-5 lg:p-6 shadow-[0_10px_40px_rgba(0,0,0,0.85)] space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div>
+              <span className="text-xs font-black tracking-widest text-[#C084FC] uppercase flex items-center gap-1.5">
+                <span className="text-[#E11D48] text-sm font-black">✦</span>
+                DANH SÁCH VÉ TÌM THẤY & QUẢN TRỊ SỰ CỐ TẠI QUẦY (UC-15)
+              </span>
+              <p className="text-[11px] text-[#94A3B8] mt-0.5">
+                Tìm kiếm theo số điện thoại, email, mã vé, phòng chiếu. Hỗ trợ bồi hoàn 100% tại quầy.
+              </p>
+            </div>
+
+            {/* Bộ lọc trạng thái */}
+            <div className="flex bg-[rgba(8,6,14,0.7)] p-1 rounded-xl border border-[rgba(192,132,252,0.2)] overflow-x-auto">
+              {(
+                [
+                  { key: 'ALL', label: 'Tất cả' },
+                  { key: 'Valid', label: 'Hợp lệ' },
+                  { key: 'Used', label: 'Đã sử dụng' },
+                  { key: 'Cancelled', label: 'Đã hủy' },
+                ] as const
+              ).map((tab) => (
+                <button
+                  key={tab.key}
+                  type="button"
+                  onClick={() => {
+                    setActiveStatusFilter(tab.key);
+                    handleSearchTickets(query, tab.key);
+                  }}
+                  className={`px-3 py-1 rounded-lg text-xs font-bold transition-all ${
+                    activeStatusFilter === tab.key
+                      ? 'bg-gradient-to-r from-[#E11D48] to-[#881337] text-white shadow-[0_0_12px_rgba(225,29,72,0.5)]'
+                      : 'text-[#94A3B8] hover:text-white'
+                  }`}
+                >
+                  {tab.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Danh sách vé dạng thẻ kính */}
           {loading ? (
-            <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl py-20 text-center text-[#737373]">
-              <div className="inline-block animate-spin text-3xl mb-3">⏳</div>
-              <p className="text-sm font-medium">Đang tìm kiếm thông tin vé và ghế...</p>
+            <div className="py-16 text-center text-[#94A3B8]">
+              <div className="hourglass-spin text-2xl mb-2">⏳</div>
+              <p className="text-xs">Đang tìm kiếm thông tin vé...</p>
             </div>
           ) : tickets.length === 0 ? (
-            <div className="bg-[#1E1E1E] border border-[#333333] rounded-2xl py-20 text-center text-[#737373]">
-              <p className="text-4xl mb-3">🔍</p>
-              <p className="text-white font-bold text-base">Không tìm thấy vé nào phù hợp</p>
-              <p className="text-xs mt-1">
-                Thử kiểm tra lại số điện thoại, địa chỉ email hoặc mã vé được cung cấp.
-              </p>
-              <Button
-                variant="secondary"
-                size="sm"
-                className="mt-4"
-                onClick={() => {
-                  setQuery('');
-                  setActiveStatusFilter('ALL');
-                  handleSearchTickets('', 'ALL');
-                }}
-              >
-                Xóa bộ lọc & Tải lại danh sách
-              </Button>
+            <div className="py-16 text-center text-[#94A3B8]">
+              <p className="text-sm font-bold text-white">Không tìm thấy vé nào phù hợp</p>
+              <p className="text-xs mt-1">Vui lòng thử lại với từ khóa khác hoặc xóa bộ lọc.</p>
             </div>
           ) : (
-            <div className="space-y-4">
+            <div className="space-y-3">
               {tickets.map((ticket) => {
-                const statusVariant =
-                  ticket.status === 'Valid'
-                    ? 'green'
-                    : ticket.status === 'Used'
-                    ? 'blue'
-                    : 'red';
-
-                const statusLabel =
-                  ticket.status === 'Valid'
-                    ? 'Hợp lệ'
-                    : ticket.status === 'Used'
-                    ? 'Đã sử dụng'
-                    : 'Đã hủy';
-
-                const seatStatusVariant =
-                  ticket.seat?.seat_status === 'OCCUPIED'
-                    ? 'red'
-                    : ticket.seat?.seat_status === 'RESERVED'
-                    ? 'gold'
-                    : 'green';
-
-                const seatStatusLabel =
-                  ticket.seat?.seat_status === 'OCCUPIED'
-                    ? 'Đang có người ngồi'
-                    : ticket.seat?.seat_status === 'RESERVED'
-                    ? 'Đang giữ chỗ'
-                    : 'Ghế trống';
-
+                const isSelected = focusedTicket?.id === ticket.id;
                 const isCancelled = ticket.status === 'Cancelled';
 
                 return (
                   <div
                     key={ticket.id}
-                    className={`bg-[#1E1E1E] border rounded-2xl p-5 lg:p-6 transition-all duration-200 shadow-md ${
-                      isCancelled
-                        ? 'border-[#333333] opacity-75'
-                        : 'border-[#383838] hover:border-[#4D4D4D]'
+                    onClick={() => setFocusedTicket(ticket)}
+                    className={`p-4 rounded-xl border transition-all cursor-pointer ${
+                      isSelected
+                        ? 'bg-[radial-gradient(circle_at_top_right,rgba(225,29,72,0.3)_0%,transparent_60%),rgba(24,15,38,0.95)] border-[#E11D48] shadow-[0_0_20px_rgba(225,29,72,0.35)]'
+                        : 'bg-[rgba(18,14,28,0.7)] border-[rgba(192,132,252,0.18)] hover:border-[rgba(192,132,252,0.4)]'
                     }`}
                   >
-                    {/* Top Row: Ticket Code, Date & Status */}
-                    <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[#2D2D2D] pb-4 mb-4">
+                    <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
+                      {/* Cột 1: Mã vé & Trạng thái */}
                       <div className="flex items-center gap-3">
-                        <span className="font-mono font-black text-lg text-white tracking-wider">
-                          {ticket.ticket_code || `#LMC-${String(ticket.id).padStart(6, '0')}`}
-                        </span>
-                        <Badge variant={statusVariant}>{statusLabel}</Badge>
-                        <span className="text-xs text-[#737373] hidden sm:inline">•</span>
-                        <span className="text-xs text-[#A3A3A3] hidden sm:inline">
-                          Đặt lúc:{' '}
-                          {new Date(ticket.purchase_date).toLocaleString('vi-VN', {
-                            year: 'numeric',
-                            month: '2-digit',
-                            day: '2-digit',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </span>
-                      </div>
-
-                      <div className="flex items-center gap-2">
-                        <span className="text-xs text-[#A3A3A3]">Giá vé:</span>
-                        <span className="text-base font-black text-[#FFB703]">
-                          {ticket.price?.toLocaleString('vi-VN')} đ
-                        </span>
-                      </div>
-                    </div>
-
-                    {/* Main Content Grid: Movie, Customer, Seat & Room Status */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                      {/* Cột 1: Thông tin phim & Suất chiếu */}
-                      <div className="space-y-3">
-                        <div className="text-xs font-semibold uppercase tracking-wider text-[#737373]">
-                          🎬 Phim & Suất chiếu
+                        <div className="w-10 h-10 rounded-lg bg-[rgba(255,255,255,0.05)] border border-[rgba(192,132,252,0.2)] flex items-center justify-center font-mono font-black text-xs text-[#FDA4AF]">
+                          {ticket.seat?.code || 'VE'}
                         </div>
-                        <div className="flex gap-3">
-                          {ticket.movie?.poster && (
-                            <div className="relative w-16 h-24 rounded-lg overflow-hidden flex-shrink-0 bg-[#2A2A2A] border border-[#404040]">
-                              <Image
-                                src={ticket.movie.poster}
-                                alt={ticket.movie.title || 'Movie'}
-                                fill
-                                sizes="64px"
-                                className="object-cover"
-                              />
-                            </div>
-                          )}
-                          <div className="min-w-0">
-                            <h3 className="font-bold text-white text-sm line-clamp-2">
-                              {ticket.movie?.title || 'Phim rạp'}
-                            </h3>
-                            <p className="text-xs text-[#A3A3A3] mt-1">
-                              ⏱️ {ticket.movie?.duration} phút • {ticket.movie?.genre}
-                            </p>
-                            <p className="text-xs text-[#0088FF] font-medium mt-1">
-                              🏛️ {ticket.screening?.room}
-                            </p>
-                            <p className="text-xs text-[#A3A3A3]">
-                              ⏰{' '}
-                              {ticket.screening?.start_time
-                                ? new Date(ticket.screening.start_time).toLocaleTimeString('vi-VN', {
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                  })
-                                : ''}{' '}
-                              -{' '}
-                              {ticket.screening?.end_time
-                                ? new Date(ticket.screening.end_time).toLocaleTimeString('vi-VN', {
-                                    hour: '2-digit',
-                                    minute: '2-digit',
-                                  })
-                                : ''}{' '}
-                              ({ticket.screening?.date ? new Date(ticket.screening.date).toLocaleDateString('vi-VN') : ''})
-                            </p>
-                          </div>
-                        </div>
-
-                        {/* Tổng quan phòng chiếu */}
-                        {ticket.screening && (
-                          <div className="bg-[#171717] rounded-xl p-2.5 text-xs text-[#A3A3A3] border border-[#2D2D2D]">
-                            <div className="flex justify-between items-center">
-                              <span>Phòng chiếu:</span>
-                              <span className="text-white font-medium">
-                                {ticket.screening.total_seats} ghế
-                              </span>
-                            </div>
-                            <div className="flex justify-between items-center mt-1">
-                              <span>Tình trạng phòng:</span>
-                              <span className="text-[#2ECC71] font-medium">
-                                {ticket.screening.empty_seats} ghế trống
-                              </span>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-
-                      {/* Cột 2: Thông tin Khách hàng & Ghế ngồi */}
-                      <div className="space-y-3">
-                        <div className="text-xs font-semibold uppercase tracking-wider text-[#737373]">
-                          👤 Khách hàng & Ghế ngồi
-                        </div>
-                        <div className="bg-[#171717] rounded-xl p-3 border border-[#2D2D2D] space-y-2 text-xs">
-                          <div>
-                            <span className="text-[#737373]">Họ tên: </span>
-                            <span className="text-white font-semibold text-sm">
-                              {ticket.customer?.name}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-[#737373]">Điện thoại: </span>
-                            <span className="text-[#0088FF] font-medium">
-                              {ticket.customer?.phone || 'Chưa cung cấp'}
-                            </span>
-                          </div>
-                          <div>
-                            <span className="text-[#737373]">Email: </span>
-                            <span className="text-[#A3A3A3] break-all">
-                              {ticket.customer?.email}
-                            </span>
-                          </div>
-                        </div>
-
-                        {/* Chi tiết Ghế & Trạng thái ghế trực tiếp của hệ thống */}
-                        <div className="bg-[#171717] rounded-xl p-3 border border-[#2D2D2D] space-y-2 text-xs">
-                          <div className="flex items-center justify-between">
-                            <span className="text-[#737373]">Vị trí ghế:</span>
-                            <span className="font-mono font-black text-white text-base bg-[#333333] px-2.5 py-0.5 rounded border border-[#404040]">
-                              {ticket.seat?.code} ({ticket.seat?.type})
-                            </span>
-                          </div>
-                          <div className="flex items-center justify-between pt-1 border-t border-[#262626]">
-                            <span className="text-[#737373]">Tình trạng ghế hiện tại:</span>
-                            <Badge variant={seatStatusVariant}>{seatStatusLabel}</Badge>
-                          </div>
-                        </div>
-                      </div>
-
-                      {/* Cột 3: Thanh toán, Bắp nước & Hành động */}
-                      <div className="space-y-3 flex flex-col justify-between">
                         <div>
-                          <div className="text-xs font-semibold uppercase tracking-wider text-[#737373] mb-3">
-                            💳 Thanh toán & Bắp nước
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-black text-sm text-white">
+                              {ticket.ticket_code || `#LMC-${ticket.id}`}
+                            </span>
+                            <span
+                              className={`text-[9px] font-black px-2 py-0.5 rounded-full border ${
+                                ticket.status === 'Valid'
+                                  ? 'bg-[rgba(34,197,94,0.2)] border-[#22C55E] text-[#86EFAC]'
+                                  : ticket.status === 'Used'
+                                  ? 'bg-[rgba(56,189,248,0.2)] border-[#38BDF8] text-[#7DD3FC]'
+                                  : 'bg-[rgba(225,29,72,0.2)] border-[#E11D48] text-[#FDA4AF]'
+                              }`}
+                            >
+                              {ticket.status === 'Valid'
+                                ? 'HỢP LỆ'
+                                : ticket.status === 'Used'
+                                ? 'ĐÃ DÙNG'
+                                : 'ĐÃ HỦY'}
+                            </span>
                           </div>
-                          <div className="bg-[#171717] rounded-xl p-3 border border-[#2D2D2D] space-y-1.5 text-xs">
-                            <div className="flex justify-between">
-                              <span className="text-[#737373]">Phương thức:</span>
-                              <span className="text-white font-medium">
-                                {ticket.payment?.payment_method || 'VNPay'}
-                              </span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-[#737373]">Mã giao dịch:</span>
-                              <span className="text-[#A3A3A3] font-mono truncate max-w-[140px]">
-                                {ticket.payment?.transaction_code || 'N/A'}
-                              </span>
-                            </div>
-                            {ticket.payment?.combos && ticket.payment.combos.length > 0 && (
-                              <div className="pt-2 border-t border-[#262626]">
-                                <span className="text-[#737373] block mb-1">Bắp nước kèm theo:</span>
-                                {ticket.payment.combos.map((c) => (
-                                  <div key={c.id} className="text-white text-xs flex justify-between">
-                                    <span>🍿 {c.name} x{c.quantity}</span>
-                                    <span className="text-[#FFB703]">{(c.price * c.quantity).toLocaleString('vi-VN')} đ</span>
-                                  </div>
-                                ))}
-                              </div>
-                            )}
+                          <div className="text-xs text-[#CBD5E1] mt-0.5">
+                            {ticket.movie?.title} · {ticket.screening?.room} · Ghế <strong>{ticket.seat?.code}</strong>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Cột 2: Khách hàng */}
+                      <div className="text-xs text-[#94A3B8]">
+                        <div>Khách: <strong className="text-white">{ticket.customer?.name}</strong></div>
+                        <div className="text-[#FDA4AF]">{ticket.customer?.phone || ticket.customer?.email}</div>
+                      </div>
+
+                      {/* Cột 3: Giá & Nút Thao Tác */}
+                      <div className="flex items-center gap-2.5 self-end md:self-center">
+                        <div className="text-right mr-2 hidden sm:block">
+                          <div className="text-xs font-black text-[#F8FAFC]">
+                            {ticket.price?.toLocaleString('vi-VN')} đ
+                          </div>
+                          <div className="text-[10px] text-[#94A3B8]">
+                            {ticket.payment?.payment_method || 'Tiền mặt'}
                           </div>
                         </div>
 
-                        {/* Action Buttons */}
-                        <div className="pt-2 flex flex-wrap gap-2">
-                          <Button
-                            variant="secondary"
-                            size="sm"
-                            onClick={() => setQrModalTicket(ticket)}
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            setQrModalTicket(ticket);
+                          }}
+                          className="px-2.5 py-1.5 rounded-lg bg-[rgba(255,255,255,0.06)] hover:bg-[rgba(255,255,255,0.12)] text-[#F8FAFC] text-xs font-bold border border-[rgba(192,132,252,0.25)] transition-all"
+                        >
+                          Mã QR
+                        </button>
+
+                        {ticket.status === 'Valid' && (
+                          <button
+                            type="button"
+                            disabled={checkingInId === ticket.id}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleCheckIn(ticket.id);
+                            }}
+                            className="px-3 py-1.5 rounded-lg bg-gradient-to-r from-[#22C55E] to-[#15803D] text-white text-xs font-black shadow-[0_0_12px_rgba(34,197,94,0.4)] hover:scale-105 transition-all"
                           >
-                            🔍 Xem QR
-                          </Button>
+                            Cho Vào Rạp
+                          </button>
+                        )}
 
-                          {ticket.status === 'Valid' && (
-                            <Button
-                              variant="gold"
-                              size="sm"
-                              onClick={() => handleCheckIn(ticket.id)}
-                            >
-                              🎟️ Soát vé (Check-in)
-                            </Button>
-                          )}
-
-                          {!isCancelled ? (
-                            <Button
-                              variant="danger"
-                              size="sm"
-                              onClick={() => openCancelModal(ticket)}
-                            >
-                              ⚠️ Hủy & Hoàn tiền (UC-15)
-                            </Button>
-                          ) : (
-                            <Button variant="ghost" size="sm" disabled>
-                              ❌ Đã hủy vé
-                            </Button>
-                          )}
-                        </div>
+                        {!isCancelled && (
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              openCancelModal(ticket);
+                            }}
+                            className="px-2.5 py-1.5 rounded-lg bg-[rgba(225,29,72,0.2)] hover:bg-[rgba(225,29,72,0.35)] text-[#FDA4AF] text-xs font-bold border border-[rgba(225,29,72,0.4)] transition-all"
+                          >
+                            Hủy & Đền Bù
+                          </button>
+                        )}
                       </div>
                     </div>
                   </div>
@@ -589,51 +551,52 @@ function TicketLookupContent() {
               })}
             </div>
           )}
-        </div>
+        </section>
+
       </div>
 
       {/* Modal Hủy & Hoàn vé đặc quyền (UC-15) */}
       <Modal
         isOpen={cancelModalOpen}
         onClose={() => !cancelling && setCancelModalOpen(false)}
-        title="Xử Lý Sự Cố: Hủy & Hoàn Tiền Vé (UC-15)"
+        title="XỬ LÝ SỰ CỐ: HỦY VÉ & ĐỀN BÙ 100% (UC-15)"
         maxWidth="max-w-xl"
       >
         {selectedTicketForCancel && (
           <div className="space-y-4">
             {/* Banner chính sách đền bù */}
-            <div className="bg-[#E63946]/10 border border-[#E63946]/30 rounded-xl p-4">
-              <div className="flex items-center gap-2 text-[#E63946] font-bold text-sm">
-                <span>⚠️</span> QUY TRÌNH ÉP HỦY VÉ & ĐỀN BÙ 100% CỦA NHÂN VIÊN
+            <div className="bg-[rgba(225,29,72,0.15)] border border-[rgba(225,29,72,0.4)] rounded-xl p-3.5">
+              <div className="text-[#FDA4AF] font-bold text-xs uppercase tracking-wide">
+                QUY TRÌNH ÉP HỦY VÉ & ĐỀN BÙ 100% CỦA NHÂN VIÊN
               </div>
-              <p className="text-[#D4D4D4] text-xs mt-1 leading-relaxed">
-                Khác với khách tự hủy (chỉ trước 2 giờ và chỉ hoàn 50%), nhân viên có thẩm quyền ép hủy vé và hệ thống sẽ tự động hoàn trả 100% giá vé, giải phóng ghế về trạng thái TRỐNG và cấp Voucher bồi hoàn.
+              <p className="text-[#CBD5E1] text-xs mt-1 leading-relaxed">
+                Nhân viên có thẩm quyền ép hủy vé sự cố và hệ thống sẽ tự động hoàn trả 100% giá vé, giải phóng ghế về trạng thái TRỐNG và cấp chứng từ hoàn tiền hoặc Voucher bồi hoàn.
               </p>
             </div>
 
             {/* Tóm tắt thông tin vé */}
-            <div className="bg-[#1E1E1E] rounded-xl p-4 border border-[#333333] space-y-2 text-xs">
+            <div className="bg-[rgba(18,14,28,0.8)] rounded-xl p-3.5 border border-[rgba(192,132,252,0.2)] space-y-2 text-xs">
               <div className="flex justify-between">
-                <span className="text-[#A3A3A3]">Mã vé:</span>
+                <span className="text-[#94A3B8]">Mã vé:</span>
                 <span className="text-white font-mono font-bold">
                   {selectedTicketForCancel.ticket_code || `#LMC-${selectedTicketForCancel.id}`}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#A3A3A3]">Khách hàng:</span>
+                <span className="text-[#94A3B8]">Khách hàng:</span>
                 <span className="text-white font-medium">
                   {selectedTicketForCancel.customer?.name} ({selectedTicketForCancel.customer?.phone || selectedTicketForCancel.customer?.email})
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-[#A3A3A3]">Phim & Ghế:</span>
+                <span className="text-[#94A3B8]">Phim & Ghế:</span>
                 <span className="text-white font-medium">
-                  {selectedTicketForCancel.movie?.title} • Ghế {selectedTicketForCancel.seat?.code}
+                  {selectedTicketForCancel.movie?.title} · Ghế {selectedTicketForCancel.seat?.code}
                 </span>
               </div>
-              <div className="flex justify-between pt-1 border-t border-[#2A2A2A]">
-                <span className="text-[#A3A3A3]">Mức tiền bồi hoàn:</span>
-                <span className="text-[#FFB703] font-black text-sm">
+              <div className="flex justify-between pt-1 border-t border-[rgba(255,255,255,0.08)]">
+                <span className="text-[#94A3B8]">Mức tiền bồi hoàn:</span>
+                <span className="text-[#FDA4AF] font-black text-sm">
                   100% ({selectedTicketForCancel.price?.toLocaleString('vi-VN')} đ)
                 </span>
               </div>
@@ -641,13 +604,13 @@ function TicketLookupContent() {
 
             {/* Lý do hủy vé */}
             <div>
-              <label className="block text-[#D4D4D4] text-xs font-semibold uppercase mb-1.5">
-                Lý do xử lý sự cố <span className="text-[#E63946]">*</span>
+              <label className="block text-[#CBD5E1] text-xs font-semibold uppercase mb-1.5">
+                Lý do xử lý sự cố rạp <span className="text-[#E11D48]">*</span>
               </label>
               <select
                 value={selectedReason}
                 onChange={(e) => setSelectedReason(e.target.value)}
-                className="w-full bg-[#141414] border border-[#404040] rounded-xl px-3 py-2.5 text-white text-sm outline-none focus:border-[#E63946]"
+                className="w-full bg-[rgba(8,6,14,0.85)] border border-[rgba(192,132,252,0.3)] rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-[#E11D48]"
               >
                 {INCIDENT_REASONS.map((r) => (
                   <option key={r} value={r}>
@@ -662,23 +625,23 @@ function TicketLookupContent() {
                   placeholder="Nhập chi tiết sự cố phát sinh tại rạp..."
                   value={customReason}
                   onChange={(e) => setCustomReason(e.target.value)}
-                  className="mt-2 w-full bg-[#141414] border border-[#404040] rounded-xl px-3 py-2 text-white text-sm outline-none focus:border-[#E63946]"
+                  className="mt-2 w-full bg-[rgba(8,6,14,0.85)] border border-[rgba(192,132,252,0.3)] rounded-xl px-3 py-2 text-white text-xs outline-none focus:border-[#E11D48]"
                 />
               )}
             </div>
 
-            {/* Hình thức bồi hoàn theo SRS Mục 3.4.1 & UC-15 */}
+            {/* Hình thức bồi hoàn */}
             <div className="space-y-2">
-              <label className="block text-[#D4D4D4] text-xs font-semibold uppercase">
-                Hình thức bồi hoàn (SRS Mục 3.4.1) <span className="text-[#E63946]">*</span>
+              <label className="block text-[#CBD5E1] text-xs font-semibold uppercase">
+                Hình thức bồi hoàn (SRS Mục 3.4.1) <span className="text-[#E11D48]">*</span>
               </label>
-              
-              <div 
+
+              <div
                 onClick={() => { setRefundMethod('CASH'); setIssueVoucher(false); }}
                 className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
                   refundMethod === 'CASH'
-                    ? 'bg-[#E63946]/10 border-[#E63946] text-white'
-                    : 'bg-[#1A1A1A] border-[#333333] text-[#A3A3A3] hover:border-[#555]'
+                    ? 'bg-[rgba(225,29,72,0.18)] border-[#E11D48] text-white'
+                    : 'bg-[rgba(18,14,28,0.7)] border-[rgba(192,132,252,0.2)] text-[#94A3B8]'
                 }`}
               >
                 <input
@@ -686,22 +649,22 @@ function TicketLookupContent() {
                   name="refund_method"
                   checked={refundMethod === 'CASH'}
                   onChange={() => { setRefundMethod('CASH'); setIssueVoucher(false); }}
-                  className="mt-0.5 accent-[#E63946] cursor-pointer"
+                  className="mt-0.5 accent-[#E11D48] cursor-pointer"
                 />
                 <div className="text-xs">
                   <span className="font-bold text-white block">
-                    💵 Hoàn 100% Tiền Mặt Tại Quầy (Quy chuẩn SRS sự cố rạp)
+                    Hoàn 100% Tiền Mặt Tại Quầy (Quy chuẩn SRS sự cố rạp)
                   </span>
                   Lập chứng từ hoàn tiền mặt và đối soát công nợ tại quầy. Không cấp voucher.
                 </div>
               </div>
 
-              <div 
+              <div
                 onClick={() => { setRefundMethod('VOUCHER'); setIssueVoucher(true); }}
                 className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
                   refundMethod === 'VOUCHER'
-                    ? 'bg-[#E63946]/10 border-[#E63946] text-white'
-                    : 'bg-[#1A1A1A] border-[#333333] text-[#A3A3A3] hover:border-[#555]'
+                    ? 'bg-[rgba(225,29,72,0.18)] border-[#E11D48] text-white'
+                    : 'bg-[rgba(18,14,28,0.7)] border-[rgba(192,132,252,0.2)] text-[#94A3B8]'
                 }`}
               >
                 <input
@@ -709,49 +672,49 @@ function TicketLookupContent() {
                   name="refund_method"
                   checked={refundMethod === 'VOUCHER'}
                   onChange={() => { setRefundMethod('VOUCHER'); setIssueVoucher(true); }}
-                  className="mt-0.5 accent-[#E63946] cursor-pointer"
+                  className="mt-0.5 accent-[#E11D48] cursor-pointer"
                 />
                 <div className="text-xs">
                   <span className="font-bold text-white block">
-                    🎟️ Cấp Mã Voucher Đền Bù 100%
+                    Cấp Mã Voucher Đền Bù 100%
                   </span>
-                  Mã voucher có hạn sử dụng 30 ngày, áp dụng cho lần xem phim tiếp theo của khách hàng này.
+                  Mã voucher có hạn sử dụng 30 ngày, áp dụng cho lần xem phim tiếp theo của khách hàng.
                 </div>
               </div>
             </div>
 
             {/* Ghi chú nhân viên */}
             <div>
-              <label className="block text-[#D4D4D4] text-xs font-semibold uppercase mb-1.5">
-                Ghi chú nội bộ (Tùy chọn)
+              <label className="block text-[#CBD5E1] text-xs font-semibold uppercase mb-1.5">
+                Ghi chú nội bộ
               </label>
               <textarea
                 rows={2}
-                placeholder="Ví dụ: Đã hỗ trợ đổi suất chiếu hoặc đã xin lỗi khách hàng trực tiếp..."
+                placeholder="Ví dụ: Đã giải thích lý do kỹ thuật và xin lỗi khách hàng trực tiếp..."
                 value={staffNotes}
                 onChange={(e) => setStaffNotes(e.target.value)}
-                className="w-full bg-[#141414] border border-[#404040] rounded-xl p-3 text-white text-sm outline-none focus:border-[#E63946]"
+                className="w-full bg-[rgba(8,6,14,0.85)] border border-[rgba(192,132,252,0.3)] rounded-xl p-2.5 text-white text-xs outline-none focus:border-[#E11D48]"
               />
             </div>
 
-            {/* Nút bấm */}
-            <div className="flex gap-3 pt-2">
-              <Button
-                variant="secondary"
-                fullWidth
+            {/* Nút bấm xác nhận */}
+            <div className="flex gap-2.5 pt-2">
+              <button
+                type="button"
                 onClick={() => setCancelModalOpen(false)}
                 disabled={cancelling}
+                className="flex-1 py-2.5 rounded-xl bg-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.12)] text-[#94A3B8] text-xs font-bold transition-all"
               >
                 Hủy bỏ
-              </Button>
-              <Button
-                variant="danger"
-                fullWidth
+              </button>
+              <button
+                type="button"
                 onClick={handleConfirmCancel}
                 disabled={cancelling}
+                className="flex-1 py-2.5 rounded-xl bg-gradient-to-r from-[#E11D48] to-[#881337] text-white text-xs font-black shadow-[0_0_20px_rgba(225,29,72,0.5)] transition-all"
               >
-                {cancelling ? 'Đang thực hiện giao dịch...' : 'Xác nhận Hủy & Hoàn Tiền 100%'}
-              </Button>
+                {cancelling ? 'Đang thực hiện...' : 'Xác Nhận Hủy & Hoàn 100%'}
+              </button>
             </div>
           </div>
         )}
@@ -761,86 +724,71 @@ function TicketLookupContent() {
       <Modal
         isOpen={resultModalOpen}
         onClose={() => setResultModalOpen(false)}
-        title="Hủy & Hoàn Vé Thành Công"
+        title="HỦY & HOÀN VÉ THÀNH CÔNG (UC-15)"
       >
         {cancelSuccessResult && (
           <div className="space-y-4 text-center">
-            <div className="w-16 h-16 bg-[#2ECC71]/20 border border-[#2ECC71]/40 rounded-full flex items-center justify-center text-3xl mx-auto">
-              🎉
+            <div className="w-12 h-12 bg-[rgba(34,197,94,0.2)] text-[#86EFAC] border border-[#22C55E] rounded-full flex items-center justify-center text-xl mx-auto shadow-[0_0_20px_rgba(34,197,94,0.4)]">
+              ✓
             </div>
 
             <div>
-              <h3 className="text-lg font-bold text-white">
-                Giao dịch xử lý sự cố hoàn tất!
+              <h3 className="text-sm font-black text-white">
+                Giao Dịch Xử Lý Sự Cố Hoàn Tất!
               </h3>
-              <p className="text-xs text-[#A3A3A3] mt-1">
-                Vé #{cancelSuccessResult.ticket_id} đã được chuyển sang trạng thái ĐÃ HỦY. Ghế {cancelSuccessResult.released_seat || ''} đã sẵn sàng để phục vụ khách khác.
+              <p className="text-xs text-[#94A3B8] mt-1">
+                Vé #{cancelSuccessResult.ticket_id} đã được chuyển sang trạng thái ĐÃ HỦY. Ghế {cancelSuccessResult.released_seat || ''} đã sẵn sàng đón khách mới.
               </p>
             </div>
 
             {cancelSuccessResult.cash_receipt && (
-              <div className="bg-[#FFB703]/10 border border-[#FFB703]/30 rounded-2xl p-4 space-y-2 text-left">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#FFB703] block text-center">
-                  💵 BIÊN NHẬN CHI HOÀN TIỀN MẶT 100% (SRS UC-15)
+              <div className="bg-[rgba(225,29,72,0.15)] border border-[rgba(225,29,72,0.35)] rounded-xl p-3.5 space-y-2 text-left">
+                <span className="text-[10px] font-black uppercase tracking-wider text-[#FDA4AF] block text-center">
+                  BIÊN NHẬN CHI HOÀN TIỀN MẶT 100% (SRS UC-15)
                 </span>
                 <div className="flex justify-between text-xs">
-                  <span className="text-[#A3A3A3]">Số phiếu chi:</span>
+                  <span className="text-[#94A3B8]">Số phiếu chi:</span>
                   <span className="font-mono font-bold text-white">{cancelSuccessResult.cash_receipt.receipt_no}</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-[#A3A3A3]">Khách hàng:</span>
+                  <span className="text-[#94A3B8]">Khách hàng:</span>
                   <span className="font-medium text-white">{cancelSuccessResult.cash_receipt.customer_name}</span>
                 </div>
                 <div className="flex justify-between text-xs">
-                  <span className="text-[#A3A3A3]">Số tiền thực chi:</span>
-                  <span className="font-black text-[#FFB703] text-sm">{cancelSuccessResult.cash_receipt.refund_amount.toLocaleString('vi-VN')} đ</span>
+                  <span className="text-[#94A3B8]">Số tiền thực chi:</span>
+                  <span className="font-black text-[#FDA4AF] text-sm">
+                    {cancelSuccessResult.cash_receipt.refund_amount.toLocaleString('vi-VN')} đ
+                  </span>
                 </div>
-                <div className="flex justify-between text-xs">
-                  <span className="text-[#A3A3A3]">Đối soát công nợ:</span>
-                  <span className="text-green-400 font-bold">✓ Đã xuất quỹ tiền mặt tại quầy</span>
+                <div className="flex justify-between text-xs pt-1 border-t border-[rgba(255,255,255,0.08)]">
+                  <span className="text-[#94A3B8]">Đối soát quỹ:</span>
+                  <span className="text-[#86EFAC] font-bold">✓ Đã xuất quỹ tiền mặt tại quầy</span>
                 </div>
               </div>
             )}
 
             {cancelSuccessResult.compensation_voucher && (
-              <div className="bg-[#2ECC71]/10 border border-[#2ECC71]/30 rounded-2xl p-4 space-y-2">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-[#2ECC71] block">
+              <div className="bg-[rgba(88,28,135,0.25)] border border-[rgba(192,132,252,0.4)] rounded-xl p-3.5 space-y-2">
+                <span className="text-[10px] font-black uppercase tracking-wider text-[#C084FC] block">
                   MÃ VOUCHER ĐỀN BÙ 100% ĐÃ KHỞI TẠO
                 </span>
-                <div className="font-mono font-black text-2xl text-white tracking-widest bg-[#171717] py-2 px-4 rounded-xl border border-[#2ECC71]/40 select-all">
+                <div className="font-mono font-black text-xl text-white tracking-widest bg-[rgba(8,6,14,0.8)] py-2 px-3 rounded-lg border border-[rgba(192,132,252,0.3)] select-all">
                   {cancelSuccessResult.compensation_voucher.code}
                 </div>
-                <p className="text-xs text-[#A3A3A3]">
-                  {cancelSuccessResult.compensation_voucher.message} • Hạn dùng:{' '}
+                <p className="text-[11px] text-[#94A3B8]">
+                  {cancelSuccessResult.compensation_voucher.message} · Hạn dùng:{' '}
                   {new Date(cancelSuccessResult.compensation_voucher.expiry_date).toLocaleDateString('vi-VN')}
                 </p>
               </div>
             )}
 
-            <div className="bg-[#1A1A1A] rounded-xl p-3 border border-[#333333] text-xs text-left space-y-1">
-              <div className="flex justify-between">
-                <span className="text-[#737373]">Tỷ lệ hoàn:</span>
-                <span className="text-white font-bold">{cancelSuccessResult.refund_percentage}%</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#737373]">Số tiền hoàn:</span>
-                <span className="text-[#FFB703] font-bold">
-                  {cancelSuccessResult.refund_amount.toLocaleString('vi-VN')} đ
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[#737373]">Lý do:</span>
-                <span className="text-white">{cancelSuccessResult.reason}</span>
-              </div>
-            </div>
-
-            <Button
-              variant="primary"
-              fullWidth
+            <button
+              type="button"
               onClick={() => setResultModalOpen(false)}
+              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#E11D48] to-[#881337] text-white text-xs font-black shadow-[0_0_20px_rgba(225,29,72,0.5)] transition-all"
             >
-              Đóng và tiếp tục làm việc
-            </Button>
+              Đóng và Tiếp Tục Làm Việc
+            </button>
           </div>
         )}
       </Modal>
@@ -849,39 +797,51 @@ function TicketLookupContent() {
       <Modal
         isOpen={Boolean(qrModalTicket)}
         onClose={() => setQrModalTicket(null)}
-        title="Mã Tra Cứu Vé Rạp Phim"
+        title="MÃ QR VÉ ĐIỆN TỬ"
       >
         {qrModalTicket && (
-          <div className="text-center space-y-4">
-            <div className="p-4 bg-white rounded-xl inline-block shadow-lg">
-              {/* Fallback giả lập QR bằng icon và thông tin */}
-              <div className="w-48 h-48 bg-slate-900 rounded-lg flex flex-col items-center justify-center p-3 text-white text-center">
-                <span className="text-4xl mb-2">📱</span>
-                <span className="font-mono font-black text-sm text-[#FFB703]">
-                  {qrModalTicket.ticket_code || `#LMC-${qrModalTicket.id}`}
-                </span>
-                <span className="text-[10px] text-slate-300 mt-1">
-                  Ghế {qrModalTicket.seat?.code} • {qrModalTicket.screening?.room}
-                </span>
+          <div className="text-center space-y-4 p-2">
+            <div className="p-3 bg-white rounded-2xl inline-block shadow-[0_0_30px_rgba(192,132,252,0.4)]">
+              <QRCodeSVG
+                value={qrModalTicket.ticket_code || `#LMC-${qrModalTicket.id}`}
+                size={180}
+              />
+            </div>
+
+            <div className="text-left bg-[rgba(18,14,28,0.8)] p-3 rounded-xl border border-[rgba(192,132,252,0.2)] text-xs space-y-1.5">
+              <div className="flex justify-between">
+                <span className="text-[#94A3B8]">Mã vé:</span>
+                <span className="font-mono font-bold text-white">{qrModalTicket.ticket_code || `#LMC-${qrModalTicket.id}`}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#94A3B8]">Khách hàng:</span>
+                <span className="text-white font-medium">{qrModalTicket.customer?.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#94A3B8]">Phim:</span>
+                <span className="text-white">{qrModalTicket.movie?.title}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#94A3B8]">Ghế & Phòng:</span>
+                <span className="text-[#FDA4AF] font-bold">{qrModalTicket.seat?.code} · {qrModalTicket.screening?.room}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-[#94A3B8]">Trạng thái:</span>
+                <span className="text-[#C084FC] font-bold">{qrModalTicket.status}</span>
               </div>
             </div>
 
-            <div className="text-left bg-[#1A1A1A] p-3 rounded-xl border border-[#333333] text-xs space-y-1">
-              <div><span className="text-[#737373]">Khách hàng:</span> <span className="text-white font-medium">{qrModalTicket.customer?.name}</span></div>
-              <div><span className="text-[#737373]">Phim:</span> <span className="text-white">{qrModalTicket.movie?.title}</span></div>
-              <div><span className="text-[#737373]">Trạng thái:</span> <span className="text-[#FFB703]">{qrModalTicket.status}</span></div>
-            </div>
-
-            <Button
-              variant="secondary"
-              fullWidth
+            <button
+              type="button"
               onClick={() => setQrModalTicket(null)}
+              className="w-full py-2.5 rounded-xl bg-[rgba(255,255,255,0.08)] hover:bg-[rgba(255,255,255,0.12)] text-white text-xs font-bold transition-all"
             >
               Đóng
-            </Button>
+            </button>
           </div>
         )}
       </Modal>
+
     </div>
   );
 }
@@ -890,9 +850,9 @@ export default function TicketLookupPage() {
   return (
     <Suspense
       fallback={
-        <div className="p-8 text-center text-[#737373]">
-          <div className="animate-spin text-2xl mb-2">⏳</div>
-          Đang tải trang tra cứu vé...
+        <div className="p-8 text-center text-[#94A3B8]">
+          <div className="hourglass-spin text-2xl mb-2">⏳</div>
+          Đang tải trạm soát vé vũ trụ...
         </div>
       }
     >

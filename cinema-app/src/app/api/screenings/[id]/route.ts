@@ -74,16 +74,52 @@ export async function GET(
       return apiResponse(false, undefined, 'Không tìm thấy suất chiếu yêu cầu', 404);
     }
 
-    // Tính toán thống kê ghế trống
-    const totalSeats = screening.seats.length;
-    const emptySeats = screening.seats.filter(s => s.status === 'EMPTY').length;
-    const reservedSeats = screening.seats.filter(s => s.status === 'RESERVED').length;
-    const occupiedSeats = screening.seats.filter(s => s.status === 'OCCUPIED').length;
+    const now = new Date();
+
+    // Map lại các ghế RESERVED nhưng đã hết hạn giữ chỗ (reservedUntil < now) thành EMPTY để client thấy ghế trống và không bị khóa oan
+    const sanitizedSeats = screening.seats.map(seat => {
+      if (seat.status === 'RESERVED' && seat.reservedUntil && new Date(seat.reservedUntil) < now) {
+        return {
+          ...seat,
+          status: 'EMPTY' as const,
+          reservedUntil: null,
+        };
+      }
+      return seat;
+    });
+
+    // Giải phóng ngầm dưới database để đồng bộ trạng thái
+    const expiredSeatIds = screening.seats
+      .filter(s => s.status === 'RESERVED' && s.reservedUntil && new Date(s.reservedUntil) < now)
+      .map(s => s.id);
+
+    if (expiredSeatIds.length > 0) {
+      prisma.seat.updateMany({
+        where: {
+          id: { in: expiredSeatIds },
+          status: 'RESERVED',
+          reservedUntil: { lt: now },
+        },
+        data: {
+          status: 'EMPTY',
+          reservedUntil: null,
+        },
+      }).catch(err => {
+        console.error('Lazy seat release background error:', err);
+      });
+    }
+
+    // Tính toán thống kê ghế trống dựa trên danh sách ghế đã được chuẩn hóa
+    const totalSeats = sanitizedSeats.length;
+    const emptySeats = sanitizedSeats.filter(s => s.status === 'EMPTY').length;
+    const reservedSeats = sanitizedSeats.filter(s => s.status === 'RESERVED').length;
+    const occupiedSeats = sanitizedSeats.filter(s => s.status === 'OCCUPIED').length;
 
     return apiResponse(
       true,
       {
         ...screening,
+        seats: sanitizedSeats,
         stats: {
           total_seats: totalSeats,
           empty_seats: emptySeats,

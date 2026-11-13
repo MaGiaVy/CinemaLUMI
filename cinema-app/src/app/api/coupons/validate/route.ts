@@ -23,6 +23,8 @@ export interface CouponValidateResult {
   discountAmount: number;
   original_amount: number;
   originalAmount: number;
+  ticket_amount?: number;
+  ticketAmount?: number;
   final_amount: number;
   finalAmount: number;
   min_amount: number;
@@ -50,6 +52,22 @@ const validateCouponSchema = z
       .number()
       .min(0, 'Tổng tiền phải lớn hơn hoặc bằng 0')
       .optional(),
+    ticket_amount: z.coerce
+      .number()
+      .min(0, 'Tiền vé phải lớn hơn hoặc bằng 0')
+      .optional(),
+    ticketAmount: z.coerce
+      .number()
+      .min(0, 'Tiền vé phải lớn hơn hoặc bằng 0')
+      .optional(),
+    ticket_total: z.coerce
+      .number()
+      .min(0, 'Tiền vé phải lớn hơn hoặc bằng 0')
+      .optional(),
+    ticketTotal: z.coerce
+      .number()
+      .min(0, 'Tiền vé phải lớn hơn hoặc bằng 0')
+      .optional(),
     movie_id: z.coerce.number().int().positive().nullable().optional(),
     movieId: z.coerce.number().int().positive().nullable().optional(),
   })
@@ -57,10 +75,19 @@ const validateCouponSchema = z
     message: 'Vui lòng cung cấp mã giảm giá (coupon_code hoặc code)',
     path: ['coupon_code'],
   })
-  .refine(data => data.total_amount !== undefined || data.totalAmount !== undefined, {
-    message: 'Vui lòng cung cấp tổng số tiền đơn hàng (total_amount hoặc totalAmount)',
-    path: ['total_amount'],
-  });
+  .refine(
+    data =>
+      data.total_amount !== undefined ||
+      data.totalAmount !== undefined ||
+      data.ticket_amount !== undefined ||
+      data.ticketAmount !== undefined ||
+      data.ticket_total !== undefined ||
+      data.ticketTotal !== undefined,
+    {
+      message: 'Vui lòng cung cấp tổng số tiền đơn hàng (total_amount) hoặc tiền vé (ticket_amount)',
+      path: ['total_amount'],
+    }
+  );
 
 /**
  * POST /api/coupons/validate
@@ -74,9 +101,10 @@ const validateCouponSchema = z
  * 5. Mã có áp dụng cho phim cụ thể này không (nếu có chỉ định phim)
  * 6. Mã có bị giới hạn riêng cho người dùng cụ thể không (nếu có userId)
  * 
- * Trả về:
- * - Lỗi: Ném AppError rõ ràng (404 / 400 / 401 / 403)
- * - Thành công: Tính toán discount_amount và final_amount, trả về thông tin chi tiết
+ * Quy tắc tính chiết khấu (SRS UC-06):
+ * - Giảm giá coupon chỉ áp dụng trên TIỀN VÉ (ticket_amount), không giảm tiền combo bắp nước
+ * - Số tiền giảm không được vượt quá tổng tiền vé
+ * - Kết quả đồng nhất 100% với POST /api/payments/initiate
  */
 export async function POST(request: NextRequest) {
   try {
@@ -100,6 +128,10 @@ export async function POST(request: NextRequest) {
       couponCode,
       total_amount,
       totalAmount,
+      ticket_amount,
+      ticketAmount,
+      ticket_total,
+      ticketTotal,
       movie_id,
       movieId,
     } = parsed.data;
@@ -107,7 +139,9 @@ export async function POST(request: NextRequest) {
     // Chuẩn hóa dữ liệu đầu vào
     const rawCode = coupon_code || code || couponCode!;
     const normalizedCode = rawCode.trim().toUpperCase();
-    const finalTotalAmount = (total_amount ?? totalAmount)!;
+    const finalTotalAmount = (total_amount ?? totalAmount ?? ticket_amount ?? ticketAmount ?? ticket_total ?? ticketTotal)!;
+    // Theo đặc tả SRS (UC-06): Giảm giá coupon chỉ áp dụng trên TIỀN VÉ (ticketTotal), không giảm tiền combo bắp nước
+    const effectiveTicketTotal = ticket_amount ?? ticketAmount ?? ticket_total ?? ticketTotal ?? finalTotalAmount;
     const finalMovieId = movie_id ?? movieId ?? null;
 
     // 1. Kiểm tra mã giảm giá có tồn tại không
@@ -212,19 +246,20 @@ export async function POST(request: NextRequest) {
     }
 
     // 7. Tính toán giá trị giảm giá và số tiền thanh toán cuối cùng
+    // Theo đặc tả SRS (UC-06): Giảm giá coupon chỉ áp dụng trên TIỀN VÉ (ticketTotal), không giảm tiền combo bắp nước
     const discountValue = Number(coupon.discountValue);
     let discountAmount = 0;
 
     if (coupon.discountType === 'Percentage') {
-      // Giảm theo %: (total_amount * discount_value) / 100
-      discountAmount = Math.round((finalTotalAmount * discountValue) / 100);
+      // Giảm theo % trên tiền vé: (ticketTotal * discount_value) / 100
+      discountAmount = Math.round((effectiveTicketTotal * discountValue) / 100);
     } else {
       // Giảm theo số tiền cố định (FixedAmount)
       discountAmount = discountValue;
     }
 
-    // Không được giảm vượt quá tổng giá trị ban đầu của đơn hàng
-    discountAmount = Math.min(discountAmount, finalTotalAmount);
+    // Không được giảm vượt quá tổng tiền vé
+    discountAmount = Math.min(discountAmount, effectiveTicketTotal);
     const finalAmount = Math.max(0, finalTotalAmount - discountAmount);
 
     const resultData: CouponValidateResult = {
@@ -239,6 +274,8 @@ export async function POST(request: NextRequest) {
       discountAmount: discountAmount,
       original_amount: finalTotalAmount,
       originalAmount: finalTotalAmount,
+      ticket_amount: effectiveTicketTotal,
+      ticketAmount: effectiveTicketTotal,
       final_amount: finalAmount,
       finalAmount: finalAmount,
       min_amount: minAmount,

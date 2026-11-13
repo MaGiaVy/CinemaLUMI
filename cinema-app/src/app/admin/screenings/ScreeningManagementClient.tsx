@@ -2,8 +2,7 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import Badge from '@/components/ui/Badge';
-import Button from '@/components/ui/Button';
+import Image from 'next/image';
 import Modal from '@/components/ui/Modal';
 import Toast, { ToastMessage } from '@/components/ui/Toast';
 
@@ -123,199 +122,210 @@ export default function ScreeningManagementClient({
     <>
       <Toast toasts={toasts} onRemove={removeToast} />
 
-      <div className="flex-1 bg-[#1A1A1A] p-6 lg:p-8 overflow-y-auto">
-        <div className="max-w-7xl mx-auto">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-2xl lg:text-3xl font-black text-white">Quản Lý Lịch Chiếu</h1>
-              <p className="text-[#B3B3B3] text-sm mt-1">
-                Hiện có <span className="text-[#E63946] font-semibold">{screenings.length}</span> suất chiếu được lên lịch
-              </p>
+      <div className="flex-1 p-6 lg:p-8 space-y-6 max-w-[1600px] w-full mx-auto">
+        {/* Header */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-5 border-b border-white/[0.08]">
+          <div>
+            <div className="flex items-center gap-2">
+              <span className="text-[#e11d48] text-sm">✦</span>
+              <h1 className="text-xl lg:text-2xl font-black text-[#f8fafc] tracking-tight uppercase">
+                QUẢN LÝ SUẤT CHIẾU & LỊCH CHIẾU
+              </h1>
             </div>
-            <Link href="/admin/screenings/add">
-              <Button size="md">
-                + Thêm suất chiếu mới
-              </Button>
-            </Link>
+            <p className="text-[#94a3b8] text-xs mt-1">
+              Hệ thống hiện có <strong className="text-[#fda4af] font-bold">{screenings.length}</strong> suất chiếu được lập lịch và giám sát (BR-08)
+            </p>
           </div>
+          <Link
+            href="/admin/screenings/add"
+            className="px-4 py-2 bg-gradient-to-r from-[#e11d48] to-[#9f1239] border border-[#fecdd3]/40 text-white text-xs font-black rounded-lg shadow-[0_0_20px_rgba(225,29,72,0.5)] hover:shadow-[0_0_30px_rgba(225,29,72,0.8)] transition-all cursor-pointer uppercase tracking-wider text-center"
+            style={{ textDecoration: 'none' }}
+          >
+            + THÊM SUẤT CHIẾU MỚI
+          </Link>
+        </div>
 
-          {/* Bộ lọc & Tìm kiếm */}
-          <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-3 mb-6">
-            <div className="sm:col-span-2">
-              <input
-                type="text"
-                placeholder="Tìm kiếm theo tên phim hoặc phòng chiếu..."
-                value={search}
-                onChange={e => setSearch(e.target.value)}
-              />
-            </div>
-            <div>
-              <select
-                value={selectedDate}
-                onChange={e => setSelectedDate(e.target.value)}
-              >
-                <option value="ALL">Tất cả các ngày</option>
-                {availableDates.map(d => (
-                  <option key={d} value={d}>
-                    Ngày {d}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <div>
-              <select
-                value={selectedRoom}
-                onChange={e => setSelectedRoom(e.target.value)}
-              >
-                <option value="ALL">Tất cả phòng</option>
-                <option value="Cinema 01">Cinema 01</option>
-                <option value="Cinema 02">Cinema 02</option>
-                <option value="Cinema 03">Cinema 03</option>
-                <option value="Cinema 04">Cinema 04</option>
-                <option value="Cinema 05">Cinema 05</option>
-              </select>
-            </div>
+        {/* Bộ lọc & Tìm kiếm */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 md:grid-cols-4 gap-3">
+          <div className="sm:col-span-2">
+            <input
+              type="text"
+              placeholder="Tìm kiếm theo tên phim hoặc phòng chiếu..."
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              className="w-full bg-[#0a0812]/80 border border-[#c084fc]/20 focus:border-[#e11d48] rounded-xl px-3.5 py-2.5 text-[#f8fafc] text-xs outline-none transition-colors"
+            />
           </div>
+          <div>
+            <select
+              value={selectedDate}
+              onChange={e => setSelectedDate(e.target.value)}
+              className="w-full bg-[#0a0812]/80 border border-[#c084fc]/20 focus:border-[#e11d48] rounded-xl px-3.5 py-2.5 text-[#f8fafc] text-xs outline-none transition-colors"
+            >
+              <option value="ALL">Tất cả các ngày</option>
+              {availableDates.map(d => (
+                <option key={d} value={d}>
+                  Ngày {d}
+                </option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <select
+              value={selectedRoom}
+              onChange={e => setSelectedRoom(e.target.value)}
+              className="w-full bg-[#0a0812]/80 border border-[#c084fc]/20 focus:border-[#e11d48] rounded-xl px-3.5 py-2.5 text-[#f8fafc] text-xs outline-none transition-colors"
+            >
+              <option value="ALL">Tất cả phòng</option>
+              <option value="Cinema 01">Cinema 01 (Laser 4K)</option>
+              <option value="Cinema 02">Cinema 02 (Dolby Atmos)</option>
+              <option value="Cinema 03">Cinema 03 (Standard 2D)</option>
+              <option value="Cinema 04">Cinema 04 (Laser 4K)</option>
+              <option value="Cinema 05">Cinema 05 (VIP Cosmos)</option>
+            </select>
+          </div>
+        </div>
 
-          {/* Bảng danh sách suất chiếu */}
-          <div className="bg-[#2D2D2D] border border-[#404040] rounded-xl overflow-hidden shadow-lg">
-            <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="border-b border-[#404040] bg-[#242424]">
-                    <th className="px-5 py-3.5 text-[#B3B3B3] text-xs font-semibold uppercase tracking-wider">
-                      Phim Chiếu
-                    </th>
-                    <th className="px-4 py-3.5 text-[#B3B3B3] text-xs font-semibold uppercase tracking-wider">
-                      Phòng Chiếu
-                    </th>
-                    <th className="px-4 py-3.5 text-[#B3B3B3] text-xs font-semibold uppercase tracking-wider">
-                      Giờ Chiếu & Ngày
-                    </th>
-                    <th className="px-4 py-3.5 text-[#B3B3B3] text-xs font-semibold uppercase tracking-wider">
-                      Giá Vé
-                    </th>
-                    <th className="px-4 py-3.5 text-[#B3B3B3] text-xs font-semibold uppercase tracking-wider">
-                      Số Ghế / Vé
-                    </th>
-                    <th className="px-4 py-3.5 text-[#B3B3B3] text-xs font-semibold uppercase tracking-wider">
-                      Trạng Thái
-                    </th>
-                    <th className="px-5 py-3.5 text-[#B3B3B3] text-xs font-semibold uppercase tracking-wider text-right">
-                      Hành Động
-                    </th>
+        {/* Bảng danh sách suất chiếu */}
+        <div className="rounded-2xl border border-[#c084fc]/25 bg-[#0a0812]/85 backdrop-blur-2xl overflow-hidden shadow-[0_10px_40px_rgba(0,0,0,0.8)]">
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs">
+              <thead>
+                <tr className="border-b border-white/[0.08] text-[11px] font-bold text-[#c084fc] uppercase tracking-wider bg-white/[0.02]">
+                  <th className="px-5 py-3.5">Phim Chiếu</th>
+                  <th className="px-4 py-3.5">Phòng Chiếu</th>
+                  <th className="px-4 py-3.5">Giờ Chiếu & Ngày</th>
+                  <th className="px-4 py-3.5">Giá Vé</th>
+                  <th className="px-4 py-3.5">Số Ghế / Vé</th>
+                  <th className="px-4 py-3.5">Trạng Thái</th>
+                  <th className="px-5 py-3.5 text-right">Thao Tác</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-white/[0.06]">
+                {filtered.length === 0 ? (
+                  <tr>
+                    <td colSpan={7} className="text-center py-16 text-[#94a3b8] text-xs">
+                      {search || selectedDate !== 'ALL' || selectedRoom !== 'ALL'
+                        ? 'Không tìm thấy suất chiếu nào phù hợp với bộ lọc.'
+                        : 'Hệ thống chưa có suất chiếu nào. Hãy bấm "+ THÊM SUẤT CHIẾU MỚI" để bắt đầu!'}
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-[#404040]">
-                  {filtered.length === 0 ? (
-                    <tr>
-                      <td colSpan={7} className="text-center py-12 text-[#B3B3B3] text-sm">
-                        {search || selectedDate !== 'ALL' || selectedRoom !== 'ALL'
-                          ? 'Không tìm thấy suất chiếu nào phù hợp với bộ lọc.'
-                          : 'Hệ thống chưa có suất chiếu nào. Hãy bấm "+ Thêm suất chiếu mới" để bắt đầu!'}
-                      </td>
-                    </tr>
-                  ) : (
-                    filtered.map(s => {
-                      const startTimeStr = formatTime(s.startTime);
-                      const endTimeStr = formatTime(s.endTime);
-                      const dateStr = formatDate(s.date);
+                ) : (
+                  filtered.map(s => {
+                    const startTimeStr = formatTime(s.startTime);
+                    const endTimeStr = formatTime(s.endTime);
+                    const dateStr = formatDate(s.date);
 
-                      return (
-                        <tr key={s.id} className="hover:bg-[#383838] transition-colors">
-                          {/* Phim */}
-                          <td className="px-5 py-3.5">
-                            <div className="flex items-center gap-3">
-                              <img
-                                src={s.movie.poster || 'https://via.placeholder.com/80x120?text=No+Poster'}
-                                alt={s.movie.title}
-                                className="w-10 h-14 object-cover rounded-md flex-shrink-0 bg-[#1A1A1A] border border-[#404040]"
-                              />
-                              <div>
-                                <p className="text-white font-bold text-sm line-clamp-1">
-                                  {s.movie.title}
-                                </p>
-                                <p className="text-[#B3B3B3] text-xs mt-0.5">
-                                  {s.movie.duration} phút • {s.movie.genre.split(',')[0]}
-                                </p>
-                                {s.movie.ageRating && (
-                                  <span className="inline-block mt-1 text-[10px] px-1.5 py-0.2 rounded bg-[#404040] text-white font-medium">
-                                    {s.movie.ageRating}
-                                  </span>
-                                )}
-                              </div>
+                    return (
+                      <tr key={s.id} className="hover:bg-white/[0.03] transition-colors">
+                        {/* Phim */}
+                        <td className="px-5 py-3.5">
+                          <div className="flex items-center gap-3">
+                            <div className="relative w-10 h-14 rounded overflow-hidden flex-shrink-0 bg-[#1f192b] border border-[#c084fc]/20">
+                              {s.movie.poster ? (
+                                <Image
+                                  src={s.movie.poster}
+                                  alt={s.movie.title}
+                                  fill
+                                  sizes="40px"
+                                  className="object-cover"
+                                />
+                              ) : (
+                                <div className="w-full h-full flex items-center justify-center text-[10px] text-[#94a3b8]">
+                                  NO POSTER
+                                </div>
+                              )}
                             </div>
-                          </td>
+                            <div>
+                              <p className="text-white font-bold text-xs line-clamp-1">
+                                {s.movie.title}
+                              </p>
+                              <p className="text-[#94a3b8] text-[11px] mt-0.5">
+                                {s.movie.duration} phút • {s.movie.genre.split(',')[0]}
+                              </p>
+                              {s.movie.ageRating && (
+                                <span className="inline-block mt-1 text-[10px] px-2 py-0.5 rounded bg-white/[0.08] text-[#cbd5e1] font-semibold border border-white/10">
+                                  {s.movie.ageRating}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </td>
 
-                          {/* Phòng chiếu */}
-                          <td className="px-4 py-3.5">
-                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[#1A1A1A] border border-[#404040] text-white font-semibold text-xs">
-                              📍 {s.room}
+                        {/* Phòng chiếu */}
+                        <td className="px-4 py-3.5">
+                          <span className="inline-flex items-center px-2.5 py-1 rounded-md bg-white/[0.06] border border-white/10 text-white font-bold text-xs">
+                            {s.room}
+                          </span>
+                        </td>
+
+                        {/* Giờ chiếu & Ngày */}
+                        <td className="px-4 py-3.5">
+                          <div className="text-white font-bold text-xs">
+                            {startTimeStr} <span className="text-[#64748b] font-normal">→</span> {endTimeStr}
+                          </div>
+                          <div className="text-[#94a3b8] text-[11px] mt-0.5">
+                            {dateStr}
+                          </div>
+                        </td>
+
+                        {/* Giá vé */}
+                        <td className="px-4 py-3.5">
+                          <span className="text-[#fda4af] font-black text-xs">
+                            {Number(s.price).toLocaleString('vi-VN')} đ
+                          </span>
+                        </td>
+
+                        {/* Số ghế / Vé đã bán */}
+                        <td className="px-4 py-3.5">
+                          <div className="text-white text-xs">
+                            <span className="font-bold text-[#86efac]">
+                              {s._count.seats - s._count.tickets}
                             </span>
-                          </td>
-
-                          {/* Giờ chiếu & Ngày */}
-                          <td className="px-4 py-3.5">
-                            <div className="text-white font-bold text-sm">
-                              {startTimeStr} <span className="text-[#737373] font-normal">→</span> {endTimeStr}
+                            /{s._count.seats} ghế trống
+                          </div>
+                          {s._count.tickets > 0 && (
+                            <div className="text-[#fda4af] text-[10px] font-semibold mt-0.5">
+                              Đã bán: {s._count.tickets} vé
                             </div>
-                            <div className="text-[#B3B3B3] text-xs mt-0.5">
-                              {dateStr}
-                            </div>
-                          </td>
+                          )}
+                        </td>
 
-                          {/* Giá vé */}
-                          <td className="px-4 py-3.5">
-                            <span className="text-[#FFB703] font-bold text-sm">
-                              {Number(s.price).toLocaleString('vi-VN')} đ
+                        {/* Trạng thái */}
+                        <td className="px-4 py-3.5">
+                          {s.status === 'UPCOMING' && (
+                            <span className="text-[10px] font-bold px-2.5 py-1 rounded bg-[#881337]/35 border border-[#c084fc]/40 text-[#f472b6] uppercase tracking-wider">
+                              Sắp chiếu
                             </span>
-                          </td>
+                          )}
+                          {s.status === 'SHOWING' && (
+                            <span className="text-[10px] font-bold px-2.5 py-1 rounded bg-[#e11d48]/25 border border-[#e11d48] text-[#fda4af] uppercase tracking-wider">
+                              Đang chiếu
+                            </span>
+                          )}
+                          {s.status === 'ENDED' && (
+                            <span className="text-[10px] font-bold px-2.5 py-1 rounded bg-white/[0.08] border border-white/20 text-[#94a3b8] uppercase tracking-wider">
+                              Đã kết thúc
+                            </span>
+                          )}
+                        </td>
 
-                          {/* Số ghế / Vé đã bán */}
-                          <td className="px-4 py-3.5">
-                            <div className="text-white text-xs">
-                              <span className="font-semibold text-green-400">
-                                {s._count.seats - s._count.tickets}
-                              </span>
-                              /{s._count.seats} ghế trống
-                            </div>
-                            {s._count.tickets > 0 && (
-                              <div className="text-[#E63946] text-[11px] font-medium mt-0.5">
-                                Đã bán: {s._count.tickets} vé
-                              </div>
-                            )}
-                          </td>
-
-                          {/* Trạng thái */}
-                          <td className="px-4 py-3.5">
-                            {s.status === 'UPCOMING' && (
-                              <Badge variant="gold" size="sm">Sắp chiếu</Badge>
-                            )}
-                            {s.status === 'SHOWING' && (
-                              <Badge variant="green" size="sm">Đang chiếu</Badge>
-                            )}
-                            {s.status === 'ENDED' && (
-                              <Badge variant="gray" size="sm">Đã kết thúc</Badge>
-                            )}
-                          </td>
-
-                          {/* Hành động */}
-                          <td className="px-5 py-3.5 text-right">
-                            <button
-                              onClick={() => setDeleteScreening(s)}
-                              className="px-3 py-1.5 bg-[#E63946]/10 hover:bg-[#E63946] text-[#E63946] hover:text-white text-xs font-medium rounded transition-colors cursor-pointer border border-[#E63946]/30"
-                            >
-                              Xóa
-                            </button>
-                          </td>
-                        </tr>
-                      );
-                    })
-                  )}
-                </tbody>
-              </table>
-            </div>
+                        {/* Hành động */}
+                        <td className="px-5 py-3.5 text-right">
+                          <button
+                            type="button"
+                            onClick={() => setDeleteScreening(s)}
+                            className="px-3 py-1 bg-[#e11d48]/15 hover:bg-[#e11d48]/30 text-[#fda4af] text-[11px] font-bold rounded border border-[#e11d48]/40 transition-colors cursor-pointer"
+                          >
+                            Xóa
+                          </button>
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
+              </tbody>
+            </table>
           </div>
         </div>
       </div>
@@ -325,47 +335,47 @@ export default function ScreeningManagementClient({
         <Modal
           isOpen={!!deleteScreening}
           onClose={() => setDeleteScreening(null)}
-          title="Xác nhận xóa suất chiếu"
+          title="XÁC NHẬN XÓA SUẤT CHIẾU"
         >
           <div className="space-y-4">
-            <p className="text-white text-sm">
+            <p className="text-[#f8fafc] text-xs">
               Bạn có chắc chắn muốn xóa suất chiếu phim{' '}
-              <strong className="text-[#E63946]">&ldquo;{deleteScreening.movie.title}&rdquo;</strong> tại{' '}
-              <strong>{deleteScreening.room}</strong> (Lúc {formatTime(deleteScreening.startTime)} ngày {deleteScreening.date.split('T')[0]})?
+              <strong className="text-[#fda4af]">&ldquo;{deleteScreening.movie.title}&rdquo;</strong> tại{' '}
+              <strong className="text-white">{deleteScreening.room}</strong> (Lúc {formatTime(deleteScreening.startTime)} ngày {deleteScreening.date.split('T')[0]})?
             </p>
 
             {deleteScreening._count.tickets > 0 ? (
-              <div className="p-3 bg-[#E63946]/15 border border-[#E63946]/40 rounded-lg text-xs space-y-1.5 text-white">
-                <p className="font-bold text-[#E63946]">
-                  ⚠️ Cảnh báo nghiệp vụ: Suất chiếu này đã bán được {deleteScreening._count.tickets} vé!
+              <div className="p-3.5 bg-[#e11d48]/15 border border-[#e11d48]/40 rounded-xl text-xs space-y-1.5 text-white">
+                <p className="font-bold text-[#fda4af]">
+                  Cảnh báo nghiệp vụ (BR-04/BR-05): Suất chiếu này đã bán được {deleteScreening._count.tickets} vé!
                 </p>
-                <p className="text-[#D4D4D4]">
-                  Khi bạn xóa, hệ thống sẽ tự động chuyển toàn bộ các vé này sang trạng thái <strong>CANCELLED</strong> và ghi nhận luồng hoàn tiền 100% cho khách hàng.
+                <p className="text-[#cbd5e1] text-[11px]">
+                  Khi thực thi xóa, hệ thống sẽ tự động chuyển toàn bộ các vé hợp lệ sang trạng thái <strong>Cancelled</strong>, kích hoạt luồng hoàn tiền 100% cho khách hàng và cấp mã voucher bồi hoàn.
                 </p>
               </div>
             ) : (
-              <p className="text-[#B3B3B3] text-xs">
+              <p className="text-[#94a3b8] text-xs">
                 Suất chiếu này chưa bán được vé nào, 50 ghế trống liên kết sẽ được tự động dọn dẹp an toàn.
               </p>
             )}
 
-            <div className="flex justify-end gap-3 pt-3 border-t border-[#404040]">
-              <Button
-                variant="secondary"
-                size="sm"
+            <div className="flex justify-end gap-3 pt-3 border-t border-white/[0.08]">
+              <button
+                type="button"
                 onClick={() => setDeleteScreening(null)}
                 disabled={isDeleting}
+                className="px-4 py-2 bg-white/[0.05] hover:bg-white/[0.1] text-[#94a3b8] hover:text-white text-xs font-bold rounded-lg transition-colors cursor-pointer"
               >
                 Hủy bỏ
-              </Button>
-              <Button
-                variant="danger"
-                size="sm"
+              </button>
+              <button
+                type="button"
                 onClick={handleDelete}
                 disabled={isDeleting}
+                className="px-4 py-2 bg-gradient-to-r from-[#e11d48] to-[#881337] text-white text-xs font-black rounded-lg shadow-[0_0_15px_rgba(225,29,72,0.6)] transition-all cursor-pointer disabled:opacity-50"
               >
                 {isDeleting ? 'Đang xóa...' : 'Xác nhận xóa'}
-              </Button>
+              </button>
             </div>
           </div>
         </Modal>

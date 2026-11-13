@@ -48,7 +48,9 @@ export async function processVnpayIpnTransaction(
   txnCode?: string | null,
   paidAmount?: number
 ): Promise<VnpayIpnResult> {
-  const result = await prisma.$transaction(async (tx) => {
+  let result: VnpayIpnResult;
+  try {
+    result = await prisma.$transaction(async (tx) => {
     // 1. Tìm bản ghi Payment và các thông tin liên quan
     const payment = await tx.payment.findUnique({
       where: { id: paymentId },
@@ -113,16 +115,7 @@ export async function processVnpayIpnTransaction(
 
     // 3. LUỒNG XỬ LÝ KHI THANH TOÁN THÀNH CÔNG (SUCCESS)
     if (isSuccess) {
-      // 3.1. Cập nhật Payment thành SUCCESS
-      const updatedPayment = await tx.payment.update({
-        where: { id: paymentId },
-        data: {
-          status: PaymentStatus.Success,
-          transactionCode: txnCode || payment.transactionCode,
-        },
-      });
-
-      // 3.2. Lấy danh sách ID các ghế ngồi đã đặt CHÍNH XÁC từ bản ghi Payment (chống can thiệp từ client)
+      // 3.1. Lấy danh sách ID các ghế ngồi đã đặt CHÍNH XÁC từ bản ghi Payment (chống can thiệp từ client)
       let seatIds: number[] = [];
       if (Array.isArray(payment.seatIds)) {
         seatIds = payment.seatIds as number[];
@@ -130,6 +123,100 @@ export async function processVnpayIpnTransaction(
 
       const screeningId = payment.screeningId || null;
       const createdTickets: Ticket[] = [];
+
+      // 3.2. KIỂM TRA CHỐNG DOUBLE-BOOKING TRƯỚC KHI TẠO VÉ (ISSUE C1)
+      if (seatIds.length > 0 && screeningId) {
+        const conflictingTickets = await tx.ticket.findMany({
+          where: {
+            screeningId: screeningId,
+            seatId: { in: seatIds },
+            status: { in: ['Valid', 'Used'] },
+          },
+          select: {
+            id: true,
+            seatId: true,
+            status: true,
+          },
+        });
+
+        if (conflictingTickets.length > 0) {
+          const conflictingSeatIds = conflictingTickets.map((t) => t.seatId);
+          console.warn(
+            `[VNPay IPN / Double-Booking Detected] Suất chiếu #${screeningId}, các ghế [${conflictingSeatIds.join(
+              ', '
+            )}] đã có vé đang hoạt động (${conflictingTickets.map((t) => `#${t.id}(${t.status})`).join(', ')}). SEAT_ALREADY_BOOKED. Giao dịch #${paymentId} bị hủy và cần hoàn tiền.`
+          );
+
+          // Đánh dấu giao dịch Payment này thất bại và cần hoàn tiền
+          const failedPayment = await tx.payment.update({
+            where: { id: paymentId },
+            data: {
+              status: PaymentStatus.Failed,
+              transactionCode: txnCode || payment.transactionCode,
+            },
+          });
+
+          // Nhả các ghế không bị xung đột về trạng thái EMPTY
+          const conflictingSet = new Set(conflictingSeatIds);
+          const nonConflictingSeatIds = seatIds.filter((id) => !conflictingSet.has(id));
+          if (nonConflictingSeatIds.length > 0) {
+            await tx.seat.updateMany({
+              where: {
+                id: { in: nonConflictingSeatIds },
+                status: SeatStatus.RESERVED,
+              },
+              data: {
+                status: SeatStatus.EMPTY,
+                reservedUntil: null,
+              },
+            });
+          }
+
+          // Hoàn trả tồn kho cho combo (Issue C3)
+          if (payment.orderCombos && payment.orderCombos.length > 0) {
+            for (const orderCombo of payment.orderCombos) {
+              await tx.combo.update({
+                where: { id: orderCombo.comboId },
+                data: {
+                  stock: { increment: orderCombo.quantity },
+                },
+              });
+
+              await tx.comboReservation.updateMany({
+                where: {
+                  comboId: orderCombo.comboId,
+                  status: 'RESERVED',
+                  ...(payment.userId ? { OR: [{ userId: payment.userId }, { userId: null }] } : {}),
+                },
+                data: {
+                  status: 'RELEASED',
+                },
+              });
+            }
+          }
+
+          return {
+            RspCode: '01',
+            Message: 'SEAT_ALREADY_BOOKED: Ghế đã có người đặt trước, giao dịch bị đánh dấu thất bại và cần hoàn tiền',
+            payment_id: failedPayment.id,
+            paymentId: failedPayment.id,
+            status: failedPayment.status,
+            tickets_created_count: 0,
+            ticketsCreatedCount: 0,
+            already_processed: false,
+            alreadyProcessed: false,
+          };
+        }
+      }
+
+      // Cập nhật Payment thành SUCCESS khi không có xung đột ghế
+      const updatedPayment = await tx.payment.update({
+        where: { id: paymentId },
+        data: {
+          status: PaymentStatus.Success,
+          transactionCode: txnCode || payment.transactionCode,
+        },
+      });
 
       if (seatIds.length > 0) {
         // Cập nhật trạng thái các ghế sang OCCUPIED (Đã chính thức có chủ)
@@ -179,28 +266,17 @@ export async function processVnpayIpnTransaction(
         }
       }
 
-      // 3.3. Trừ dứt điểm tồn kho Combo và hoàn tất giữ chỗ combo
+      // 3.3. Xác nhận giữ chỗ combo thành CONFIRMED (Issue C3: KHÔNG trừ kho lần 2 vì đã trừ lúc reserve)
       if (payment.orderCombos && payment.orderCombos.length > 0) {
         for (const orderCombo of payment.orderCombos) {
-          // Trừ trực tiếp số lượng tồn kho của combo nếu chưa trừ
-          await tx.combo.updateMany({
-            where: {
-              id: orderCombo.comboId,
-              stock: { gte: orderCombo.quantity },
-            },
-            data: {
-              stock: { decrement: orderCombo.quantity },
-            },
-          });
-
-          // Cập nhật trạng thái các bản ghi combo_reservations thành COMPLETED
           await tx.comboReservation.updateMany({
             where: {
               comboId: orderCombo.comboId,
               status: 'RESERVED',
+              ...(payment.userId ? { OR: [{ userId: payment.userId }, { userId: null }] } : {}),
             },
             data: {
-              status: 'COMPLETED',
+              status: 'CONFIRMED',
             },
           });
         }
@@ -258,14 +334,23 @@ export async function processVnpayIpnTransaction(
       });
     }
 
-    // 4.3. Giải phóng toàn bộ bắp nước đã giữ về lại tồn kho
+    // 4.3. Giải phóng toàn bộ bắp nước đã giữ về lại tồn kho (Issue C3: Hoàn lại stock combo)
     if (payment.orderCombos && payment.orderCombos.length > 0) {
       for (const orderCombo of payment.orderCombos) {
+        // Hoàn lại tồn kho cho combo
+        await tx.combo.update({
+          where: { id: orderCombo.comboId },
+          data: {
+            stock: { increment: orderCombo.quantity },
+          },
+        });
+
         // Cập nhật trạng thái reservation thành RELEASED
         await tx.comboReservation.updateMany({
           where: {
             comboId: orderCombo.comboId,
             status: 'RESERVED',
+            ...(payment.userId ? { OR: [{ userId: payment.userId }, { userId: null }] } : {}),
           },
           data: {
             status: 'RELEASED',
@@ -286,9 +371,52 @@ export async function processVnpayIpnTransaction(
       alreadyProcessed: false,
     };
   });
+  } catch (err: unknown) {
+    const errorAny = err as { code?: string; message?: string };
+    if (errorAny?.code === 'P2002' || errorAny?.message?.includes('unique_active_ticket')) {
+      console.warn(
+        `[VNPay IPN / Concurrency Race P2002] Phát hiện xung đột DB unique_active_ticket trên payment #${paymentId}. Đánh dấu Failed và hoàn kho combo.`
+      );
+      await prisma.$transaction(async (rollbackTx) => {
+        await rollbackTx.payment.update({
+          where: { id: paymentId },
+          data: { status: PaymentStatus.Failed, transactionCode: txnCode || undefined },
+        });
+        const paymentData = await rollbackTx.payment.findUnique({
+          where: { id: paymentId },
+          include: { orderCombos: true },
+        });
+        if (paymentData?.orderCombos) {
+          for (const oc of paymentData.orderCombos) {
+            await rollbackTx.combo.update({
+              where: { id: oc.comboId },
+              data: { stock: { increment: oc.quantity } },
+            });
+            await rollbackTx.comboReservation.updateMany({
+              where: { comboId: oc.comboId, status: 'RESERVED' },
+              data: { status: 'RELEASED' },
+            });
+          }
+        }
+      });
+
+      return {
+        RspCode: '01',
+        Message: 'SEAT_ALREADY_BOOKED: DB unique constraint conflict, payment marked as Failed',
+        payment_id: paymentId,
+        paymentId: paymentId,
+        status: PaymentStatus.Failed,
+        tickets_created_count: 0,
+        ticketsCreatedCount: 0,
+        already_processed: false,
+        alreadyProcessed: false,
+      };
+    }
+    throw err;
+  }
 
   // Gửi email xác nhận đặt vé kèm QR Code cho khách hàng khi thanh toán thành công (Phase 14)
-  if (isSuccess && !result.already_processed) {
+  if (isSuccess && !result.already_processed && result.status === PaymentStatus.Success) {
     (async () => {
       try {
         const freshPayment = await prisma.payment.findUnique({

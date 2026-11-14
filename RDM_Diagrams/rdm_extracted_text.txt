@@ -1,0 +1,501 @@
+
+MÔ HÌNH DỮ LIỆU QUAN HỆ (RDM) – HỆ THỐNG ĐẶT VÉ XEM PHIM
+Mô hình dữ liệu quan hệ (RDM – Relational Data Model) được chuyển đổi đầy đủ gồm 12 bảng và 16 mối quan hệ khóa ngoại (1 - N), trình bày trực quan qua lược đồ liên kết khối ô, lược đồ quan hệ chuẩn và từ điển dữ liệu chi tiết.
+Quy ước ký hiệu:
+thuộc_tính (PK): Khóa chính (Primary Key)
+thuộc_tính in nghiêng (FK): Khóa ngoại (Foreign Key)
+NN: Không được rỗng (Not Null)
+UQ: Giá trị duy nhất (Unique)
+1. Lược đồ Quan hệ (RDM – Dạng các ô thuộc tính liền kề & Mũi tên PK → FK)
+
+Ghi chú: Bảng pricing đứng độc lập về mặt khóa ngoại vật lý trong sơ đồ gốc; thuộc tính pricing.ticket_type tương ứng về mặt nghiệp vụ với tickets.ticket_type.
+2. Lược đồ quan hệ tổng quát (Relational Schema)
+1. users (user_id, email, password, name, phone, role, created_at)
+2. movies (movie_id, title, duration, release_date, age_rating, poster, rating, genre, ticket_price, status)
+3. pricing (pricing_id, ticket_type, label, percentage, base_price)
+4. combos (combo_id, name, price, image, stock, status)
+5. screenings (screening_id, movie_id, room, room_number, start_time, end_time, date, price, status)
+6. seats (seat_id, screening_id, row, number, code, type, status, reserved_until)
+7. coupons (coupon_id, code, discount_type, discount_value, min_amount, max_usage, used_count, expiry_date, applicable_movie_id, user_id)
+8. reviews (review_id, user_id, movie_id, rating, comment, created_at)
+9. combo_reservations (reservation_id, combo_id, user_id, quantity, status, reserved_until)
+10. payments (payment_id, user_id, screening_id, amount, payment_method, transaction_code, status, created_at)
+11. tickets (ticket_id, user_id, screening_id, seat_id, payment_id, ticket_type, price, status, purchase_date)
+12. order_combos (order_combo_id, payment_id, combo_id, quantity, price, is_delivered)
+3. Chi tiết cấu trúc từng bảng (Data Dictionary)
+Nhóm 1: Danh mục nền tảng (users, movies, pricing, combos)
+1. Bảng users (Người dùng)
+Thuộc tính
+Kiểu dữ liệu
+Ràng buộc
+Tham chiếu
+user_id
+int
+PK
+—
+email
+varchar(255)
+NN, UQ
+—
+password
+varchar(255)
+NN
+—
+name
+varchar(100)
+NN
+—
+phone
+varchar(20)
+—
+—
+role
+varchar
+—
+—
+created_at
+timestamp
+—
+—
+2. Bảng movies (Phim)
+Thuộc tính
+Kiểu dữ liệu
+Ràng buộc
+Tham chiếu
+movie_id
+int
+PK
+—
+title
+varchar(255)
+NN
+—
+duration
+int
+NN
+—
+release_date
+date
+—
+—
+age_rating
+varchar(20)
+—
+—
+poster
+varchar(500)
+—
+—
+rating
+decimal(3, 1)
+—
+—
+genre
+varchar(100)
+—
+—
+ticket_price
+decimal(10, 2)
+—
+—
+status
+varchar
+—
+—
+3. Bảng pricing (Cấu hình giá vé)
+Thuộc tính
+Kiểu dữ liệu
+Ràng buộc
+Tham chiếu
+pricing_id
+int
+PK
+—
+ticket_type
+varchar(50)
+UQ
+—
+label
+varchar(100)
+—
+—
+percentage
+int
+—
+—
+base_price
+decimal(10, 2)
+—
+—
+4. Bảng combos (Combo bắp nước)
+Thuộc tính
+Kiểu dữ liệu
+Ràng buộc
+Tham chiếu
+combo_id
+int
+PK
+—
+name
+varchar(100)
+—
+—
+price
+decimal(10, 2)
+—
+—
+image
+varchar(500)
+—
+—
+stock
+int
+—
+—
+status
+varchar
+—
+—
+Nhóm 2: Suất chiếu & Ghế ngồi (screenings, seats)
+5. Bảng screenings (Suất chiếu)
+Thuộc tính
+Kiểu dữ liệu
+Ràng buộc
+Tham chiếu
+screening_id
+int
+PK
+—
+movie_id
+int
+FK
+movies(movie_id)
+room
+varchar(50)
+—
+—
+room_number
+int
+—
+—
+start_time
+timestamp
+—
+—
+end_time
+timestamp
+—
+—
+date
+date
+—
+—
+price
+decimal(10, 2)
+—
+—
+status
+varchar
+—
+—
+6. Bảng seats (Ghế theo suất chiếu)
+Thuộc tính
+Kiểu dữ liệu
+Ràng buộc
+Tham chiếu
+seat_id
+int
+PK
+—
+screening_id
+int
+FK
+screenings(screening_id)
+row
+varchar(5)
+—
+—
+number
+int
+—
+—
+code
+varchar(10)
+—
+—
+type
+varchar
+—
+—
+status
+varchar
+—
+—
+reserved_until
+timestamp
+—
+—
+Nhóm 3: Khuyến mãi, Đánh giá & Giữ chỗ (coupons, reviews, combo_reservations)
+7. Bảng coupons (Mã giảm giá)
+Thuộc tính
+Kiểu dữ liệu
+Ràng buộc
+Tham chiếu
+coupon_id
+int
+PK
+—
+code
+varchar(50)
+UQ
+—
+discount_type
+varchar
+—
+—
+discount_value
+decimal(10, 2)
+—
+—
+min_amount
+decimal(10, 2)
+—
+—
+max_usage
+int
+—
+—
+used_count
+int
+—
+—
+expiry_date
+date
+—
+—
+applicable_movie_id
+int
+FK
+movies(movie_id)
+user_id
+int
+FK
+users(user_id)
+8. Bảng reviews (Đánh giá phim)
+Thuộc tính
+Kiểu dữ liệu
+Ràng buộc
+Tham chiếu
+review_id
+int
+PK
+—
+user_id
+int
+FK
+users(user_id)
+movie_id
+int
+FK
+movies(movie_id)
+rating
+int
+—
+—
+comment
+text
+—
+—
+created_at
+timestamp
+—
+—
+9. Bảng combo_reservations (Giữ chỗ combo tạm thời)
+Thuộc tính
+Kiểu dữ liệu
+Ràng buộc
+Tham chiếu
+reservation_id
+int
+PK
+—
+combo_id
+int
+FK
+combos(combo_id)
+user_id
+int
+FK
+users(user_id)
+quantity
+int
+—
+—
+status
+varchar
+—
+—
+reserved_until
+timestamp
+—
+—
+Nhóm 4: Giao dịch thanh toán, Vé & Đơn combo (payments, tickets, order_combos)
+10. Bảng payments (Thanh toán)
+Thuộc tính
+Kiểu dữ liệu
+Ràng buộc
+Tham chiếu
+payment_id
+int
+PK
+—
+user_id
+int
+FK
+users(user_id)
+screening_id
+int
+FK
+screenings(screening_id)
+amount
+decimal(10, 2)
+—
+—
+payment_method
+varchar
+—
+—
+transaction_code
+varchar(100)
+—
+—
+status
+varchar
+—
+—
+created_at
+timestamp
+—
+—
+11. Bảng tickets (Vé xem phim)
+Thuộc tính
+Kiểu dữ liệu
+Ràng buộc
+Tham chiếu
+ticket_id
+int
+PK
+—
+user_id
+int
+FK
+users(user_id)
+screening_id
+int
+FK
+screenings(screening_id)
+seat_id
+int
+FK
+seats(seat_id)
+payment_id
+int
+FK
+payments(payment_id)
+ticket_type
+varchar(50)
+—
+—
+price
+decimal(10, 2)
+—
+—
+status
+varchar
+—
+—
+purchase_date
+timestamp
+—
+—
+12. Bảng order_combos (Chi tiết combo đã đặt)
+Thuộc tính
+Kiểu dữ liệu
+Ràng buộc
+Tham chiếu
+order_combo_id
+int
+PK
+—
+payment_id
+int
+FK
+payments(payment_id)
+combo_id
+int
+FK
+combos(combo_id)
+quantity
+int
+—
+—
+price
+decimal(10, 2)
+—
+—
+is_delivered
+boolean
+—
+—
+4. Tổng hợp ràng buộc toàn vẹn tham chiếu (Relationships)
+Bảng cha (Bên 1)
+Bảng con (Bên N)
+Khóa ngoại → Khóa chính
+movies
+screenings
+screenings.movie_id → movies.movie_id
+movies
+coupons
+coupons.applicable_movie_id → movies.movie_id
+movies
+reviews
+reviews.movie_id → movies.movie_id
+users
+coupons
+coupons.user_id → users.user_id
+users
+reviews
+reviews.user_id → users.user_id
+users
+combo_reservations
+combo_reservations.user_id → users.user_id
+users
+payments
+payments.user_id → users.user_id
+users
+tickets
+tickets.user_id → users.user_id
+screenings
+seats
+seats.screening_id → screenings.screening_id
+screenings
+payments
+payments.screening_id → screenings.screening_id
+screenings
+tickets
+tickets.screening_id → screenings.screening_id
+seats
+tickets
+tickets.seat_id → seats.seat_id
+payments
+tickets
+tickets.payment_id → payments.payment_id
+payments
+order_combos
+order_combos.payment_id → payments.payment_id
+combos
+combo_reservations
+combo_reservations.combo_id → combos.combo_id
+combos
+order_combos
+order_combos.combo_id → combos.combo_id

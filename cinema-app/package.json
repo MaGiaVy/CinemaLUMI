@@ -8,7 +8,13 @@
     "start": "next start",
     "lint": "eslint",
     "test": "node --experimental-strip-types __tests__/lib/runner.mjs",
-    "test:all": "node scripts/run-all-tests.mjs"
+    "test:all": "node scripts/run-all-tests.mjs",
+    "db:push": "prisma db push",
+    "db:seed": "node scripts/seed_realistic_movies.mjs",
+    "db:setup": "prisma db push && node scripts/seed_realistic_movies.mjs"
+  },
+  "prisma": {
+    "seed": "node scripts/seed_realistic_movies.mjs"
   },
   "dependencies": {
     "@prisma/client": "6.19.3",

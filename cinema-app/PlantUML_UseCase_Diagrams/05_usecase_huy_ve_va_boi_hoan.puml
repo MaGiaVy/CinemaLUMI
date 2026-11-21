@@ -1,0 +1,45 @@
+@startuml
+title Sơ đồ Use Case - Hủy Vé & Bồi Hoàn
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor #F8FAFC
+  BorderColor #334155
+  ArrowColor #475569
+}
+
+actor "Nhân viên" as Staff
+actor "Admin" as Admin
+
+rectangle "Hủy vé và bồi hoàn" {
+  usecase "Tra cứu thông tin khách tại quầy" as UC_Lookup
+  usecase "Hủy vé do khách\n(voucher 50%, không hoàn tiền)" as UC_CancelCustomer
+  usecase "Hủy vé do sự cố bên rạp\n(hoàn 100% tiền mặt hoặc voucher 100%)" as UC_CancelIncident
+  usecase "Xử lý sự cố suất chiếu\n(Hủy toàn bộ suất chiếu)" as UC_Incident
+
+  usecase "Kiểm tra điều kiện hủy" as UC_Check
+  usecase "Cập nhật trạng thái vé và nhả ghế" as UC_ReleaseSeat
+  usecase "Ghi log hủy vé (nhân viên, lý do)" as UC_Log
+  usecase "Cấp voucher bồi hoàn" as UC_Voucher
+  usecase "Giải phóng toàn bộ ghế của suất chiếu" as UC_ReleaseAll
+}
+
+Staff --> UC_Lookup
+Staff --> UC_CancelCustomer
+Staff --> UC_CancelIncident
+Admin --> UC_Incident
+Admin --> UC_CancelIncident
+
+UC_CancelCustomer ..> UC_Check : <<include>>
+UC_CancelCustomer ..> UC_ReleaseSeat : <<include>>
+UC_CancelCustomer ..> UC_Voucher : <<include>>
+UC_CancelCustomer ..> UC_Log : <<include>>
+
+UC_CancelIncident ..> UC_ReleaseSeat : <<include>>
+UC_CancelIncident ..> UC_Log : <<include>>
+UC_Voucher ..> UC_CancelIncident : <<extend>>
+
+UC_Incident ..> UC_ReleaseAll : <<include>>
+UC_Incident ..> UC_Log : <<include>>
+@enduml

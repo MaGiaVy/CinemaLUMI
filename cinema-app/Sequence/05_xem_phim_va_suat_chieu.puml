@@ -8,9 +8,9 @@ skinparam shadowing false
 title SƠ ĐỒ TUẦN TỰ: XEM PHIM VÀ SUẤT CHIẾU
 
 actor "Khách hàng" as A
-boundary "Giao diện chọn phim" as UI
-control "Điều khiển mua vé" as C
-entity "Dữ liệu hệ thống" as DB
+participant "Giao diện chọn phim" as UI
+participant "Điều khiển mua vé" as C
+participant "Dữ liệu hệ thống" as DB
 
 activate A
 A -> UI: Mở danh sách phim

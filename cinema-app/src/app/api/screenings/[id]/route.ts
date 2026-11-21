@@ -3,6 +3,7 @@ import { prisma } from '@/lib/prisma';
 import { apiResponse } from '@/lib/api-response';
 import { handleError } from '@/lib/error';
 import { requireAuth } from '@/lib/auth-helpers';
+import { sendTicketCancelledCashRefund } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 
@@ -489,6 +490,22 @@ export async function DELETE(
         };
       }
     });
+
+    if (hasTicketsEverSold && Array.isArray((result as { affected_users?: Array<{ email: string; name: string; refund_amount: number; ticket_count: number }> }).affected_users)) {
+      const affected = (result as { affected_users: Array<{ email: string; name: string; refund_amount: number; ticket_count: number }> }).affected_users;
+      for (const u of affected) {
+        if (u.email) {
+          sendTicketCancelledCashRefund(u.email, {
+            customerName: u.name,
+            ticketId: `SC${screeningId}`,
+            movieTitle: screening.movie.title,
+            refundAmount: u.refund_amount,
+            receiptNo: `REF-SCREENING-${screeningId}-${Date.now().toString().slice(-4)}`,
+            reason: `Hủy suất chiếu sự cố rạp (${u.ticket_count} vé)`,
+          }).catch((err) => console.warn('[EmailService] Failed to send screening cancel email:', err));
+        }
+      }
+    }
 
     const responseMessage = hasTicketsEverSold
       ? `Suất chiếu phim "${screening.movie.title}" đã được đóng (ENDED). Đã giải phóng ghế, hủy ${result.cancelled_valid_tickets_count} vé chưa dùng để hoàn tiền 100% và bảo toàn toàn bộ lịch sử vé đã xem.`

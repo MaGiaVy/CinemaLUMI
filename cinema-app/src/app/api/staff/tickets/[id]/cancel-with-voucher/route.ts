@@ -5,7 +5,7 @@ import { authOptions } from '@/lib/auth';
 import { AppError, handleError } from '@/lib/error';
 import { apiResponse } from '@/lib/api-response';
 import { TicketStatus, SeatStatus, DiscountType, PaymentStatus } from '@prisma/client';
-import { sendVoucherIssued } from '@/lib/email';
+import { sendVoucherIssued, sendTicketCancelledCashRefund } from '@/lib/email';
 
 export const dynamic = 'force-dynamic';
 
@@ -286,7 +286,11 @@ export async function POST(
       };
     });
 
-    // 4.6. Gửi email thông báo cấp voucher đền bù 100% cho khách hàng (Phase 14)
+    const receiptNo = refundMethod === 'CASH'
+      ? `REF-CASH-${ticket.id}-${Date.now().toString().slice(-4)}`
+      : null;
+
+    // 4.6. Gửi email thông báo cho khách hàng (cả trường hợp cấp Voucher 100% lẫn Hoàn tiền mặt 100%)
     if (result.createdCoupon && ticket.user?.email) {
       sendVoucherIssued(ticket.user.email, result.createdCoupon.code, {
         customerName: ticket.user.name || undefined,
@@ -297,6 +301,18 @@ export async function POST(
         ticketId: ticket.id,
       }).catch((emailErr) => {
         console.warn(`[EmailService] Failed to send voucher to ${ticket.user?.email}:`, emailErr);
+      });
+    } else if (refundMethod === 'CASH' && receiptNo && ticket.user?.email) {
+      sendTicketCancelledCashRefund(ticket.user.email, {
+        customerName: ticket.user.name || undefined,
+        ticketId: ticket.id,
+        movieTitle: ticket.screening?.movie.title,
+        seatCode: result.releasedSeatCode || ticket.seat?.code || null,
+        refundAmount: Number(ticket.price),
+        receiptNo,
+        reason: notes ? `${reason} (Ghi chú: ${notes})` : reason,
+      }).catch((emailErr) => {
+        console.warn(`[EmailService] Failed to send cash refund email to ${ticket.user?.email}:`, emailErr);
       });
     }
 
@@ -312,8 +328,8 @@ export async function POST(
       refund_amount: Number(ticket.price),
       refundAmount: Number(ticket.price),
       refund_method: refundMethod,
-      cash_receipt: refundMethod === 'CASH' ? {
-        receipt_no: `REF-CASH-${ticket.id}-${Date.now().toString().slice(-4)}`,
+      cash_receipt: receiptNo ? {
+        receipt_no: receiptNo,
         ticket_id: ticket.id,
         customer_name: ticket.user.name,
         refund_amount: Number(ticket.price),

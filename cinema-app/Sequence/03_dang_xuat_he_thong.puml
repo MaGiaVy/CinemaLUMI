@@ -8,9 +8,9 @@ skinparam shadowing false
 skinparam defaultTextAlignment center
 
 actor "Người dùng\n(Khách / NV / Admin)" as ND
-boundary "Giao diện Header / Menu\n(Frontend Next.js)" as UI
-control "API Đăng xuất (NextAuth)\n(Next.js App Router)" as API
-entity "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
+participant "Giao diện Header / Menu\n(Frontend Next.js)" as UI
+participant "API Đăng xuất (NextAuth)\n(Next.js App Router)" as API
+participant "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
 
 activate ND
 ND -> UI : Bấm nút "Đăng xuất" trên menu tài khoản

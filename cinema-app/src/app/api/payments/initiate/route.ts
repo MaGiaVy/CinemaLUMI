@@ -6,7 +6,7 @@ import { authOptions } from '@/lib/auth';
 import { AppError, handleError } from '@/lib/error';
 import { apiResponse } from '@/lib/api-response';
 import { calculateTicketPrice } from '@/lib/pricing';
-import { createZaloPayOrder, generateZaloPayTransId } from '@/lib/zalopay';
+import { generateZaloPayTransId } from '@/lib/zalopay';
 import { PaymentMethod, PaymentStatus, SeatStatus, Prisma } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
@@ -557,33 +557,9 @@ export async function POST(request: NextRequest) {
       return { payment: createdPayment };
     });
 
-    // 8. TẠO THÔNG TIN CỔNG THANH TOÁN (ZaloPay Sandbox & Mock VNPay)
-    let paymentUrl = '';
-    let orderUrl = '';
-    let zpTransToken = '';
-    let qrCode = '';
-
-    if (paymentMethodEnum === PaymentMethod.ZaloPay) {
-      const zaloPayOrder = await createZaloPayOrder({
-        app_trans_id: transactionCode,
-        app_user: String(effectiveUserId),
-        amount: finalAmount,
-        description: `Thanh toan don hang Lumi Cinema #${payment.id} - ${screening.movie.title}`,
-        item: ticketBreakdown.map(t => ({ name: t.type, quantity: t.quantity, price: t.unit_price })),
-        embed_data: {
-          payment_id: payment.id,
-          redirecturl: `${process.env.NEXTAUTH_URL || 'http://localhost:3000'}/api/payments/zalopay-return`,
-        },
-      });
-
-      orderUrl = zaloPayOrder.order_url || '';
-      zpTransToken = zaloPayOrder.zp_trans_token || '';
-      qrCode = zaloPayOrder.qr_code || orderUrl;
-      paymentUrl = orderUrl;
-    }
-
+    // 8. TẠO THÔNG TIN CỔNG THANH TOÁN NỘI BỘ (ZaloPay Gateway & VNPay Gateway có tài khoản bên thứ 3 + kiểm tra số dư)
     const orderInfo = `Thanh toan don hang Lumi Cinema #${payment.id} - ${screening.movie.title}`;
-    const vnpayQuery = new URLSearchParams({
+    const gatewayQuery = new URLSearchParams({
       payment_id: String(payment.id),
       txn_code: transactionCode,
       amount: String(finalAmount),
@@ -597,10 +573,22 @@ export async function POST(request: NextRequest) {
       coupon_code: appliedCouponInfo ? appliedCouponInfo.code : '',
     });
 
-    const mockVnpayUrl = `/payments/vnpay-mock?${vnpayQuery.toString()}`;
-    if (!paymentUrl) {
-      paymentUrl = mockVnpayUrl;
-      orderUrl = mockVnpayUrl;
+    const mockVnpayUrl = `/payments/vnpay-mock?${gatewayQuery.toString()}`;
+    const mockZaloPayUrl = `/payments/zalopay-mock?${gatewayQuery.toString()}`;
+
+    let paymentUrl = mockVnpayUrl;
+    let orderUrl = mockVnpayUrl;
+    let zpTransToken = '';
+    let qrCode = '';
+
+    if (paymentMethodEnum === PaymentMethod.ZaloPay) {
+      // Dùng cổng ZaloPay Sandbox nội bộ (/payments/zalopay-mock) để tránh lỗi bảo trì từ qcgateway.zalopay.vn
+      zpTransToken = Buffer.from(transactionCode).toString('base64');
+      orderUrl = mockZaloPayUrl;
+      paymentUrl = mockZaloPayUrl;
+      qrCode = `ZALOPAY|${transactionCode}|${finalAmount}`;
+    } else {
+      qrCode = `VNPAY|${transactionCode}|${finalAmount}`;
     }
 
     // 9. TRẢ VỀ DỮ LIỆU KẾT QUẢ CHUẨN

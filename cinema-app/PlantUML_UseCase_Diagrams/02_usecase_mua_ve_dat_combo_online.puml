@@ -1,0 +1,35 @@
+@startuml
+title Sơ đồ Use Case - Quản Lý Mua Vé & Đặt Combo Online
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor #F8FAFC
+  BorderColor #334155
+  ArrowColor #475569
+}
+
+actor "Khách hàng" as Customer
+
+rectangle "Quản lý mua vé và đặt combo online" {
+  usecase "Mua vé và đặt combo online" as UC_Main
+  usecase "Xem phim và suất chiếu" as UC_View
+  usecase "Chọn ghế" as UC_Seat
+  usecase "Chọn loại vé" as UC_TicketType
+  usecase "Thanh toán online" as UC_Pay
+  usecase "Thanh toán ZaloPay / VNPay\n(Gateway có số dư & nạp tiền)" as UC_Gateway
+  usecase "Thêm combo" as UC_Combo
+  usecase "Áp dụng voucher" as UC_Voucher
+}
+
+Customer --> UC_Main
+
+UC_Main ..> UC_View : <<include>>
+UC_Main ..> UC_Seat : <<include>>
+UC_Main ..> UC_TicketType : <<include>>
+UC_Main ..> UC_Pay : <<include>>
+UC_Pay ..> UC_Gateway : <<include>>
+
+UC_Combo ..> UC_Main : <<extend>>
+UC_Voucher ..> UC_Main : <<extend>>
+@enduml

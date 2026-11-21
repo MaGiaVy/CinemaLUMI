@@ -5,6 +5,7 @@ import Link from 'next/link';
 import Image from 'next/image';
 import Modal from '@/components/ui/Modal';
 import Toast, { ToastMessage } from '@/components/ui/Toast';
+import StreamgraphRevenueChart from '@/components/admin/StreamgraphRevenueChart';
 import { AdminDashboardResponseData } from '@/app/api/admin/dashboard/route';
 
 interface LiveRoomInfo {
@@ -29,8 +30,6 @@ export default function AdminDashboardPage() {
   const [data, setData] = useState<AdminDashboardResponseData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [chartPeriod, setChartPeriod] = useState<'7d' | '30d'>('7d');
-  const [activeChartBar, setActiveChartBar] = useState<number | null>(null);
 
   // Emergency Cancellation Modal State (BR-04/BR-05)
   const [isEmergencyModalOpen, setIsEmergencyModalOpen] = useState(false);
@@ -190,19 +189,7 @@ export default function AdminDashboardPage() {
     },
   ];
 
-  // Chart Data preparation
-  const todayRev = data?.today?.total_revenue || 125400000;
-  const todayTickets = data?.today?.tickets_sold || 1184;
 
-  const chartBars = [
-    { label: 'Thứ 2', revenue: Math.round(todayRev * 0.45), tickets: Math.round(todayTickets * 0.45), heightPct: 45 },
-    { label: 'Thứ 3', revenue: Math.round(todayRev * 0.55), tickets: Math.round(todayTickets * 0.55), heightPct: 55 },
-    { label: 'Thứ 4', revenue: Math.round(todayRev * 0.62), tickets: Math.round(todayTickets * 0.62), heightPct: 62 },
-    { label: 'Thứ 5', revenue: Math.round(todayRev * 0.70), tickets: Math.round(todayTickets * 0.70), heightPct: 70 },
-    { label: 'Thứ 6', revenue: Math.round(todayRev * 0.90), tickets: Math.round(todayTickets * 0.90), heightPct: 90 },
-    { label: 'Thứ 7', revenue: Math.round(todayRev * 1.05), tickets: Math.round(todayTickets * 1.05), heightPct: 100 },
-    { label: 'Hôm nay', revenue: todayRev, tickets: todayTickets, heightPct: 85, isCurrent: true },
-  ];
 
   return (
     <div className="flex-1 p-6 lg:p-8 space-y-6 max-w-[1600px] w-full mx-auto">
@@ -613,101 +600,15 @@ export default function AdminDashboardPage() {
         </div>
 
         {/* ============================================================== */}
-        {/* BIỂU ĐỒ DOANH THU THEO NGÀY (COSMIC REVENUE BAR CHART - SPAN 8) */}
+        {/* BIỂU ĐỒ DÒNG CHẢY DOANH THU ĐỐI XỨNG (REALTIME STREAMGRAPH)     */}
         {/* ============================================================== */}
-        <div
-          className="col-span-12 lg:col-span-8 rounded-2xl p-6 border border-[#c084fc]/25 backdrop-blur-2xl shadow-[0_10px_40px_rgba(0,0,0,0.8)] relative overflow-hidden"
-          style={{
-            background:
-              'radial-gradient(circle at 0% 100%, rgba(136, 19, 55, 0.2) 0%, transparent 60%), rgba(15, 11, 26, 0.85)',
-          }}
-        >
-          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-6 pb-3 border-b border-white/[0.08]">
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[#e11d48] text-sm">✦</span>
-                <span className="text-xs font-black uppercase tracking-wider text-[#c084fc]">
-                  BIỂU ĐỒ DOANH THU THEO NGÀY
-                </span>
-              </div>
-              <p className="text-[11px] text-[#94a3b8] mt-0.5">
-                Số liệu cập nhật theo từng giao dịch thành công (Di chuột để xem doanh số chi tiết)
-              </p>
-            </div>
-
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={() => setChartPeriod('7d')}
-                className={`px-3 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
-                  chartPeriod === '7d'
-                    ? 'bg-gradient-to-r from-[#e11d48] to-[#9f1239] text-white shadow-[0_0_12px_rgba(225,29,72,0.4)]'
-                    : 'bg-white/[0.05] text-[#94a3b8] hover:text-white border border-white/[0.08]'
-                }`}
-              >
-                7 Ngày Qua
-              </button>
-              <button
-                type="button"
-                onClick={() => setChartPeriod('30d')}
-                className={`px-3 py-1 rounded-md text-[11px] font-bold transition-all cursor-pointer ${
-                  chartPeriod === '30d'
-                    ? 'bg-gradient-to-r from-[#e11d48] to-[#9f1239] text-white shadow-[0_0_12px_rgba(225,29,72,0.4)]'
-                    : 'bg-white/[0.05] text-[#94a3b8] hover:text-white border border-white/[0.08]'
-                }`}
-              >
-                30 Ngày Qua
-              </button>
-            </div>
-          </div>
-
-          {/* Interactive Glowing Bar Chart */}
-          <div className="h-44 w-full flex items-end gap-3.5 sm:gap-6 pt-4 border-b border-white/[0.08] relative">
-            {chartBars.map((bar, i) => {
-              const isHovered = activeChartBar === i;
-
-              return (
-                <div
-                  key={bar.label}
-                  className="flex-1 flex flex-col items-center justify-end h-full relative group cursor-pointer"
-                  onMouseEnter={() => setActiveChartBar(i)}
-                  onMouseLeave={() => setActiveChartBar(null)}
-                >
-                  {/* Tooltip on hover */}
-                  {isHovered && (
-                    <div className="absolute -top-10 px-2.5 py-1 bg-[#0a0812] border border-[#e11d48]/50 rounded-md text-[10px] font-bold text-white shadow-[0_0_15px_rgba(225,29,72,0.5)] whitespace-nowrap z-20 pointer-events-none">
-                      {bar.revenue.toLocaleString('vi-VN')} đ · {bar.tickets} vé
-                    </div>
-                  )}
-
-                  {/* Glowing Bar Pillar */}
-                  <div
-                    className={`w-full rounded-t-md transition-all duration-300 ${
-                      isHovered
-                        ? 'bg-gradient-to-t from-[#881337] via-[#e11d48] to-[#fda4af] shadow-[0_0_25px_rgba(225,29,72,0.85)] scale-y-105'
-                        : 'bg-gradient-to-t from-purple-900/40 via-[#881337] to-[#e11d48] shadow-[0_0_14px_rgba(225,29,72,0.4)]'
-                    }`}
-                    style={{ height: `${bar.heightPct}%` }}
-                  />
-
-                  {/* Label */}
-                  <span
-                    className={`text-[11px] mt-2 font-semibold ${
-                      bar.isCurrent ? 'text-[#fda4af] font-extrabold' : 'text-[#94a3b8]'
-                    }`}
-                  >
-                    {bar.label}
-                  </span>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="flex items-center justify-between text-[11px] text-[#94a3b8] mt-3">
-            <span>Đơn vị: VNĐ (Bao gồm vé xem phim và combo bắp nước)</span>
-            <span className="text-[#a78bfa]">Cập nhật tức thì (Realtime)</span>
-          </div>
-        </div>
+        <StreamgraphRevenueChart
+          totalRevenue={data?.all_time?.total_revenue}
+          ticketRevenue={3025000}
+          comboRevenue={1651000}
+          ticketCount={data?.all_time?.tickets_sold}
+          comboCount={11}
+        />
 
         {/* ============================================================== */}
         {/* LŨY KẾ TOÀN THỜI GIAN (ALL-TIME LIFETIME OVERVIEW - SPAN 4)     */}

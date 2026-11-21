@@ -8,9 +8,9 @@ skinparam shadowing false
 title SƠ ĐỒ TUẦN TỰ: CHỌN LOẠI VÉ
 
 actor "Khách hàng" as A
-boundary "Giao diện chọn loại vé" as UI
-control "Điều khiển mua vé" as C
-entity "Dữ liệu hệ thống" as DB
+participant "Giao diện chọn loại vé" as UI
+participant "Điều khiển mua vé" as C
+participant "Dữ liệu hệ thống" as DB
 
 activate A
 A -> UI: Chuyển sang bước chọn loại vé cho các ghế đang giữ

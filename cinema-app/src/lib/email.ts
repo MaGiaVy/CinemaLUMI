@@ -489,10 +489,104 @@ export async function sendVoucherIssued(
   }
 }
 
+export interface CashRefundEmailInfo {
+  customerName?: string;
+  ticketId: number | string;
+  movieTitle?: string;
+  seatCode?: string | null;
+  refundAmount: number;
+  receiptNo: string;
+  reason?: string;
+}
+
+/**
+ * Gửi email thông báo hủy vé & chứng từ hoàn tiền mặt 100% tại quầy (UC-15)
+ */
+export async function sendTicketCancelledCashRefund(
+  email: string,
+  info: CashRefundEmailInfo
+): Promise<SendEmailResult> {
+  try {
+    const customerName = info.customerName || 'Quý khách';
+    const formattedAmount = `${Math.round(info.refundAmount || 0).toLocaleString('vi-VN')} đ`;
+    const ticketCode = `#LMC-${String(info.ticketId).padStart(6, '0')}`;
+    const movieTitle = info.movieTitle || 'Suất chiếu tại Lumi Cinema';
+    const seatLine = info.seatCode ? ` • Ghế ${info.seatCode}` : '';
+    const reason = info.reason || 'Xử lý sự cố tại quầy / Sự cố kỹ thuật phòng chiếu (UC-15)';
+
+    const htmlContent = `
+<!DOCTYPE html>
+<html lang="vi">
+<head><meta charset="UTF-8" /></head>
+<body style="margin: 0; padding: 0; background-color: #141414; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif; color: #FFFFFF;">
+  <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #141414; padding: 32px 16px;">
+    <tr>
+      <td align="center">
+        <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width: 600px; background-color: #1F1F1F; border-radius: 16px; overflow: hidden; border: 1px solid #333333;">
+          <tr>
+            <td style="background: linear-gradient(135deg, #E50914 0%, #83050B 100%); padding: 28px 32px; text-align: center;">
+              <div style="font-size: 24px; font-weight: 900; letter-spacing: 2px; color: #FFFFFF; margin-bottom: 6px;">LUMI CINEMA</div>
+              <div style="font-size: 13px; color: #FFE4E6; text-transform: uppercase; letter-spacing: 1px; font-weight: 600;">
+                Thông Báo Hủy Vé &amp; Chứng Từ Hoàn Tiền 100%
+              </div>
+            </td>
+          </tr>
+          <tr>
+            <td style="padding: 28px 32px; font-size: 14px; line-height: 1.6; color: #D4D4D4;">
+              <p style="margin: 0 0 12px 0; color: #FFFFFF; font-size: 16px; font-weight: 700;">Xin chào ${customerName},</p>
+              <p style="margin: 0 0 18px 0;">
+                Vé xem phim của bạn tại <strong>Lumi Cinema</strong> đã được nhân viên xử lý hủy và hoàn trả <strong>100% tiền mặt tại quầy</strong>.
+              </p>
+              <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background-color: #171717; border-radius: 12px; border: 1px solid #2B2B2B; padding: 16px; margin-bottom: 18px;">
+                <tr><td style="padding: 6px 0; color: #A3A3A3;">Mã vé:</td><td style="padding: 6px 0; text-align: right; color: #FFFFFF; font-weight: 700;">${ticketCode}</td></tr>
+                <tr><td style="padding: 6px 0; color: #A3A3A3;">Phim &amp; Ghế:</td><td style="padding: 6px 0; text-align: right; color: #FFFFFF; font-weight: 700;">${movieTitle}${seatLine}</td></tr>
+                <tr><td style="padding: 6px 0; color: #A3A3A3;">Số chứng từ hoàn tiền:</td><td style="padding: 6px 0; text-align: right; color: #FDA4AF; font-family: monospace; font-weight: 700;">${info.receiptNo}</td></tr>
+                <tr><td style="padding: 6px 0; color: #A3A3A3;">Số tiền hoàn (100%):</td><td style="padding: 6px 0; text-align: right; color: #4ADE80; font-size: 16px; font-weight: 800;">${formattedAmount}</td></tr>
+                <tr><td style="padding: 6px 0; color: #A3A3A3;">Lý do:</td><td style="padding: 6px 0; text-align: right; color: #E5E5E5;">${reason}</td></tr>
+              </table>
+              <p style="margin: 0; font-size: 12px; color: #A3A3A3;">
+                Lumi Cinema thành thật xin lỗi vì sự bất tiện này và mong được phục vụ bạn trong những suất chiếu tiếp theo.
+              </p>
+            </td>
+          </tr>
+          <tr>
+            <td style="background-color: #171717; border-top: 1px solid #2D2D2D; padding: 18px 32px; text-align: center;">
+              <p style="color: #737373; font-size: 11px; margin: 0;">Lumi Cinema • Hotline: 1900 8888 • Hỗ trợ: support@lumicinema.vn</p>
+            </td>
+          </tr>
+        </table>
+      </td>
+    </tr>
+  </table>
+</body>
+</html>
+    `;
+
+    if (isRealSmtpConfigured) {
+      const mailInfo = await transporter.sendMail({
+        from: EMAIL_FROM,
+        to: email,
+        subject: `[Lumi Cinema] Xác nhận hủy vé ${ticketCode} & hoàn tiền 100% (${formattedAmount})`,
+        html: htmlContent,
+      });
+      console.info(`[EmailService] Cash refund cancellation email sent to ${email}. MessageId: ${mailInfo.messageId}`);
+      return { success: true, messageId: mailInfo.messageId };
+    } else {
+      console.info(`[EmailService:Simulated] Cash refund email for ${email} generated (${info.receiptNo}).`);
+      return { success: true, messageId: `mock_refund_mail_${Date.now()}`, simulated: true };
+    }
+  } catch (error) {
+    const errorMsg = error instanceof Error ? error.message : 'Unknown email error';
+    console.error(`[EmailService] Failed to send cash refund email to ${email}:`, errorMsg);
+    return { success: false, error: errorMsg };
+  }
+}
+
 const emailService = {
   transporter,
   sendTicketConfirmation,
   sendVoucherIssued,
+  sendTicketCancelledCashRefund,
 };
 
 export default emailService;

@@ -8,7 +8,7 @@ skinparam wrapWidth 180
 
 |Khách hàng|
 |Hệ thống|
-|Cổng ZaloPay Sandbox v2|
+|Cổng thanh toán nội bộ|
 |Khách hàng|
 start
 :Chọn phim đang chiếu;
@@ -76,38 +76,44 @@ endif
 :Hiển thị thông tin đơn hàng và số tiền cần thanh toán;
 
 |Khách hàng|
-:Chọn thanh toán trực tuyến qua ZaloPay Sandbox v2;
+:Chọn thanh toán trực tuyến\n(ZaloPay hoặc VNPay);
 
 |Hệ thống|
-:Tạo đơn hàng Payment (status = 'Pending')\nvà vé tạm (bảo vệ bởi Partial Unique Index unique_active_ticket);
-:Gọi API tạo đơn ZaloPay Sandbox v2\n(app_id: 2553, ký HMAC-SHA256 bằng ZALOPAY_KEY1);
+:Gọi POST /api/payments/initiate (201 Created)\ntạo Payment (status = 'Pending') & trả về URL cổng thanh toán;
 
-|Cổng ZaloPay Sandbox v2|
-:Tiếp nhận yêu cầu tạo đơn\nvà trả về order_url;
+|Cổng thanh toán nội bộ|
+:Mở trang /payments/zalopay-mock\nhoặc /payments/vnpay-mock;
+:Gọi GET /api/payments/gateway-wallet\nlấy danh sách 3 tài khoản bên thứ 3 & số dư;
 
 |Khách hàng|
-:Thực hiện thanh toán trên cổng ZaloPay Sandbox v2;
+:Chọn tài khoản bên thứ 3\nvà xác nhận thanh toán;
 
-|Cổng ZaloPay Sandbox v2|
-:Xử lý giao dịch, gửi Webhook IPN (/api/payments/zalopay/callback)\nvà điều hướng về Return URL (/api/payments/zalopay/return);
+|Cổng thanh toán nội bộ|
+:Gọi POST /api/payments/gateway-wallet\nkiểm tra số dư tài khoản bên thứ 3;
+while (Đủ số dư?) is (Không - INSUFFICIENT_BALANCE)
+  :Thông báo thiếu số dư & hiển thị tùy chọn nạp tiền;
+  |Khách hàng|
+  :Nạp thêm tiền vào tài khoản\n(POST /api/payments/gateway-wallet, action: 'topup');
+  |Cổng thanh toán nội bộ|
+  :Cập nhật số dư mới và kiểm tra lại;
+endwhile (Có)
 
 |Hệ thống|
-:Xác thực chữ ký HMAC-SHA256 (ZALOPAY_KEY2)\ncủa Callback IPN & Return URL (return_code == 1);
-if (Thành công?) then (Có)
-  :Cập nhật Payment.status = 'Success';
-  :Chuyển các vé sang Valid\n(ràng buộc chống bán trùng unique_active_ticket);
-  :Chuyển các ghế sang OCCUPIED;
+:Kiểm tra thời hạn giữ chỗ 10 phút (HOLD_EXPIRED)\nvà trừ tiền tài khoản (debitThirdPartyAccountIfSufficient);
+if (Còn hạn & Thành công?) then (Có)
+  :Gọi processZaloPayPaymentSuccess()\nhoặc processVnpayIpnTransaction();
+  :Cập nhật Payment.status = 'Success',\nTicket = 'Valid', Seat = 'OCCUPIED';
   :Chuyển ComboReservation sang COMPLETED\nvà tạo OrderCombo (isDelivered = false);
   :Tăng lượt dùng voucher (Coupon.usedCount + 1);
-  :Sinh chữ ký HMAC-SHA256 trên mã vé\nvà hiển thị mã QR bằng <QRCodeSVG />;
-  :Gửi email xác nhận kèm vé điện tử;
+  :Chuyển hướng về /payment-result,\nhiển thị vé điện tử kèm mã QR (<QRCodeSVG />);
   |Khách hàng|
   :Nhận vé điện tử có mã QR (<QRCodeSVG />);
   stop
-else (Không)
+else (Không - Quá hạn / Lỗi / Xung đột ghế)
   |Hệ thống|
-  :Cập nhật Payment.status = 'Failed', hủy vé tạm\nvà giải phóng ghế về EMPTY;
-  :Giải phóng ComboReservation (RELEASED) hoàn tồn kho combo\nvà bảo toàn lượt dùng voucher;
+  :Hoàn tiền về tài khoản bên thứ 3 nếu đã trừ tiền\n(refundThirdPartyAccount);
+  :Cập nhật Payment.status = 'Failed', giải phóng ghế về EMPTY\nvà hoàn tồn kho ComboReservation (RELEASED);
+  :Chuyển hướng về /payment-result báo lỗi;
   |Khách hàng|
   :Nhận thông báo giao dịch chưa hoàn tất;
   stop

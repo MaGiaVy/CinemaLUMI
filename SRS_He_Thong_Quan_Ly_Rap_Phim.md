@@ -218,6 +218,16 @@ Hệ thống tích hợp trực tiếp với cổng thanh toán **ZaloPay Sandbo
   - **Endpoint tiếp nhận nội bộ:** `GET /api/payments/zalopay/return`
   - **Cơ chế kiểm tra & đồng bộ:** Tiếp nhận các tham số truy vấn (`appid`, `apptransid`, `pmcid`, `bankcode`, `amount`, `discountamount`, `status`, `checksum`) khi trình duyệt người dùng được ZaloPay chuyển hướng về. Hệ thống kiểm tra chữ ký `checksum` bằng `ZALOPAY_KEY2` (nối chuỗi `appid|apptransid|pmcid|bankcode|amount|discountamount|status`), đồng bộ trạng thái đơn hàng (đảm bảo tính lũy đẳng *Idempotency* nếu Callback IPN đã xử lý trước đó) và chuyển hướng người dùng tới trang kết quả vé điện tử.
 
+#### 1b. Cổng thanh toán Gateway nội bộ (`/payments/zalopay-mock`, `/payments/vnpay-mock`) & API `/api/payments/gateway-wallet`
+Để phục vụ kiểm thử và vận hành khép kín không phụ thuộc kết nối ngoài, hệ thống cung cấp 2 trang Gateway nội bộ mô phỏng đầy đủ nghiệp vụ ví điện tử bên thứ 3:
+- **Khởi tạo & Điều hướng:** Khách hàng chọn cổng thanh toán (**ZaloPay** hoặc **VNPay**, loại bỏ MoMo) -> gọi `POST /api/payments/initiate` -> điều hướng sang `/payments/zalopay-mock` hoặc `/payments/vnpay-mock`.
+- **Quản lý 3 tài khoản ví bên thứ 3 (`GET/POST /api/payments/gateway-wallet`):**
+  - Cung cấp sẵn **3 tài khoản bên thứ 3** với số dư độc lập để người dùng lựa chọn khi thanh toán.
+  - **Kiểm tra số dư (`INSUFFICIENT_BALANCE`):** Khi xác nhận thanh toán, API kiểm tra số dư ví hiện tại so với tổng tiền đơn hàng (`amount`). Nếu không đủ, trả về mã lỗi `INSUFFICIENT_BALANCE` kèm số tiền còn thiếu.
+  - **Nạp thêm tiền (`action: 'topup'`):** Cho phép người dùng nạp trực tiếp số tiền vào tài khoản ví đã chọn ngay trên giao diện Gateway rồi tiếp tục thanh toán.
+  - **Trừ tiền & Tự động hoàn tiền ví khi xung đột DB:** Sau khi trừ số dư ví thành công, hệ thống thực thi `prisma.$transaction` để khóa ghế (`OCCUPIED`), xuất vé (`Ticket`) và trừ tồn kho combo. Nếu phát sinh lỗi DB hoặc xung đột ghế (ví dụ hết hạn 10 phút giữ chỗ), API tự động cộng hoàn lại đúng số tiền đã trừ vào ví bên thứ 3 (*Auto Wallet Refund*) trước khi trả lỗi.
+  - **Hoàn tất:** Chuyển hướng trình duyệt tới `/payment-result` và gửi Email xác nhận vé điện tử qua `sendTicketConfirmation` (chỉ dùng kênh Email, không dùng SMS).
+
 #### 2. Hệ quản trị Cơ sở dữ liệu Docker PostgreSQL 16 & Prisma ORM
 - **Chuỗi kết nối vật lý (`DATABASE_URL`):** `postgresql://postgres:postgrespassword@localhost:5434/lumicinema?schema=public`.
 - **Giao thức giao tiếp:** Ứng dụng Next.js giao tiếp với container `lumicinema_db` (PostgreSQL 16 Alpine) thông qua **Prisma Client ORM** sử dụng giao thức nhị phân TCP/IP trên cổng `5434`, hỗ trợ quản lý kết nối (Connection Pooling) và thực thi các giao dịch nguyên tử (`prisma.$transaction`) đảm bảo tính toàn vẹn ACID.
@@ -599,10 +609,12 @@ Hệ thống tích hợp trực tiếp với cổng thanh toán **ZaloPay Sandbo
 
 #### 4.6.2 Danh mục Yêu cầu Chức năng
 - **FR-CAN-01 (Hủy từng vé lẻ độc lập & Cấp Voucher bồi hoàn 50% - BR-03):** Trong một đơn hàng gồm nhiều ghế, khách hàng được phép chọn hủy từng vé lẻ (`Ticket`) qua `POST /api/tickets/[id]/cancel` mà không làm ảnh hưởng đến các vé còn lại trong cùng hóa đơn. Nếu thỏa mãn điều kiện `status === 'Valid'` và trước giờ chiếu `>= 2 tiếng`, hệ thống thực thi giao dịch nguyên tử: chuyển vé sang `Cancelled`, giải phóng ghế về `EMPTY`, sinh mã `Coupon` định dạng `COMP50_[TicketID]_[4_Digits]` (`discountType = 'Percentage'`, `discountValue = 50`, hạn 30 ngày, gắn riêng cho `userId` của khách) và gửi email thông báo bất đồng bộ.
-- **FR-CAN-02 (Quy trình hủy vé sự cố rạp & Đối soát hoàn tiền mặt 100% - UC-15):**
-  - Khi rạp gặp sự cố kỹ thuật (mất điện, hỏng máy chiếu) hoặc xử lý ngoại lệ tại quầy, Nhân viên (`STAFF`) hoặc `ADMIN` thực hiện hủy vé qua `POST /api/staff/tickets/[id]/cancel-with-voucher` (hoặc khi Admin hủy suất chiếu khẩn cấp).
+- **FR-CAN-02 (Quy trình hủy vé sự cố rạp 1 bước - UC-15):**
+  - Khi rạp gặp sự cố kỹ thuật (mất điện, hỏng máy chiếu) hoặc xử lý ngoại lệ tại quầy, Nhân viên (`STAFF`) hoặc `ADMIN` thực hiện hủy vé hoàn tất ngay trong **1 bước** qua `POST /api/staff/tickets/[id]/cancel-with-voucher` (không sử dụng quy trình 2 bước `PENDING_CASH_REFUND` / `confirm-cash-refund`).
   - Hệ thống chuyển trạng thái vé sang `Cancelled` kèm lý do chi tiết trong `cancellationReason`, giải phóng ghế về `EMPTY`. Nếu toàn bộ vé trong đơn `Payment` đều đã hủy, trạng thái `Payment.status` tự động chuyển sang `Refunded`.
-  - Đối với khách mua online bị hủy do sự cố suất chiếu (ghi nhận công nợ chờ hoàn `PENDING_CASH_REFUND`), khách có thời hạn **30 ngày** để đến quầy xuất trình mã vé nhận lại 100% tiền mặt. Khi nhân viên xác nhận chi quỹ hoàn tiền tại quầy, hệ thống xuất phiếu chi điện tử (`cash_receipt: REF-CASH-...` / trạng thái `REFUNDED_CASH` / `COMPLETED_CASH_REFUND`) và ghi nhận nhật ký kiểm toán (`audit_log`) gồm `staff_id`, `staff_role`, `ticket_id`, `refund_amount`, `reason` và `timestamp`.
+  - Hỗ trợ 2 phương án đền bù hoàn tất tức thời trong 1 bước kèm ghi nhận `audit_log` (`staff_id`, `staff_role`, `ticket_id`, `refund_amount`, `reason`, `timestamp`):
+    1. **Hoàn tiền mặt 100% (`refund_method: 'CASH'`):** Hệ thống xuất phiếu chi điện tử (`cash_receipt: REF-CASH-...`) và tự động gửi Email thông báo hoàn tiền mặt qua `sendTicketCancelledCashRefund`.
+    2. **Cấp Voucher bồi hoàn 100% (`refund_method: 'VOUCHER'`):** Hệ thống tạo mã Voucher giảm 100% (`COMP100_...`) và tự động gửi Email thông báo mã voucher qua `sendVoucherIssued`.
 - **FR-CAN-03 (Chặn tuyệt đối hủy vé đã sử dụng):** Bất kỳ vé nào đã chuyển sang trạng thái `Used` (đã quét QR check-in vào phòng chiếu) đều bị khóa cứng, không được phép hủy hoặc hoàn tiền dưới mọi hình thức.
 
 #### 4.6.3 Đặc tả Chi tiết Luồng Nghiệp vụ & Kỹ thuật (Diagram-Ready Specification)
@@ -815,6 +827,8 @@ Hệ thống tích hợp trực tiếp với cổng thanh toán **ZaloPay Sandbo
   7. **Tỷ lệ lấp đầy phòng chiếu (`Fill Rate %`):**
      $$\text{Fill Rate (\%)} = \text{round}\left(\frac{\text{Tickets Sold}}{\text{Total Seats Capacity (50 ghế/suất)}} \times 100,\ 1\right)$$
 - **FR-REP-03 (Tính nhất quán kế toán - Anti-Double Deduction):** Báo cáo đảm bảo tính chính xác tuyệt đối bằng cách tính `Net Ticket Revenue` trực tiếp trên tập vé còn hiệu lực (`status IN ('Valid', 'Used')`), hoàn toàn tách biệt với tập vé đã hủy (`status === 'Cancelled'`). Nhờ đó, hệ thống tuyệt đối không bao giờ trừ trùng doanh thu hai lần cho cùng một vé bị hủy.
+- **FR-REP-04 (Biểu đồ Doanh thu Streamgraph trên Admin Dashboard - `StreamgraphRevenueChart.tsx`):** Trang tổng quan quản trị (`/admin`) tích hợp thành phần `StreamgraphRevenueChart.tsx` trực quan hóa biến động doanh thu theo thời gian (phân tách dòng doanh thu vé và combo) kèm tooltip chi tiết khi di chuột.
+- **FR-REP-05 (Xuất báo cáo định dạng CSV - `/admin/reports`):** Tại trang báo cáo chi tiết `/admin/reports`, Quản trị viên có thể xuất toàn bộ bảng dữ liệu đối soát doanh thu đang lọc ra tệp **CSV** chuẩn UTF-8 (thay thế cho PDF/Excel) để phục vụ lưu trữ và đối soát kế toán.
 
 #### 4.9.2 Đặc tả Chi tiết Luồng Nghiệp vụ & Kỹ thuật (Diagram-Ready Specification)
 

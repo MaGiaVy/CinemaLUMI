@@ -8,9 +8,9 @@ skinparam shadowing false
 title SƠ ĐỒ TUẦN TỰ: THÊM COMBO VÀO ĐƠN HÀNG
 
 actor "Khách hàng" as A
-boundary "Giao diện chọn combo" as UI
-control "Điều khiển mua vé" as C
-entity "Dữ liệu hệ thống" as DB
+participant "Giao diện chọn combo" as UI
+participant "Điều khiển mua vé" as C
+participant "Dữ liệu hệ thống" as DB
 
 activate A
 A -> UI: Chuyển sang bước chọn thêm combo bắp nước

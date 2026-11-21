@@ -6,65 +6,37 @@ skinparam shadowing false
 skinparam monochrome true
 skinparam wrapWidth 180
 
-|Người dùng (Khách hàng)|
+|Khách hàng|
+|Hệ thống|
+|Khách hàng|
 start
-:Truy cập trang Đăng ký (/register);
+:Truy cập trang Đăng ký (/signup);
 :Nhập thông tin (Họ tên, Email,\nMật khẩu, Xác nhận, SĐT);
 :Bấm nút "Tạo tài khoản";
 
-|Giao diện (Frontend Next.js)|
-:Thu thập dữ liệu form;
-:Thực hiện Client-side Validation;
-
-if (Hợp lệ?) then (Không:\nSai regex hoặc pass < 6 ký tự)
-  :Hiển thị lỗi tại từng trường;
-  |Người dùng (Khách hàng)|
+|Hệ thống|
+:Kiểm tra hợp lệ dữ liệu đầu vào;
+if (Thông tin hợp lệ?) then (Không:\nThiếu trường hoặc mật khẩu < 6 ký tự)
+  :Hiển thị thông báo lỗi tại từng ô nhập;
+  |Khách hàng|
   :Chỉnh sửa lại thông tin;
   stop
 else (Có)
-  |Giao diện (Frontend Next.js)|
-  :Hiển thị trạng thái Loading;
-  :Gửi request POST /api/auth/signup;
-
-  |Máy chủ xử lý (Backend API / NextAuth)|
-  :Tiếp nhận request tại Route Handler;
-  :Xác thực cấu trúc dữ liệu Zod;
-  :Chuẩn hóa email.toLowerCase().trim();
-  :Khởi tạo truy vấn kiểm tra email;
-
-  |Cơ sở dữ liệu (PostgreSQL)|
-  :Thực thi prisma.user.findUnique;
-  :Trả về kết quả kiểm tra;
-
-  |Máy chủ xử lý (Backend API / NextAuth)|
-  if (Đã tồn tại?) then (Có:\nTrùng email trong DB)
-    :Sinh phản hồi lỗi HTTP 409 Conflict;
-    |Giao diện (Frontend Next.js)|
-    :Tắt Loading & hiển thị Toast lỗi;
-    |Người dùng (Khách hàng)|
-    :Đổi email khác hoặc sang Đăng nhập;
+  |Hệ thống|
+  :Chuẩn hóa email và kiểm tra\ntrùng lặp trong CSDL;
+  if (Email đã tồn tại?) then (Có:\nTrùng email)
+    :Báo lỗi Email đã được sử dụng (409);
+    |Khách hàng|
+    :Đổi email khác hoặc chuyển sang Đăng nhập;
     stop
   else (Không)
-    |Máy chủ xử lý (Backend API / NextAuth)|
-    :Băm mật khẩu bcrypt (salt=12);
-    :Khởi tạo lệnh tạo user (role CUSTOMER);
+    |Hệ thống|
+    :Mã hóa mật khẩu bằng bcrypt;
+    :Lưu tài khoản mới với vai trò CUSTOMER;
+    :Hiển thị thông báo "Đăng ký thành công!"\nvà chuyển hướng về trang Đăng nhập (/login);
 
-    |Cơ sở dữ liệu (PostgreSQL)|
-    :Thực thi prisma.user.create;
-    :Lưu bản ghi vào bảng users;
-    :Trả về bản ghi user mới;
-
-    |Máy chủ xử lý (Backend API / NextAuth)|
-    :Loại bỏ hash password khỏi payload;
-    :Đóng gói phản hồi HTTP 201 Created;
-
-    |Giao diện (Frontend Next.js)|
-    :Tắt trạng thái Loading;
-    :Hiển thị Toast "Đăng ký thành công!";
-    :Kích hoạt chuyển hướng về /login;
-
-    |Người dùng (Khách hàng)|
-    :Được chuyển hướng về trang Đăng nhập\nvà sẵn sàng sử dụng tài khoản mới;
+    |Khách hàng|
+    :Chuyển sang trang Đăng nhập để sử dụng tài khoản;
     stop
   endif
 endif

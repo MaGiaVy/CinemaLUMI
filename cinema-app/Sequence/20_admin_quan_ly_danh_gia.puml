@@ -8,9 +8,9 @@ skinparam shadowing false
 skinparam defaultTextAlignment center
 
 actor "Quản trị viên\n(Admin)" as AD
-boundary "Giao diện Quản trị\n(Frontend Next.js)" as UI
-control "API Quản trị Đánh giá\n(Next.js App Router)" as API
-entity "Cơ sở dữ liệu\n(Docker PostgreSQL / Prisma)" as DB
+participant "Giao diện Quản trị\n(Frontend Next.js)" as UI
+participant "API Quản trị Đánh giá\n(Next.js App Router)" as API
+participant "Cơ sở dữ liệu\n(Docker PostgreSQL / Prisma)" as DB
 
 activate AD
 AD -> UI : Truy cập mục Quản lý đánh giá phim (/admin/reviews)

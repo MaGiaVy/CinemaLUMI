@@ -79,5 +79,10 @@ export async function GET(request: NextRequest) {
     resultUrl.searchParams.set('amount', String(paidAmount));
   }
 
+  const screeningId = searchParams.get('screening_id');
+  if (screeningId) {
+    resultUrl.searchParams.set('screening_id', screeningId);
+  }
+
   return NextResponse.redirect(resultUrl);
 }

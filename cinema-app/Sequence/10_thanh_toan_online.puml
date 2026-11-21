@@ -5,81 +5,94 @@ skinparam style strictuml
 skinparam monochrome true
 skinparam defaultTextAlignment center
 skinparam shadowing false
-title SƠ ĐỒ TUẦN TỰ: XỬ LÝ THANH TOÁN ONLINE QUA ZALOPAY SANDBOX V2
+title SƠ ĐỒ TUẦN TỰ: XỬ LÝ THANH TOÁN ONLINE QUA CỔNG NỘI BỘ (ZALOPAY & VNPAY GATEWAY)
 
 actor "Khách hàng" as A
-boundary "Giao diện thanh toán\n(Frontend Next.js)" as UI
-control "API Thanh toán\n(Next.js App Router)" as C
-entity "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
-participant "Cổng ZaloPay Sandbox v2\n(sb-openapi.zalopay.vn)" as PAY
+participant "Giao diện đặt vé\n(Frontend Next.js)" as UI
+participant "Cổng thanh toán nội bộ\n(/payments/zalopay-mock\n/payments/vnpay-mock)" as GW
+participant "API Thanh toán & Ví\n(Next.js App Router)" as C
+participant "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
 
 activate A
-A -> UI: Kiểm tra đơn hàng (Vé, Combo, Voucher) & bấm "Thanh toán ZaloPay"
+A -> UI: Kiểm tra đơn hàng (Vé, Combo, Voucher) & bấm "Thanh toán" (ZaloPay / VNPay)
 activate UI
-UI -> C: POST /api/payments/initiate\n{ screeningId, seatIds, ticketTypes, comboReservationIds, couponCode }
+UI -> C: POST /api/payments/initiate\n{ screeningId, seatIds, ticketTypes, comboReservationIds, couponCode, method }
 activate C
 
-C -> DB: Kiểm tra ghế đang RESERVED còn hạn, combo đang RESERVED, kiểm tra lại Coupon\n& Tạo bản ghi Payment (status = 'Pending', appTransId = yymmdd_xxx) kèm Ticket ('Pending')
+C -> DB: Kiểm tra ghế đang RESERVED còn hạn 10p, combo đang RESERVED, kiểm tra Coupon\n& Tạo Payment (status = 'Pending')
 activate DB
-DB --> C: Xác nhận tạo đơn Pending (kiểm tra Partial Unique Index unique_active_ticket)
+DB --> C: Xác nhận tạo đơn Pending
 deactivate DB
 
-C -> C: Tạo chữ ký MAC bằng HMAC-SHA256 với khóa ZALOPAY_KEY1\n(app_id = 2553, app_trans_id, amount, embed_data, item)
-C -> PAY: POST https://sb-openapi.zalopay.vn/v2/create\n{ app_id: 2553, app_trans_id, amount, mac, callback_url, redirecturl }
-activate PAY
-PAY --> C: 200 OK { return_code: 1, order_url, zp_trans_token }
-deactivate PAY
-
-C --> UI: 200 OK { order_url, paymentId }
+C --> UI: 201 Created { paymentId, paymentUrl: "/payments/zalopay-mock?..." | "/payments/vnpay-mock?..." }
 deactivate C
-UI --> A: Điều hướng trình duyệt sang order_url của ZaloPay Sandbox v2
+UI --> A: Điều hướng trình duyệt sang trang cổng thanh toán nội bộ
 deactivate UI
 
-A -> PAY: Quét mã QR / Xác nhận thanh toán trên cổng ZaloPay Sandbox
-activate PAY
+A -> GW: Mở trang /payments/zalopay-mock hoặc /payments/vnpay-mock
+activate GW
+GW -> C: GET /api/payments/gateway-wallet
+activate C
+C --> GW: 200 OK (Danh sách 3 tài khoản bên thứ 3 kèm số dư khả dụng)
+deactivate C
+GW --> A: Hiển thị thông tin đơn hàng & danh sách 3 tài khoản bên thứ 3
 
-alt Thanh toán thành công trên ZaloPay
-    PAY -> C: POST /api/payments/zalopay-ipn (Webhook IPN: { data, mac })
+A -> GW: Chọn 1 tài khoản bên thứ 3 & bấm "Thanh toán ngay"
+GW -> C: POST /api/payments/gateway-wallet\n{ action: 'pay', accountId, amount, ... }
+activate C
+
+C -> C: Kiểm tra số dư tài khoản bên thứ 3
+
+alt Tài khoản thiếu tiền (INSUFFICIENT_BALANCE)
+    C --> GW: 400 Bad Request { code: 'INSUFFICIENT_BALANCE' }
+    deactivate C
+    GW --> A: Thông báo không đủ số dư & gợi ý nạp tiền
+    A -> GW: Nhập số tiền cần nạp & bấm "Nạp tiền"
+    GW -> C: POST /api/payments/gateway-wallet\n{ action: 'topup', accountId, amount }
     activate C
-    C -> C: Xác thực chữ ký MAC bằng ZALOPAY_KEY2 +\ncrypto.timingSafeEqual(expectedMac, receivedMac)
-    C -> DB: Kiểm tra Idempotency (Nếu Payment.status == 'Success' thì bỏ qua cập nhật lặp)
+    C --> GW: 200 OK (Cập nhật số dư tài khoản bên thứ 3 thành công)
+    deactivate C
+    GW --> A: Hiển thị số dư mới, khách bấm "Thanh toán ngay" lại
+else Tài khoản đủ tiền (action: 'pay')
+    C -> DB: Kiểm tra thời hạn giữ chỗ 10 phút của ghế & combo
     activate DB
-    DB --> C: Trạng thái hiện tại của Payment
+    DB --> C: Trạng thái giữ chỗ hiện tại
     deactivate DB
 
-    opt Payment đang ở trạng thái 'Pending' (Xử lý lần đầu)
-        C -> DB: Prisma Transaction nguyên tử:\n1. Payment.status = 'Success'\n2. Ticket.status = 'Valid' (đảm bảo Partial Unique Index unique_active_ticket)\n3. Seat.status = 'OCCUPIED', reservedUntil = null\n4. ComboReservation.status = 'COMPLETED' & tạo OrderCombo (isDelivered = false)\n5. Tăng Coupon.usedCount += 1 (nếu có dùng voucher)
+    alt Quá hạn giữ chỗ 10 phút (HOLD_EXPIRED)
+        C -> DB: Hủy Payment ('Failed'), giải phóng ghế (EMPTY) & hoàn Combo.stock
         activate DB
-        DB --> C: Xác nhận hoàn tất Transaction
+        DB --> C: Xác nhận giải phóng tài nguyên
         deactivate DB
+        C --> GW: 409 Conflict { code: 'HOLD_EXPIRED' }
+        GW --> A: Báo hết thời gian giữ ghế 10 phút & điều hướng về /payment-result
+    else Còn hạn giữ chỗ
+        C -> C: Khấu trừ số dư tài khoản: debitThirdPartyAccountIfSufficient(accountId, amount)
+        C -> C: Gọi processZaloPayPaymentSuccess() hoặc processVnpayIpnTransaction()
+
+        C -> DB: Prisma Transaction nguyên tử:\n1. Payment.status = 'Success'\n2. Ticket.status = 'Valid' (ràng buộc unique_active_ticket)\n3. Seat.status = 'OCCUPIED', reservedUntil = null\n4. ComboReservation.status = 'COMPLETED' & tạo OrderCombo (isDelivered = false)\n5. Tăng Coupon.usedCount += 1 (nếu có)
+        activate DB
+        DB --> C: Kết quả Transaction (Thành công hoặc Xung đột ghế)
+        deactivate DB
+
+        alt Xung đột ghế (Seat Conflict / Transaction lỗi)
+            C -> C: Hoàn tiền tự động về ví: refundThirdPartyAccount(accountId, amount)
+            C --> GW: 409 Conflict (Đã hoàn tiền về tài khoản bên thứ 3)
+            GW --> UI: Redirect sang /payment-result?status=failed
+            activate UI
+            UI --> A: Thông báo xung đột ghế & đã hoàn tiền về tài khoản
+            deactivate UI
+        else Transaction thành công
+            C --> GW: 200 OK { status: 'Success', redirectUrl: '/payment-result' }
+            GW --> UI: Redirect trình duyệt về /payment-result
+            activate UI
+            UI -> UI: Render mã QR vé bằng <QRCodeSVG />
+            UI --> A: Hiển thị màn hình vé điện tử kèm mã QR nhận vé & combo
+            deactivate UI
+        end
     end
-    C --> PAY: Trả về { return_code: 1, return_message: "success" }
-    deactivate C
-
-    PAY --> UI: Redirect trình duyệt về GET /api/payments/zalopay-return?status=1&apptransid=...
-    activate UI
-    UI -> C: GET /api/payments/zalopay-return (Kiểm tra/đồng bộ trạng thái & lấy vé điện tử)
-    activate C
-    C --> UI: Trả về thông tin vé hợp lệ kèm chữ ký QR HMAC-SHA256
-    deactivate C
-    UI -> UI: Render mã QR vé bằng <QRCodeSVG />
-    UI --> A: Hiển thị màn hình vé điện tử kèm mã QR nhận vé & combo
-    deactivate UI
-
-else Khách hàng hủy hoặc giao dịch thất bại / hết hạn
-    PAY --> UI: Redirect về GET /api/payments/zalopay-return?status=-49 (hoặc lỗi)
-    activate UI
-    UI -> C: Thông báo hủy / kiểm tra trạng thái giao dịch
-    activate C
-    C -> DB: Cập nhật Payment.status = 'Failed', Ticket.status = 'Cancelled',\ngiải phóng ghế Seat.status = 'EMPTY', hoàn lại Combo.stock & hủy ComboReservation
-    activate DB
-    DB --> C: Xác nhận giải phóng ghế và tồn kho combo
-    deactivate DB
-    C --> UI: Kết quả giao dịch thất bại
-    deactivate C
-    UI --> A: Hiển thị thông báo lỗi thanh toán & cho phép đặt lại
-    deactivate UI
 end
-deactivate PAY
+deactivate C
+deactivate GW
 deactivate A
 @enduml

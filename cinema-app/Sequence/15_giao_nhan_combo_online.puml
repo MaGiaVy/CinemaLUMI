@@ -9,9 +9,9 @@ skinparam defaultTextAlignment center
 
 actor "Khách hàng\n(Customer)" as KH
 actor "Nhân viên quầy\n(Staff)" as NV
-boundary "Giao diện Soát bắp nước\n(Frontend Next.js)" as UI
-control "API Soát bắp nước\n(Next.js App Router)" as API
-entity "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
+participant "Giao diện Soát bắp nước\n(Frontend Next.js)" as UI
+participant "API Soát bắp nước\n(Next.js App Router)" as API
+participant "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
 
 activate KH
 KH -> NV : Xuất trình Mã giao dịch / Mã vé hoặc mã QR đơn hàng

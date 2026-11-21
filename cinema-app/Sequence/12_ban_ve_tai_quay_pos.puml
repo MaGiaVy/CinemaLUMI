@@ -8,9 +8,9 @@ skinparam shadowing false
 skinparam defaultTextAlignment center
 
 actor "Nhân viên quầy\n(Staff)" as NV
-boundary "Giao diện POS\n(Frontend Next.js)" as UI
-control "API Quầy POS\n(Next.js App Router)" as API
-entity "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
+participant "Giao diện POS\n(Frontend Next.js)" as UI
+participant "API Quầy POS\n(Next.js App Router)" as API
+participant "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
 
 activate NV
 NV -> UI : Mở màn hình Bán vé tại quầy (/staff/pos)

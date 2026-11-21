@@ -8,9 +8,9 @@ skinparam shadowing false
 title SƠ ĐỒ TUẦN TỰ: THÊM VOUCHER MỚI (FR-VOU-01)
 
 actor "Quản trị viên\n(Admin)" as A
-boundary "Frontend Next.js\n(/admin/coupons)" as UI
-control "Next.js API\n(/api/coupons)" as C
-entity "Docker PostgreSQL\n(Prisma)" as DB
+participant "Frontend Next.js\n(/admin/coupons)" as UI
+participant "Next.js API\n(/api/coupons)" as C
+participant "Docker PostgreSQL\n(Prisma)" as DB
 
 activate A
 A -> UI: Bấm chọn "Tạo voucher mới"

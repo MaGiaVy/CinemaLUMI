@@ -8,9 +8,9 @@ skinparam shadowing false
 skinparam defaultTextAlignment center
 
 actor "Khách hàng\n(Customer)" as KH
-boundary "Giao diện Chi tiết vé\n(Frontend Next.js)" as UI
-control "API Hủy vé khách hàng\n(Next.js App Router)" as API
-entity "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
+participant "Giao diện Chi tiết vé\n(Frontend Next.js)" as UI
+participant "API Hủy vé khách hàng\n(Next.js App Router)" as API
+participant "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
 participant "Dịch vụ Email\n(Nodemailer SMTP)" as MAIL
 
 activate KH

@@ -8,9 +8,9 @@ skinparam shadowing false
 title SƠ ĐỒ TUẦN TỰ: ÁP DỤNG VOUCHER KHUYẾN MÃI
 
 actor "Khách hàng" as A
-boundary "Giao diện đơn hàng" as UI
-control "Điều khiển mua vé" as C
-entity "Dữ liệu hệ thống" as DB
+participant "Giao diện đơn hàng" as UI
+participant "Điều khiển mua vé" as C
+participant "Dữ liệu hệ thống" as DB
 
 activate A
 A -> UI: Bấm chọn áp dụng voucher khuyến mãi (FR-VOU-01)

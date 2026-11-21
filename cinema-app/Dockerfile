@@ -27,8 +27,10 @@ RUN npx prisma generate
 
 ENV NEXT_TELEMETRY_DISABLED=1
 ENV NODE_ENV=production
+ENV UV_THREADPOOL_SIZE=2
+ENV NODE_OPTIONS="--max-old-space-size=1280"
 
-RUN npm run build
+RUN npx next build --webpack
 
 # ==========================================
 # 4. Production Runner (Minimalist Image)

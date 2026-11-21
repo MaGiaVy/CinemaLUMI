@@ -8,10 +8,10 @@ skinparam shadowing false
 title SƠ ĐỒ TUẦN TỰ: MUA VÉ VÀ ĐẶT COMBO ONLINE (TỔNG QUAN)
 
 actor "Khách hàng" as A
-boundary "Giao diện mua vé" as UI
-control "Điều khiển mua vé" as C
-entity "Dữ liệu hệ thống" as DB
-participant "ZaloPay Sandbox v2" as PAY
+participant "Giao diện mua vé\n(Frontend Next.js)" as UI
+participant "Cổng thanh toán nội bộ\n(/payments/zalopay-mock | /vnpay-mock)" as GW
+participant "Điều khiển mua vé & Thanh toán\n(Next.js App Router)" as C
+participant "Dữ liệu hệ thống\n(PostgreSQL / Prisma)" as DB
 
 activate A
 A -> UI: Chọn mua vé và đặt combo online
@@ -74,45 +74,63 @@ end
 deactivate C
 deactivate UI
 
-A -> UI: Xác nhận thanh toán qua ZaloPay Sandbox v2
+A -> UI: Chọn phương thức ZaloPay hoặc VNPay & bấm xác nhận thanh toán
 activate UI
-UI -> C: Yêu cầu khởi tạo thanh toán (POST /api/payments/initiate)
+UI -> C: Khởi tạo đơn thanh toán (POST /api/payments/initiate)
 activate C
-C -> PAY: POST https://sb-openapi.zalopay.vn/v2/create (app_id=2553, HMAC-SHA256)
-activate PAY
-PAY --> C: Trả về order_url
-C --> UI: Điều hướng tới order_url
-UI --> A: Hiển thị giao diện cổng ZaloPay Sandbox v2
-deactivate PAY
+C -> DB: Tạo Payment (status = 'Pending') và khóa tài nguyên giữ chỗ
+activate DB
+DB --> C: Xác nhận tạo đơn hàng Pending
+deactivate DB
+C --> UI: 201 Created { paymentUrl: "/payments/zalopay-mock?..." hoặc "/payments/vnpay-mock?..." }
 deactivate C
+UI --> A: Chuyển hướng sang cổng thanh toán nội bộ
 deactivate UI
 
-A -> PAY: Quét QR / Xác nhận thanh toán trên ZaloPay
-activate PAY
-PAY --> C: Webhook IPN (POST /api/payments/zalopay-ipn) & Return URL (GET /api/payments/zalopay-return)
+A -> GW: Mở giao diện cổng /payments/zalopay-mock hoặc /payments/vnpay-mock
+activate GW
+GW -> C: Lấy danh sách tài khoản bên thứ 3 (GET /api/payments/gateway-wallet)
 activate C
-alt Giao dịch thành công (return_code = 1 / status = 1)
+C --> GW: Danh sách 3 tài khoản ví/ngân hàng & số dư hiện tại
+deactivate C
+
+A -> GW: Chọn tài khoản bên thứ 3 & xác nhận thanh toán
+opt Số dư tài khoản không đủ (INSUFFICIENT_BALANCE)
+    A -> GW: Chọn nạp thêm tiền vào tài khoản
+    GW -> C: POST /api/payments/gateway-wallet { action: 'topup' }
+    activate C
+    C --> GW: Cập nhật số dư mới thành công
+    deactivate C
+end
+
+GW -> C: POST /api/payments/gateway-wallet { action: 'pay', accountId, ... }
+activate C
+C -> C: Kiểm tra quá hạn giữ chỗ 10 phút, trừ tiền tài khoản bên thứ 3\nvà xử lý giao dịch thanh toán
+
+alt Giao dịch thành công
     C -> DB: Cập nhật Payment (status = 'Success'), Ticket (status = 'Valid'),\nSeat (status = 'OCCUPIED'), ComboReservation ('COMPLETED'), tạo OrderCombo
     activate DB
     DB --> C: Xác nhận hoàn tất Transaction
     deactivate DB
     C -> C: Ký số payload vé bằng HMAC-SHA256
-    C --> UI: Xác nhận mua vé thành công & trả dữ liệu vé điện tử
+    C --> GW: Trả về kết quả thành công & URL đích (/payment-result)
+    GW --> UI: Chuyển hướng về /payment-result
     activate UI
     UI -> UI: Render mã QR bằng component <QRCodeSVG />
     UI --> A: Hiển thị vé điện tử và mã QR nhận vé/combo
     deactivate UI
-else Giao dịch thất bại hoặc quá hạn 10 phút
+else Giao dịch thất bại, quá hạn 10 phút hoặc hủy
     C -> DB: Giải phóng ghế về EMPTY, hoàn lại Combo.stock, hủy đơn (Payment.status = 'Failed')
     activate DB
     DB --> C: Xác nhận giải phóng tài nguyên
     deactivate DB
-    C --> UI: Báo giao dịch chưa hoàn tất
+    C --> GW: Báo giao dịch chưa hoàn tất
+    GW --> UI: Chuyển hướng về /payment-result (trạng thái lỗi)
     activate UI
     UI --> A: Thông báo thanh toán thất bại
     deactivate UI
 end
 deactivate C
-deactivate PAY
+deactivate GW
 deactivate A
 @enduml

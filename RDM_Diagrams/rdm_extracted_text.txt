@@ -1,6 +1,6 @@
 
 MÔ HÌNH DỮ LIỆU QUAN HỆ (RDM) – HỆ THỐNG ĐẶT VÉ XEM PHIM
-Mô hình dữ liệu quan hệ (RDM – Relational Data Model) được chuyển đổi đầy đủ gồm 12 bảng và 16 mối quan hệ khóa ngoại (1 - N), trình bày trực quan qua lược đồ liên kết khối ô, lược đồ quan hệ chuẩn và từ điển dữ liệu chi tiết.
+Mô hình dữ liệu quan hệ (RDM – Relational Data Model) được chuyển đổi đầy đủ gồm 12 bảng, 10 kiểu ENUM và 15 mối quan hệ khóa ngoại vật lý (1 - N), trình bày trực quan qua lược đồ liên kết khối ô, lược đồ quan hệ chuẩn và từ điển dữ liệu chi tiết khớp 100% với prisma/schema.prisma.
 Quy ước ký hiệu:
 thuộc_tính (PK): Khóa chính (Primary Key)
 thuộc_tính in nghiêng (FK): Khóa ngoại (Foreign Key)
@@ -8,20 +8,20 @@ NN: Không được rỗng (Not Null)
 UQ: Giá trị duy nhất (Unique)
 1. Lược đồ Quan hệ (RDM – Dạng các ô thuộc tính liền kề & Mũi tên PK → FK)
 
-Ghi chú: Bảng pricing đứng độc lập về mặt khóa ngoại vật lý trong sơ đồ gốc; thuộc tính pricing.ticket_type tương ứng về mặt nghiệp vụ với tickets.ticket_type.
+Ghi chú: Bảng pricing đứng độc lập về mặt khóa ngoại vật lý; thuộc tính pricing.ticket_type tương ứng về mặt nghiệp vụ với tickets.ticket_type. Thuộc tính payments.screening_id là tham chiếu nghiệp vụ, không khai báo FK vật lý.
 2. Lược đồ quan hệ tổng quát (Relational Schema)
-1. users (user_id, email, password, name, phone, role, created_at)
-2. movies (movie_id, title, duration, release_date, age_rating, poster, rating, genre, ticket_price, status)
-3. pricing (pricing_id, ticket_type, label, percentage, base_price)
-4. combos (combo_id, name, price, image, stock, status)
-5. screenings (screening_id, movie_id, room, room_number, start_time, end_time, date, price, status)
-6. seats (seat_id, screening_id, row, number, code, type, status, reserved_until)
-7. coupons (coupon_id, code, discount_type, discount_value, min_amount, max_usage, used_count, expiry_date, applicable_movie_id, user_id)
-8. reviews (review_id, user_id, movie_id, rating, comment, created_at)
-9. combo_reservations (reservation_id, combo_id, user_id, quantity, status, reserved_until)
-10. payments (payment_id, user_id, screening_id, amount, payment_method, transaction_code, status, created_at)
-11. tickets (ticket_id, user_id, screening_id, seat_id, payment_id, ticket_type, price, status, purchase_date)
-12. order_combos (order_combo_id, payment_id, combo_id, quantity, price, is_delivered)
+1. users (user_id, email, password, name, phone, role, created_at, updated_at)
+2. movies (movie_id, title, slug, description, duration, release_date, end_date, age_rating, poster, trailer, rating, genre, director, cast, status, ticket_price, is_deleted, created_at, updated_at)
+3. pricing (pricing_id, ticket_type, label, percentage, base_price, description, created_at, updated_at)
+4. combos (combo_id, name, description, price, image, stock, status, reserved_until, created_at, updated_at)
+5. screenings (screening_id, movie_id, room, room_number, start_time, end_time, date, price, status, created_at, updated_at)
+6. seats (seat_id, screening_id, room, row, number, code, type, status, reserved_until, created_at, updated_at)
+7. coupons (coupon_id, code, discount_type, discount_value, min_amount, max_usage, used_count, expiry_date, applicable_movie_id, user_id, created_at, updated_at)
+8. reviews (review_id, user_id, movie_id, rating, comment, created_at, updated_at)
+9. combo_reservations (reservation_id, combo_id, user_id, quantity, status, reserved_until, created_at, updated_at)
+10. payments (payment_id, user_id, screening_id, seat_ids, coupon_code, ticket_items, amount, payment_method, transaction_code, status, created_at, updated_at)
+11. tickets (ticket_id, user_id, screening_id, seat_id, payment_id, ticket_type, price, purchase_date, status, cancellation_reason, created_at, updated_at)
+12. order_combos (order_combo_id, payment_id, combo_id, quantity, price, is_delivered, delivered_at, created_at, updated_at)
 3. Chi tiết cấu trúc từng bảng (Data Dictionary)
 Nhóm 1: Danh mục nền tảng (users, movies, pricing, combos)
 1. Bảng users (Người dùng)
@@ -31,7 +31,7 @@ Ràng buộc
 Tham chiếu
 user_id
 int
-PK
+PK, NN
 —
 email
 varchar(255)
@@ -50,12 +50,16 @@ varchar(20)
 —
 —
 role
-varchar
-—
+enum(Role: CUSTOMER, STAFF, ADMIN)
+NN, DEFAULT 'CUSTOMER'
 —
 created_at
 timestamp
+NN, DEFAULT now()
 —
+updated_at
+timestamp
+NN
 —
 2. Bảng movies (Phim)
 Thuộc tính
@@ -64,17 +68,29 @@ Ràng buộc
 Tham chiếu
 movie_id
 int
-PK
+PK, NN
 —
 title
 varchar(255)
 NN
+—
+slug
+varchar(255)
+UQ
+—
+description
+text
+—
 —
 duration
 int
 NN
 —
 release_date
+date
+NN
+—
+end_date
 date
 —
 —
@@ -84,23 +100,47 @@ varchar(20)
 —
 poster
 varchar(500)
+NN
+—
+trailer
+varchar(500)
 —
 —
 rating
 decimal(3, 1)
-—
+NN, DEFAULT 0.0
 —
 genre
 varchar(100)
+NN
+—
+director
+varchar(100)
 —
 —
-ticket_price
-decimal(10, 2)
+cast
+text
 —
 —
 status
-varchar
+enum(MovieStatus: SHOWING, UPCOMING, ENDED)
+NN, DEFAULT 'SHOWING'
 —
+ticket_price
+decimal(10, 2)
+NN, DEFAULT 120000
+—
+is_deleted
+boolean
+NN, DEFAULT false
+—
+created_at
+timestamp
+NN, DEFAULT now()
+—
+updated_at
+timestamp
+NN
 —
 3. Bảng pricing (Cấu hình giá vé)
 Thuộc tính
@@ -109,23 +149,35 @@ Ràng buộc
 Tham chiếu
 pricing_id
 int
-PK
+PK, NN
 —
 ticket_type
 varchar(50)
-UQ
+NN, UQ
 —
 label
 varchar(100)
-—
+NN
 —
 percentage
 int
-—
+NN, DEFAULT 100
 —
 base_price
 decimal(10, 2)
+NN
 —
+description
+text
+—
+—
+created_at
+timestamp
+NN, DEFAULT now()
+—
+updated_at
+timestamp
+NN
 —
 4. Bảng combos (Combo bắp nước)
 Thuộc tính
@@ -134,15 +186,19 @@ Ràng buộc
 Tham chiếu
 combo_id
 int
-PK
+PK, NN
 —
 name
 varchar(100)
+NN
+—
+description
+text
 —
 —
 price
 decimal(10, 2)
-—
+NN
 —
 image
 varchar(500)
@@ -150,11 +206,23 @@ varchar(500)
 —
 stock
 int
-—
+NN, DEFAULT 100
 —
 status
-varchar
+enum(ComboStatus: ACTIVE, INACTIVE)
+NN, DEFAULT 'ACTIVE'
 —
+reserved_until
+timestamp
+—
+—
+created_at
+timestamp
+NN, DEFAULT now()
+—
+updated_at
+timestamp
+NN
 —
 Nhóm 2: Suất chiếu & Ghế ngồi (screenings, seats)
 5. Bảng screenings (Suất chiếu)
@@ -164,15 +232,15 @@ Ràng buộc
 Tham chiếu
 screening_id
 int
-PK
+PK, NN
 —
 movie_id
 int
-FK
-movies(movie_id)
+FK, NN
+movies(movie_id) [onDelete: Cascade]
 room
 varchar(50)
-—
+NN
 —
 room_number
 int
@@ -180,23 +248,31 @@ int
 —
 start_time
 timestamp
-—
+NN
 —
 end_time
 timestamp
-—
+NN
 —
 date
 date
-—
+NN
 —
 price
 decimal(10, 2)
-—
+NN
 —
 status
-varchar
+enum(ScreeningStatus: UPCOMING, SHOWING, ENDED, CANCELLED)
+NN, DEFAULT 'UPCOMING'
 —
+created_at
+timestamp
+NN, DEFAULT now()
+—
+updated_at
+timestamp
+NN
 —
 6. Bảng seats (Ghế theo suất chiếu)
 Thuộc tính
@@ -205,35 +281,47 @@ Ràng buộc
 Tham chiếu
 seat_id
 int
-PK
+PK, NN
 —
 screening_id
 int
-FK
-screenings(screening_id)
+FK, UQ(screening_id, code)
+screenings(screening_id) [onDelete: Cascade]
+room
+varchar(50)
+—
+—
 row
 varchar(5)
-—
+NN
 —
 number
 int
-—
+NN
 —
 code
 varchar(10)
-—
+NN, UQ(screening_id, code)
 —
 type
-varchar
-—
+enum(SeatType: STANDARD, VIP, COUPLE)
+NN, DEFAULT 'STANDARD'
 —
 status
-varchar
-—
+enum(SeatStatus: EMPTY, RESERVED, OCCUPIED)
+NN, DEFAULT 'EMPTY'
 —
 reserved_until
 timestamp
 —
+—
+created_at
+timestamp
+NN, DEFAULT now()
+—
+updated_at
+timestamp
+NN
 —
 Nhóm 3: Khuyến mãi, Đánh giá & Giữ chỗ (coupons, reviews, combo_reservations)
 7. Bảng coupons (Mã giảm giá)
@@ -243,44 +331,52 @@ Ràng buộc
 Tham chiếu
 coupon_id
 int
-PK
+PK, NN
 —
 code
 varchar(50)
-UQ
+NN, UQ
 —
 discount_type
-varchar
-—
+enum(DiscountType: Percentage, FixedAmount)
+NN
 —
 discount_value
 decimal(10, 2)
-—
+NN
 —
 min_amount
 decimal(10, 2)
-—
+NN, DEFAULT 0
 —
 max_usage
 int
-—
+NN, DEFAULT 1
 —
 used_count
 int
-—
+NN, DEFAULT 0
 —
 expiry_date
 date
-—
+NN
 —
 applicable_movie_id
 int
 FK
-movies(movie_id)
+movies(movie_id) [onDelete: SetNull]
 user_id
 int
 FK
-users(user_id)
+users(user_id) [onDelete: Cascade]
+created_at
+timestamp
+NN, DEFAULT now()
+—
+updated_at
+timestamp
+NN
+—
 8. Bảng reviews (Đánh giá phim)
 Thuộc tính
 Kiểu dữ liệu
@@ -288,19 +384,19 @@ Ràng buộc
 Tham chiếu
 review_id
 int
-PK
+PK, NN
 —
 user_id
 int
-FK
-users(user_id)
+FK, NN
+users(user_id) [onDelete: Cascade]
 movie_id
 int
-FK
-movies(movie_id)
+FK, NN
+movies(movie_id) [onDelete: Cascade]
 rating
 int
-—
+NN
 —
 comment
 text
@@ -308,7 +404,11 @@ text
 —
 created_at
 timestamp
+NN, DEFAULT now()
 —
+updated_at
+timestamp
+NN
 —
 9. Bảng combo_reservations (Giữ chỗ combo tạm thời)
 Thuộc tính
@@ -317,27 +417,35 @@ Ràng buộc
 Tham chiếu
 reservation_id
 int
-PK
+PK, NN
 —
 combo_id
 int
-FK
-combos(combo_id)
+FK, NN
+combos(combo_id) [onDelete: Cascade]
 user_id
 int
 FK
-users(user_id)
+users(user_id) [onDelete: SetNull]
 quantity
 int
-—
+NN, DEFAULT 1
 —
 status
-varchar
-—
+varchar(20)
+NN, DEFAULT 'RESERVED'
 —
 reserved_until
 timestamp
+NN
 —
+created_at
+timestamp
+NN, DEFAULT now()
+—
+updated_at
+timestamp
+NN
 —
 Nhóm 4: Giao dịch thanh toán, Vé & Đơn combo (payments, tickets, order_combos)
 10. Bảng payments (Thanh toán)
@@ -347,22 +455,34 @@ Ràng buộc
 Tham chiếu
 payment_id
 int
-PK
+PK, NN
 —
 user_id
 int
-FK
-users(user_id)
+FK, NN
+users(user_id) [onDelete: Restrict]
 screening_id
 int
-FK
-screenings(screening_id)
+—
+— (không có FK vật lý)
+seat_ids
+json
+—
+—
+coupon_code
+varchar(50)
+—
+—
+ticket_items
+json
+—
+—
 amount
 decimal(10, 2)
-—
+NN
 —
 payment_method
-varchar
+enum(PaymentMethod: VNPay, Momo, Cash, BankCard, ZaloPay)
 —
 —
 transaction_code
@@ -370,12 +490,16 @@ varchar(100)
 —
 —
 status
-varchar
-—
+enum(PaymentStatus: Pending, Success, Failed, Refunded)
+NN, DEFAULT 'Pending'
 —
 created_at
 timestamp
+NN, DEFAULT now()
 —
+updated_at
+timestamp
+NN
 —
 11. Bảng tickets (Vé xem phim)
 Thuộc tính
@@ -384,39 +508,51 @@ Ràng buộc
 Tham chiếu
 ticket_id
 int
-PK
+PK, NN
 —
 user_id
 int
-FK
-users(user_id)
+FK, NN
+users(user_id) [onDelete: Restrict]
 screening_id
 int
 FK
-screenings(screening_id)
+screenings(screening_id) [onDelete: SetNull]
 seat_id
 int
 FK
-seats(seat_id)
+seats(seat_id) [onDelete: SetNull]
 payment_id
 int
-FK
-payments(payment_id)
+FK, NN
+payments(payment_id) [onDelete: Restrict]
 ticket_type
 varchar(50)
-—
+NN
 —
 price
 decimal(10, 2)
-—
-—
-status
-varchar
-—
+NN
 —
 purchase_date
 timestamp
+NN, DEFAULT now()
 —
+status
+enum(TicketStatus: Valid, Used, Cancelled)
+NN, DEFAULT 'Valid'
+—
+cancellation_reason
+text
+—
+—
+created_at
+timestamp
+NN, DEFAULT now()
+—
+updated_at
+timestamp
+NN
 —
 12. Bảng order_combos (Chi tiết combo đã đặt)
 Thuộc tính
@@ -425,77 +561,102 @@ Ràng buộc
 Tham chiếu
 order_combo_id
 int
-PK
+PK, NN
 —
 payment_id
 int
-FK
-payments(payment_id)
+FK, NN
+payments(payment_id) [onDelete: Cascade]
 combo_id
 int
-FK
-combos(combo_id)
+FK, NN
+combos(combo_id) [onDelete: Restrict]
 quantity
 int
-—
+NN
 —
 price
 decimal(10, 2)
-—
+NN
 —
 is_delivered
 boolean
+NN, DEFAULT false
+—
+delivered_at
+timestamp
 —
 —
-4. Tổng hợp ràng buộc toàn vẹn tham chiếu (Relationships)
+created_at
+timestamp
+NN, DEFAULT now()
+—
+updated_at
+timestamp
+NN
+—
+4. Tổng hợp ràng buộc toàn vẹn tham chiếu (15 FK vật lý)
 Bảng cha (Bên 1)
 Bảng con (Bên N)
 Khóa ngoại → Khóa chính
+Quy tắc onDelete
 movies
 screenings
 screenings.movie_id → movies.movie_id
+Cascade
 movies
 coupons
 coupons.applicable_movie_id → movies.movie_id
+SetNull
 movies
 reviews
 reviews.movie_id → movies.movie_id
+Cascade
 users
 coupons
 coupons.user_id → users.user_id
+Cascade
 users
 reviews
 reviews.user_id → users.user_id
+Cascade
 users
 combo_reservations
 combo_reservations.user_id → users.user_id
+SetNull
 users
 payments
 payments.user_id → users.user_id
+Restrict
 users
 tickets
 tickets.user_id → users.user_id
+Restrict
 screenings
 seats
 seats.screening_id → screenings.screening_id
-screenings
-payments
-payments.screening_id → screenings.screening_id
+Cascade
 screenings
 tickets
 tickets.screening_id → screenings.screening_id
+SetNull
 seats
 tickets
 tickets.seat_id → seats.seat_id
+SetNull
 payments
 tickets
 tickets.payment_id → payments.payment_id
+Restrict
 payments
 order_combos
 order_combos.payment_id → payments.payment_id
+Cascade
 combos
 combo_reservations
 combo_reservations.combo_id → combos.combo_id
+Cascade
 combos
 order_combos
 order_combos.combo_id → combos.combo_id
+Restrict

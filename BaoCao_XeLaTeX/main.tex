@@ -1,0 +1,167 @@
+\documentclass[12pt,a4paper,oneside]{report}
+
+% =========================================================================
+% CẤU HÌNH THÔNG TIN TRANG BÌA (CHỈ CẦN SỬA TẠI ĐÂY)
+% =========================================================================
+\newcommand{\TenTruong}{TRƯỜNG ĐẠI HỌC [ĐIỀN TÊN TRƯỜNG]}
+\newcommand{\TenKhoa}{KHOA CÔNG NGHỆ THÔNG TIN}
+\newcommand{\TenMonHoc}{PHÂN TÍCH VÀ THIẾT KẾ HỆ THỐNG THÔNG TIN}
+\newcommand{\TenDeTai}{PHÂN TÍCH, THIẾT KẾ VÀ XÂY DỰNG HỆ THỐNG\\QUẢN LÝ BÁN VÉ XEM PHIM LUMICINEMA}
+\newcommand{\GiangVienHD}{[ĐIỀN TÊN GIẢNG VIÊN HƯỚNG DẪN]}
+\newcommand{\MaLop}{[ĐIỀN MÃ LỚP]}
+\newcommand{\TenNhom}{Nhóm 10}
+\newcommand{\NamHoc}{TP. Hồ Chí Minh, năm 2026}
+
+% Danh sách 5 thành viên (sửa MSSV tại đây)
+\newcommand{\TVMot}{Mã Gia Vỹ & [MSSV 1] & Nhóm trưởng, Sơ đồ tổng quát, Kiến trúc}
+\newcommand{\TVHai}{Nguyễn Khánh Hưng & [MSSV 2] & Mua vé \& Combo online, Quản trị danh mục}
+\newcommand{\TVBa}{Nguyễn Hữu Thắng & [MSSV 3] & Hủy vé \& Bồi hoàn, Báo cáo doanh thu}
+\newcommand{\TVBon}{Hoàng Gia Bảo & [MSSV 4] & Bán vé \& Soát vé tại quầy (POS)}
+\newcommand{\TVNam}{Quốc Việt & [MSSV 5] & Đánh giá phim, Quản lý vé khách hàng}
+
+% =========================================================================
+% GÓI THƯ VIỆN CHUẨN XELATEX + TIẾNG VIỆT (CHẠY MƯỢT TRÊN OVERLEAF)
+% =========================================================================
+\usepackage{fontspec}
+\setmainfont{TeX Gyre Termes} % Font giống Times New Roman, có sẵn 100% trên Overleaf
+\setsansfont{TeX Gyre Heros}
+\setmonofont[Scale=0.85]{DejaVu Sans Mono}
+
+\usepackage{polyglossia}
+\setdefaultlanguage{vietnamese}
+
+\usepackage[top=2.5cm,bottom=2.5cm,left=3.0cm,right=2.0cm]{geometry}
+\usepackage{graphicx}
+\usepackage{float}
+\usepackage{longtable}
+\usepackage{array}
+\usepackage{booktabs}
+\usepackage{multirow}
+\usepackage[table]{xcolor}
+\usepackage{hyperref}
+\usepackage{titlesec}
+\usepackage{fancyhdr}
+\usepackage{setspace}
+\usepackage{caption}
+\usepackage{tikz}
+\usepackage{enumitem}
+
+\definecolor{headerblue}{RGB}{224,235,248}
+\definecolor{accentred}{RGB}{185,28,28}
+\definecolor{bordergray}{RGB}{148,163,184}
+
+\hypersetup{
+    colorlinks=true,
+    linkcolor=black,
+    urlcolor=blue,
+    citecolor=black,
+    pdftitle={Báo cáo đồ án LumiCinema - Nhóm 10},
+    pdfauthor={Nhóm 10}
+}
+
+\onehalfspacing
+\setlength{\parindent}{0.7cm}
+\setlength{\parskip}{4pt}
+
+% Header & Footer
+\pagestyle{fancy}
+\fancyhf{}
+\fancyhead[L]{\small\textit{Đồ án Phân tích \& Thiết kế Hệ thống --- LumiCinema}}
+\fancyhead[R]{\small\textit{\TenNhom}}
+\fancyfoot[C]{\thepage}
+\renewcommand{\headrulewidth}{0.4pt}
+
+% Tiêu đề chương tiếng Việt
+\titleformat{\chapter}[display]
+  {\normalfont\huge\bfseries\centering}
+  {CHƯƠNG \thechapter}{10pt}{\LARGE}
+\titlespacing*{\chapter}{0pt}{-20pt}{20pt}
+
+\begin{document}
+
+% =========================================================================
+% TRANG BÌA
+% =========================================================================
+\begin{titlepage}
+\begin{tikzpicture}[remember picture, overlay]
+  \draw[line width=2pt] ([xshift=1.5cm,yshift=-1.5cm]current page.north west) rectangle ([xshift=-1.5cm,yshift=1.5cm]current page.south east);
+  \draw[line width=0.6pt] ([xshift=1.7cm,yshift=-1.7cm]current page.north west) rectangle ([xshift=-1.7cm,yshift=1.7cm]current page.south east);
+\end{tikzpicture}
+
+\centering
+\vspace*{0.5cm}
+{\large\bfseries \TenTruong \par}
+{\large\bfseries \TenKhoa \par}
+\vspace{1.2cm}
+
+{\Large\bfseries BÁO CÁO ĐỒ ÁN MÔN HỌC \par}
+\vspace{0.3cm}
+{\large\bfseries \TenMonHoc \par}
+\vspace{1.5cm}
+
+\rule{\linewidth}{0.8pt}\\[0.4cm]
+{\LARGE\bfseries \TenDeTai \par}
+\vspace{0.2cm}
+\rule{\linewidth}{0.8pt}
+
+\vspace{1.8cm}
+\begin{flushleft}
+\hspace{1.2cm}\textbf{Giảng viên hướng dẫn:} \GiangVienHD \\[0.3cm]
+\hspace{1.2cm}\textbf{Lớp:} \MaLop \hfill \textbf{Nhóm thực hiện:} \TenNhom \hspace{1.2cm}
+\end{flushleft}
+
+\vspace{0.6cm}
+\begin{center}
+\renewcommand{\arraystretch}{1.35}
+\begin{tabular}{|p{4.5cm}|p{2.6cm}|p{6.8cm}|}
+\hline
+\rowcolor{headerblue} \textbf{Họ và tên} & \textbf{MSSV} & \textbf{Phụ trách chính} \\ \hline
+\TVMot \\ \hline
+\TVHai \\ \hline
+\TVBa \\ \hline
+\TVBon \\ \hline
+\TVNam \\ \hline
+\end{tabular}
+\end{center}
+
+\vfill
+{\large\bfseries \NamHoc \par}
+\vspace*{0.5cm}
+\end{titlepage}
+
+% =========================================================================
+% MỤC LỤC, DANH MỤC HÌNH ẢNH, DANH MỤC BẢNG BIỂU
+% =========================================================================
+\pagenumbering{roman}
+\tableofcontents
+\clearpage
+\listoffigures
+\clearpage
+\listoftables
+\clearpage
+
+% =========================================================================
+% NỘI DUNG CHÍNH
+% =========================================================================
+\pagenumbering{arabic}
+
+\chapter{GIỚI THIỆU ĐỀ TÀI}
+\input{chapters/01_gioi_thieu}
+
+\chapter{PHÂN TÍCH VÀ THIẾT KẾ HỆ THỐNG}
+\input{chapters/02_bfd_va_ke_hoach}
+\input{chapters/03_usecase}
+\input{chapters/04_sequence}
+\input{chapters/05_activity}
+\input{chapters/06_state}
+\input{chapters/07_class}
+\input{chapters/08_csdl}
+\input{chapters/09_giao_dien}
+
+\chapter{CÀI ĐẶT VÀ THỬ NGHIỆM}
+\input{chapters/10_cai_dat_thu_nghiem}
+
+\chapter{KẾT LUẬN VÀ HƯỚNG MỞ RỘNG}
+\input{chapters/11_ket_luan}
+
+\end{document}

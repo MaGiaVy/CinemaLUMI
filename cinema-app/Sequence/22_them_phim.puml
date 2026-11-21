@@ -8,9 +8,9 @@ skinparam shadowing false
 title SƠ ĐỒ TUẦN TỰ: THÊM PHIM MỚI (FR-ADM-01, BR-02)
 
 actor "Quản trị viên\n(Admin)" as A
-boundary "Frontend Next.js\n(/admin/movies)" as UI
-control "Next.js API\n(/api/movies)" as C
-entity "Docker PostgreSQL\n(Prisma)" as DB
+participant "Frontend Next.js\n(/admin/movies)" as UI
+participant "Next.js API\n(/api/movies)" as C
+participant "Docker PostgreSQL\n(Prisma)" as DB
 
 activate A
 A -> UI: Bấm chọn "Thêm phim mới"

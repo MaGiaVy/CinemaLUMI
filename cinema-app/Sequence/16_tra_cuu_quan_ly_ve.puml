@@ -8,9 +8,9 @@ skinparam shadowing false
 skinparam defaultTextAlignment center
 
 actor "Nhân viên / Admin\n(Staff / Admin)" as A
-boundary "Giao diện Tra cứu vé\n(Frontend Next.js)" as UI
-control "API Tra cứu & Quản lý vé\n(Next.js App Router)" as API
-entity "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
+participant "Giao diện Tra cứu vé\n(Frontend Next.js)" as UI
+participant "API Tra cứu & Quản lý vé\n(Next.js App Router)" as API
+participant "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
 
 activate A
 A -> UI : Truy cập mục Tra cứu & Quản lý vé (/staff/lookup)

@@ -38,7 +38,7 @@ entity "movies" as movies {
     age_rating : VARCHAR(20)
     * poster : VARCHAR(500)
     trailer : VARCHAR(500)
-    rating : DECIMAL(3,1)
+    * rating : DECIMAL(3,1) <<default: 0.0>>
     * genre : VARCHAR(100)
     director : VARCHAR(100)
     cast : TEXT
@@ -59,7 +59,7 @@ entity "screenings" as screenings {
     * end_time : TIMESTAMP
     * date : DATE
     * price : DECIMAL(10,2)
-    * status : ENUM ('UPCOMING', 'SHOWING', 'ENDED')
+    * status : ENUM ('UPCOMING', 'SHOWING', 'ENDED', 'CANCELLED')
     * created_at : TIMESTAMP
     * updated_at : TIMESTAMP
 }
@@ -67,16 +67,18 @@ entity "screenings" as screenings {
 entity "seats" as seats {
     * **seat_id** : INT <<PK, generated>>
     --
-    # **screening_id** : INT <<FK>>
+    # screening_id : INT <<FK, nullable, UQ(screening_id, code)>>
     room : VARCHAR(50)
     * row : VARCHAR(5)
     * number : INT
-    * code : VARCHAR(10)
+    * code : VARCHAR(10) <<UQ(screening_id, code)>>
     * type : ENUM ('STANDARD', 'VIP', 'COUPLE')
     * status : ENUM ('EMPTY', 'RESERVED', 'OCCUPIED')
     reserved_until : TIMESTAMP
     * created_at : TIMESTAMP
     * updated_at : TIMESTAMP
+    --
+    UNIQUE(screening_id, code)
 }
 
 entity "pricing" as pricing {
@@ -95,7 +97,7 @@ entity "coupons" as coupons {
     * **coupon_id** : INT <<PK, generated>>
     --
     * code : VARCHAR(50) <<unique>>
-    * discount_type : ENUM ('PERCENT', 'FIXED_AMOUNT')
+    * discount_type : ENUM ('Percentage', 'FixedAmount')
     * discount_value : DECIMAL(10,2)
     * min_amount : DECIMAL(10,2)
     * max_usage : INT
@@ -190,28 +192,28 @@ entity "reviews" as reviews {
 }
 
 ' ==========================================
-' QUAN HỆ KHÓA NGOẠI (CROW'S FOOT NOTATION)
+' QUAN HỆ KHÓA NGOẠI (15 FK VẬT LÝ - CROW'S FOOT NOTATION)
 ' ==========================================
 
-users ||--o{ tickets : "has"
-users ||--o{ payments : "makes"
-users ||--o{ reviews : "writes"
-users ||--o{ coupons : "owns"
-users ||--o{ combo_reservations : "reserves"
+users ||--o{ tickets : "has (onDelete: Restrict)"
+users ||--o{ payments : "makes (onDelete: Restrict)"
+users ||--o{ reviews : "writes (onDelete: Cascade)"
+users ||--o{ coupons : "owns (onDelete: Cascade)"
+users ||--o{ combo_reservations : "reserves (onDelete: SetNull)"
 
-movies ||--o{ screenings : "schedules"
-movies ||--o{ reviews : "rated_by"
-movies ||--o{ coupons : "applicable_to"
+movies ||--o{ screenings : "schedules (onDelete: Cascade)"
+movies ||--o{ reviews : "rated_by (onDelete: Cascade)"
+movies ||--o{ coupons : "applicable_to (onDelete: SetNull)"
 
-screenings ||--|{ seats : "contains"
-screenings ||--o{ tickets : "books"
+screenings |o--o{ seats : "contains (onDelete: Cascade)"
+screenings |o--o{ tickets : "books (onDelete: SetNull)"
 
-seats ||--o{ tickets : "reserved_in"
+seats |o--o{ tickets : "reserved_in (onDelete: SetNull)"
 
-payments ||--|{ tickets : "pays_for"
-payments ||--o{ order_combos : "includes"
+payments ||--o{ tickets : "pays_for 0..N (onDelete: Restrict)"
+payments ||--o{ order_combos : "includes (onDelete: Cascade)"
 
-combos ||--o{ order_combos : "ordered_in"
-combos ||--o{ combo_reservations : "held_in"
+combos ||--o{ order_combos : "ordered_in (onDelete: Restrict)"
+combos ||--o{ combo_reservations : "held_in (onDelete: Cascade)"
 
 @enduml

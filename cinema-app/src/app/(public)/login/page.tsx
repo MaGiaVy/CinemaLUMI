@@ -365,32 +365,6 @@ function LoginForm() {
               </div>
             </form>
 
-            <div className="relative my-6">
-              <div className="absolute inset-0 flex items-center">
-                <div className="w-full border-t border-[rgba(192,132,252,0.15)]" />
-              </div>
-              <div className="relative flex justify-center">
-                <span className="bg-[rgba(18,14,28,0.9)] px-3 text-[#94A3B8] text-xs">
-                  hoặc tiếp tục với
-                </span>
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-3">
-              <button
-                type="button"
-                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[rgba(10,8,18,0.8)] border border-[rgba(192,132,252,0.18)] rounded-xl text-xs sm:text-sm text-[#F8FAFC] hover:border-[rgba(192,132,252,0.4)] hover:bg-[rgba(192,132,252,0.1)] transition-all font-medium cursor-pointer"
-              >
-                <span className="text-rose-400 font-bold">G</span> Google
-              </button>
-              <button
-                type="button"
-                className="flex items-center justify-center gap-2 px-4 py-2.5 bg-[rgba(10,8,18,0.8)] border border-[rgba(192,132,252,0.18)] rounded-xl text-xs sm:text-sm text-[#F8FAFC] hover:border-[rgba(192,132,252,0.4)] hover:bg-[rgba(192,132,252,0.1)] transition-all font-medium cursor-pointer"
-              >
-                <span className="text-indigo-400 font-bold">f</span> Facebook
-              </button>
-            </div>
-
             <div className="mt-8 text-center">
               <Link
                 href="/"

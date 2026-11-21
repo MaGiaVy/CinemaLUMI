@@ -53,22 +53,12 @@ const PAYMENT_METHODS = [
     id: 'zalopay',
     label: 'Cổng thanh toán ZaloPay (Sandbox)',
     badge: 'Khuyên dùng',
-    description: 'Thanh toán quét mã QR động hoặc chuyển hướng ứng dụng ZaloPay Sandbox',
+    description: 'Thanh toán qua ví ZaloPay Sandbox (kiểm tra số dư, nạp tiền & QR)',
   },
   {
     id: 'vnpay',
     label: 'VNPAY-QR',
-    description: 'Thanh toán quét mã QR qua ứng dụng ngân hàng hoặc VNPAY',
-  },
-  {
-    id: 'momo',
-    label: 'Ví điện tử MoMo',
-    description: 'Thanh toán trực tiếp qua ứng dụng ví MoMo',
-  },
-  {
-    id: 'banking',
-    label: 'Chuyển khoản Ngân hàng',
-    description: 'Chuyển khoản 24/7 với mã QR tự động nhận diện',
+    description: 'Thanh toán qua cổng VNPAY Sandbox (kiểm tra số dư, nạp tiền & QR)',
   },
 ];
 

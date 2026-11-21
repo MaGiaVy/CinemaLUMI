@@ -8,9 +8,9 @@ skinparam shadowing false
 title SƠ ĐỒ TUẦN TỰ: QUẢN TRỊ LỊCH CHIẾU VÀ SUẤT CHIẾU (TỔNG QUAN - FR-ADM-03, FR-ADM-04, BR-01, BR-04, BR-08)
 
 actor "Quản trị viên\n(Admin)" as A
-boundary "Frontend Next.js\n(/admin/screenings)" as UI
-control "Next.js API\n(/api/screenings)" as C
-entity "Docker PostgreSQL\n(Prisma)" as DB
+participant "Frontend Next.js\n(/admin/screenings)" as UI
+participant "Next.js API\n(/api/screenings)" as C
+participant "Docker PostgreSQL\n(Prisma)" as DB
 
 activate A
 A -> UI: Truy cập trang Quản lý Suất chiếu (/admin/screenings)

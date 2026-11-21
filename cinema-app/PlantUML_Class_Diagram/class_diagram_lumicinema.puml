@@ -27,7 +27,7 @@ skinparam package {
 abstract class User {
     - id: Int
     - email: String
-    - passwordHash: String
+    - password: String
     - name: String
     - phone: String
     - role: Role
@@ -136,14 +136,11 @@ class Ticket {
     - purchaseDate: DateTime
     - status: TicketStatus
     - cancellationReason: String
-    - refundStatus: String
     + generateQRCode(): String
-    + verifyQRCode(signature: String): Boolean
     + checkIn(): Boolean
     + cancelTicket(reason: String): Boolean
     + cancelByCustomer(): Coupon
     + cancelByIncident(reason: String): Void
-    + confirmCashRefund(staffId: Int): Void
 }
 
 class Payment {
@@ -152,11 +149,24 @@ class Payment {
     - paymentMethod: PaymentMethod
     - transactionCode: String
     - status: PaymentStatus
+    - screeningId: Int?
+    - seatIds: Json?
+    - couponCode: String?
+    - ticketItems: Json?
     - createdAt: DateTime
     + calculateTotal(tickets: List<Ticket>, combos: List<OrderCombo>, coupon: Coupon): Decimal
     + createPaymentUrl(gateway: PaymentMethod): String
     + processIPNCallback(data: Map<String, String>): Boolean
     + issueRefund(amount: Decimal, method: PaymentMethod): Boolean
+}
+
+class ThirdPartyAccount {
+    - id: Int
+    - provider: String
+    - accountNumber: String
+    - accountName: String
+    - balance: Decimal
+    - updatedAt: DateTime
 }
 
 class Coupon {
@@ -218,7 +228,7 @@ class Review {
     + hideReview(): Void
 }
 
-class AuditLog {
+class AuditLog <<DTO>> {
     - id: Int
     - actorId: Int
     - action: String
@@ -238,17 +248,32 @@ package "Infrastructure & Domain Services" {
         - key1: String
         - key2: String
         - endpoint: String
-        + createSandboxOrder(payment: Payment): ZaloOrderResponse
-        + generateHmacSHA256(data: String, key: String): String
-        + verifyIPNCallback(data: String, receivedMac: String): Boolean
-        + verifyReturnChecksum(queryParams: Map<String, String>): Boolean
+        + generateZaloPayTransId(): String
+        + calculateZaloPayOrderMac(data: String): String
+        + createZaloPayOrder(payment: Payment): ZaloOrderResponse
+        + verifyZaloPayCallback(data: String, receivedMac: String): Boolean
     }
 
-    class QRSignatureService <<service>> {
-        - secretKey: String
-        - algorithm: String
-        + signTicketPayload(ticketId: Int, screeningId: Int, seatCode: String): String
-        + verifyTicketQR(qrPayload: String, signature: String): Boolean
+    class VNPayService <<service>> {
+        - tmnCode: String
+        - hashSecret: String
+        - paymentUrl: String
+        + signVnpayParams(params: Map<String, String>): String
+        + verifyVnpaySignature(queryParams: Map<String, String>): Boolean
+    }
+
+    class ThirdPartyWalletService <<service>> {
+        + getThirdPartyAccounts(provider: String): List<ThirdPartyAccount>
+        + topupThirdPartyAccount(accountId: Int, amount: Decimal): ThirdPartyAccount
+        + resetThirdPartyAccount(accountId: Int): ThirdPartyAccount
+        + debitThirdPartyAccountIfSufficient(accountId: Int, amount: Decimal): Boolean
+        + refundThirdPartyAccount(accountId: Int, amount: Decimal): ThirdPartyAccount
+    }
+
+    class EmailService <<service>> {
+        + sendTicketConfirmation(to: String, payment: Payment, tickets: List<Ticket>): Void
+        + sendVoucherIssued(to: String, coupon: Coupon): Void
+        + sendTicketCancelledCashRefund(to: String, ticket: Ticket, reason: String): Void
     }
 
     class SeatExpirationService <<service>> {
@@ -356,7 +381,11 @@ User "1" o-- "0..*" AuditLog : thực thi
 
 ' Service Dependencies (Phụ thuộc dịch vụ hạ tầng)
 Payment ..> ZaloPayService : tích hợp ZaloPay v2
-Ticket ..> QRSignatureService : ký & xác thực HMAC-SHA256
+Payment ..> VNPayService : tích hợp VNPay
+Payment ..> ThirdPartyWalletService : trừ & hoàn tiền ví bên thứ 3
+ThirdPartyWalletService ..> ThirdPartyAccount : quản lý số dư ví
+Payment ..> EmailService : gửi email xác nhận vé
+Ticket ..> EmailService : gửi email voucher / hoàn tiền mặt
 Seat ..> SeatExpirationService : khóa & giải phóng 10p
 ComboReservation ..> SeatExpirationService : giải phóng kho 10p
 
@@ -372,11 +401,17 @@ end note
 
 note right of Ticket
   **BR-03, BR-04 & BR-09: Soát vé, Hủy vé & Chống trùng vé**
-  - QR Code bảo mật kèm chữ ký HMAC-SHA256 qua QRSignatureService (BR-09)
   - Partial Unique Index: unique_active_ticket ON tickets(screening_id, seat_id)
     WHERE status != 'Cancelled' (Chống tuyệt đối phát sinh 2 vé hiệu lực cùng ghế)
   - Hủy vé trước >= 2 tiếng nhận Voucher bồi hoàn COMP50_ 50% (BR-03)
-  - Rạp hủy vé sự cố: PENDING_CASH_REFUND -> REFUNDED_CASH 100% trong 30 ngày & ghi AuditLog (BR-04)
+  - Rạp hủy vé sự cố: chuyển Cancelled, hoàn tiền mặt 100% (hoặc voucher 100%),
+    gửi email qua EmailService & trả về AuditLog JSON (BR-04)
+end note
+
+note right of AuditLog
+  **<<DTO>> Không phải bảng CSDL**
+  Chỉ là cấu trúc dữ liệu trả về trong JSON response
+  khi thực hiện thao tác hủy vé / hoàn tiền
 end note
 
 note left of Screening

@@ -1,0 +1,20 @@
+\section{Kết luận}
+Qua quá trình phân tích, thiết kế và cài đặt đồ án \textbf{Hệ thống quản lý bán vé xem phim LumiCinema}, Nhóm 10 đã hoàn thành các mục tiêu đề ra:
+\begin{itemize}[leftmargin=1.2cm]
+  \item Xây dựng hoàn chỉnh bộ hồ sơ phân tích thiết kế hướng đối tượng gồm BFD, 10 sơ đồ Use Case kèm đặc tả chi tiết, 38 sơ đồ Sequence, 17 lược đồ Activity, 6 sơ đồ State, sơ đồ Class (22 lớp), sơ đồ ERD và RDM (12 bảng, 10 enum, 15 khóa ngoại).
+  \item Hiện thực thành công ứng dụng web LumiCinema phục vụ đầy đủ 3 vai trò (Khách hàng, Nhân viên quầy, Admin) với 2 kênh bán vé (Online và POS), tích hợp cổng thanh toán ZaloPay/VNPay có quản lý số dư, quy trình hủy vé \& bồi hoàn chặt chẽ và hệ thống gửi email tự động.
+  \item Đóng gói toàn bộ ứng dụng và cơ sở dữ liệu bằng Docker Compose, sẵn sàng triển khai và trình diễn.
+\end{itemize}
+
+\section{Hạn chế hiện tại}
+\begin{itemize}[leftmargin=1.2cm]
+  \item Hệ thống hiện tập trung vào mô hình một rạp duy nhất (5 phòng $\times$ 50 ghế cùng loại), chưa phân hạng ghế VIP/Couple theo từng phòng.
+  \item Cổng thanh toán ZaloPay/VNPay đang vận hành theo mô hình giả lập nội bộ có quản lý số dư ví để phục vụ kiểm thử đồ án, chưa kết nối trực tiếp tài khoản merchant thật của ngân hàng.
+\end{itemize}
+
+\section{Hướng phát triển mở rộng}
+\begin{enumerate}[leftmargin=1.2cm]
+  \item \textbf{Mở rộng chuỗi nhiều chi nhánh rạp:} Bổ sung thực thể Chi nhánh/Rạp và hỗ trợ cấu hình động sơ đồ ghế (ghế Thường, VIP, Ghế đôi Couple) với biểu giá linh hoạt theo khung giờ vàng.
+  \item \textbf{Tích hợp thanh toán thực tế \& Ứng dụng di động:} Kết nối API chính thức của VNPay/ZaloPay/MoMo và phát triển ứng dụng di động (React Native/Flutter) hỗ trợ quét mã QR soát vé trực tiếp bằng camera.
+  \item \textbf{Chương trình khách hàng thân thiết \& Gợi ý phim:} Xây dựng hệ thống tích điểm thành viên theo hạng mức và áp dụng gợi ý phim thông minh dựa trên lịch sử xem và đánh giá của khách hàng.
+\end{enumerate}

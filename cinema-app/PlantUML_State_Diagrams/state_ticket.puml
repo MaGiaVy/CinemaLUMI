@@ -44,9 +44,9 @@ HOP_LE --> KiemTraHuy : Yêu cầu hủy hoặc xử lý sự cố vé\n[Vé đa
 
 KiemTraHuy --> DA_HUY : [Khách tự hủy trước giờ chiếu >= 2 giờ]\n/ Giải phóng ghế, cấp phiếu giảm giá 50% (hạn 30 ngày)\nvà gửi thư điện tử thông báo
 
-KiemTraHuy --> DA_HUY : [Nhân viên hoặc Quản trị viên ép hủy sự cố]\n/ Giải phóng ghế; hoàn 100% tiền mặt (lập phiếu chi)\nhoặc cấp phiếu giảm giá 100%; chuyển giao dịch sang\nĐã hoàn tiền nếu hủy hết vé trong đơn
+KiemTraHuy --> DA_HUY : [Nhân viên hoặc Quản trị viên ép hủy sự cố]\n/ Giải phóng ghế; hoàn 100% tiền mặt (lập phiếu chi, gửi email\nsendTicketCancelledCashRefund) hoặc cấp phiếu giảm giá 100%;\nchuyển giao dịch sang Đã hoàn tiền nếu hủy hết vé trong đơn
 
-KiemTraHuy --> DA_HUY : [Quản trị viên xóa/đóng suất chiếu đã có vé]\n/ Hủy hàng loạt vé Hợp lệ (giữ nguyên vé Đã sử dụng)\nvà ghi nhận tổng tiền cần hoàn 100%
+KiemTraHuy --> DA_HUY : [Quản trị viên xóa/đóng suất chiếu đã có vé]\n/ Hủy hàng loạt vé Hợp lệ (giữ nguyên vé Đã sử dụng),\nghi nhận tổng tiền cần hoàn 100% và gửi email thông báo\nhoàn tiền mặt (sendTicketCancelledCashRefund)
 
 DA_SU_DUNG --> [*] : Hoàn tất phục vụ khách hàng xem phim
 DA_HUY --> [*] : Hoàn tất xử lý hủy vé và lưu vết kiểm soát

@@ -1,0 +1,307 @@
+\section{Mô hình Sequence (Biểu đồ tuần tự)}
+Hệ thống bao gồm 38 biểu đồ tuần tự (Sequence Diagram) mô tả chi tiết luồng tương tác giữa người dùng, giao diện (Frontend), các API Route (Backend), cơ sở dữ liệu (PostgreSQL/Prisma) và các dịch vụ tích hợp (ZaloPay/VNPay Gateway, Email SMTP).
+
+\subsection{SƠ ĐỒ TUẦN TỰ: ĐĂNG KÝ TÀI KHOẢN KHÁCH HÀNG (CUSTOMER SIGN UP)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/01_dang_ky_tai_khoan.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: ĐĂNG KÝ TÀI KHOẢN KHÁCH HÀNG (CUSTOMER SIGN UP)}
+  \label{fig:seq_01}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: ĐĂNG NHẬP \& PHÂN QUYỀN ĐIỀU HƯỚNG (LOGIN \& RBAC ROUTING)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/02_dang_nhap_he_thong.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: ĐĂNG NHẬP \& PHÂN QUYỀN ĐIỀU HƯỚNG (LOGIN \& RBAC ROUTING)}
+  \label{fig:seq_02}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: ĐĂNG XUẤT HỆ THỐNG (LOGOUT / SIGN OUT)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/03_dang_xuat_he_thong.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: ĐĂNG XUẤT HỆ THỐNG (LOGOUT / SIGN OUT)}
+  \label{fig:seq_03}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: MUA VÉ VÀ ĐẶT COMBO ONLINE (TỔNG QUAN)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/04_mua_ve_va_dat_combo_online_tong_quan.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: MUA VÉ VÀ ĐẶT COMBO ONLINE (TỔNG QUAN)}
+  \label{fig:seq_04}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: XEM PHIM VÀ SUẤT CHIẾU}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/05_xem_phim_va_suat_chieu.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: XEM PHIM VÀ SUẤT CHIẾU}
+  \label{fig:seq_05}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: CHỌN GHẾ VÀ GIỮ CHỖ TẠM THỜI}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/06_chon_ghe_va_giu_cho.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: CHỌN GHẾ VÀ GIỮ CHỖ TẠM THỜI}
+  \label{fig:seq_06}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: CHỌN LOẠI VÉ}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/07_chon_loai_ve.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: CHỌN LOẠI VÉ}
+  \label{fig:seq_07}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: THÊM COMBO VÀO ĐƠN HÀNG}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/08_them_combo_vao_don_hang.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: THÊM COMBO VÀO ĐƠN HÀNG}
+  \label{fig:seq_08}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: ÁP DỤNG VOUCHER KHUYẾN MÃI}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/09_ap_dung_voucher.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: ÁP DỤNG VOUCHER KHUYẾN MÃI}
+  \label{fig:seq_09}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: XỬ LÝ THANH TOÁN ONLINE QUA CỔNG NỘI BỘ (ZALOPAY \& VNPAY GATEWAY)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/10_thanh_toan_online.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: XỬ LÝ THANH TOÁN ONLINE QUA CỔNG NỘI BỘ (ZALOPAY \& VNPAY GATEWAY)}
+  \label{fig:seq_10}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: THANH TOÁN ZALOPAY \& VNPAY GATEWAY (TÀI KHOẢN BÊN THỨ 3 \& KIỂM TRA SỐ DƯ)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/11_thanh_toan_vnpay_momo.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: THANH TOÁN ZALOPAY \& VNPAY GATEWAY (TÀI KHOẢN BÊN THỨ 3 \& KIỂM TRA SỐ DƯ)}
+  \label{fig:seq_11}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: BÁN VÉ TẠI QUẦY POS (IN-PERSON TICKET SALES)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/12_ban_ve_tai_quay_pos.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: BÁN VÉ TẠI QUẦY POS (IN-PERSON TICKET SALES)}
+  \label{fig:seq_12}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: BÁN COMBO BẮP NƯỚC LẺ TẠI QUẦY POS (POS STANDALONE COMBO SALES)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/13_ban_combo_tai_quay_pos.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: BÁN COMBO BẮP NƯỚC LẺ TẠI QUẦY POS (POS STANDALONE COMBO SALES)}
+  \label{fig:seq_13}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: SOÁT VÉ VÀO RẠP BẰNG MÃ QR (TICKET CHECK-IN)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/14_soat_ve_vao_rap.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: SOÁT VÉ VÀO RẠP BẰNG MÃ QR (TICKET CHECK-IN)}
+  \label{fig:seq_14}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: GIAO NHẬN COMBO ĐÃ ĐẶT ONLINE (COMBO FULFILLMENT)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/15_giao_nhan_combo_online.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: GIAO NHẬN COMBO ĐÃ ĐẶT ONLINE (COMBO FULFILLMENT)}
+  \label{fig:seq_15}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: TRA CỨU \& QUẢN LÝ VÉ KHÁCH HÀNG (TICKET LOOKUP \& MANAGEMENT)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/16_tra_cuu_quan_ly_ve.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: TRA CỨU \& QUẢN LÝ VÉ KHÁCH HÀNG (TICKET LOOKUP \& MANAGEMENT)}
+  \label{fig:seq_16}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: KHÁCH HÀNG TỰ HỦY VÉ \& CẤP VOUCHER BỒI HOÀN (CUSTOMER CANCELLATION)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/17_khach_huy_ve_nhan_voucher.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: KHÁCH HÀNG TỰ HỦY VÉ \& CẤP VOUCHER BỒI HOÀN (CUSTOMER CANCELLATION)}
+  \label{fig:seq_17}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: HỦY VÉ SỰ CỐ RẠP \& BỒI HOÀN 1 BƯỚC (TIỀN MẶT / VOUCHER 100\%)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/18_huy_ve_su_co_hoan_tien_mat.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: HỦY VÉ SỰ CỐ RẠP \& BỒI HOÀN 1 BƯỚC (TIỀN MẶT / VOUCHER 100\%)}
+  \label{fig:seq_18}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: KHÁCH HÀNG ĐÁNH GIÁ \& BÌNH LUẬN PHIM (MOVIE REVIEW)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/19_khach_danh_gia_phim.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: KHÁCH HÀNG ĐÁNH GIÁ \& BÌNH LUẬN PHIM (MOVIE REVIEW)}
+  \label{fig:seq_19}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: QUẢN LÝ \& KIỂM DUYỆT ĐÁNH GIÁ PHIM (ADMIN REVIEW MODERATION)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/20_admin_quan_ly_danh_gia.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: QUẢN LÝ \& KIỂM DUYỆT ĐÁNH GIÁ PHIM (ADMIN REVIEW MODERATION)}
+  \label{fig:seq_20}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: QUẢN TRỊ DANH MỤC PHIM (TỔNG QUAN)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/21_quan_ly_phim_tong_quan.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: QUẢN TRỊ DANH MỤC PHIM (TỔNG QUAN)}
+  \label{fig:seq_21}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: THÊM PHIM MỚI (FR-ADM-01, BR-02)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/22_them_phim.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: THÊM PHIM MỚI (FR-ADM-01, BR-02)}
+  \label{fig:seq_22}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: CHỈNH SỬA THÔNG TIN PHIM (FR-ADM-01, BR-02)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/23_sua_phim.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: CHỈNH SỬA THÔNG TIN PHIM (FR-ADM-01, BR-02)}
+  \label{fig:seq_23}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: NGỪNG CHIẾU / XÓA MỀM PHIM (FR-ADM-02, BR-07)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/24_ngung_chieu_phim.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: NGỪNG CHIẾU / XÓA MỀM PHIM (FR-ADM-02, BR-07)}
+  \label{fig:seq_24}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: QUẢN TRỊ DANH MỤC COMBO BẮP NƯỚC (TỔNG QUAN)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/25_quan_ly_combo_tong_quan.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: QUẢN TRỊ DANH MỤC COMBO BẮP NƯỚC (TỔNG QUAN)}
+  \label{fig:seq_25}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: THÊM COMBO MỚI (UC-17)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/26_them_combo_moi.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: THÊM COMBO MỚI (UC-17)}
+  \label{fig:seq_26}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: CHỈNH SỬA THÔNG TIN COMBO (UC-17)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/27_sua_combo.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: CHỈNH SỬA THÔNG TIN COMBO (UC-17)}
+  \label{fig:seq_27}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: NGỪNG BÁN / XÓA COMBO BẮP NƯỚC (UC-17)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/28_ngung_ban_combo.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: NGỪNG BÁN / XÓA COMBO BẮP NƯỚC (UC-17)}
+  \label{fig:seq_28}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: CẬP NHẬT TỒN KHO COMBO (UC-17)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/29_cap_nhat_ton_kho_combo.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: CẬP NHẬT TỒN KHO COMBO (UC-17)}
+  \label{fig:seq_29}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: QUẢN TRỊ VOUCHER KHUYẾN MÃI (TỔNG QUAN - FR-VOU-01, BR-03)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/30_quan_ly_voucher_tong_quan.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: QUẢN TRỊ VOUCHER KHUYẾN MÃI (TỔNG QUAN - FR-VOU-01, BR-03)}
+  \label{fig:seq_30}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: THÊM VOUCHER MỚI (FR-VOU-01)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/31_them_voucher.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: THÊM VOUCHER MỚI (FR-VOU-01)}
+  \label{fig:seq_31}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: CHỈNH SỬA VOUCHER (FR-VOU-01)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/32_sua_voucher.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: CHỈNH SỬA VOUCHER (FR-VOU-01)}
+  \label{fig:seq_32}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: XÓA / VÔ HIỆU HÓA VOUCHER (FR-VOU-01)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/33_ngung_su_dung_voucher.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: XÓA / VÔ HIỆU HÓA VOUCHER (FR-VOU-01)}
+  \label{fig:seq_33}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: QUẢN TRỊ LỊCH CHIẾU VÀ SUẤT CHIẾU (TỔNG QUAN - FR-ADM-03, FR-ADM-04, BR-01, BR-04, BR-08)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/34_quan_ly_suat_chieu_tong_quan.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: QUẢN TRỊ LỊCH CHIẾU VÀ SUẤT CHIẾU (TỔNG QUAN - FR-ADM-03, FR-ADM-04, BR-01, BR-04, BR-08)}
+  \label{fig:seq_34}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: THÊM MỚI SUẤT CHIẾU (FR-ADM-03, BR-01, BR-08)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/35_them_suat_chieu.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: THÊM MỚI SUẤT CHIẾU (FR-ADM-03, BR-01, BR-08)}
+  \label{fig:seq_35}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: KIỂM TRA CHỐNG TRÙNG LỊCH PHÒNG CHIẾU \& ĐỘ PHÙ HỢP SUẤT CHIẾU (BR-02, BR-08)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/36_kiem_tra_do_phu_hop_suat_chieu.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: KIỂM TRA CHỐNG TRÙNG LỊCH PHÒNG CHIẾU \& ĐỘ PHÙ HỢP SUẤT CHIẾU (BR-02, BR-08)}
+  \label{fig:seq_36}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: CHỈNH SỬA SUẤT CHIẾU (FR-ADM-03, BR-08)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/37_sua_suat_chieu.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: CHỈNH SỬA SUẤT CHIẾU (FR-ADM-03, BR-08)}
+  \label{fig:seq_37}
+\end{figure}
+
+\subsection{SƠ ĐỒ TUẦN TỰ: BÁO CÁO DOANH THU \& DASHBOARD TÀI CHÍNH (ADMIN DASHBOARD \& REPORTS)}
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth,height=0.80\textheight,keepaspectratio]{images/sequence/38_bao_cao_doanh_thu_tai_chinh.png}
+  \caption{Sequence Diagram: SƠ ĐỒ TUẦN TỰ: BÁO CÁO DOANH THU \& DASHBOARD TÀI CHÍNH (ADMIN DASHBOARD \& REPORTS)}
+  \label{fig:seq_38}
+\end{figure}
+

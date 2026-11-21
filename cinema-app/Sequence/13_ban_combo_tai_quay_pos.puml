@@ -9,9 +9,9 @@ skinparam defaultTextAlignment center
 
 actor "Nhân viên quầy\n(Staff)" as NV
 actor "Khách hàng\n(Customer)" as KH
-boundary "Giao diện POS\n(Frontend Next.js)" as UI
-control "API Quầy Bắp Nước\n(Next.js App Router)" as API
-entity "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
+participant "Giao diện POS\n(Frontend Next.js)" as UI
+participant "API Quầy Bắp Nước\n(Next.js App Router)" as API
+participant "Cơ sở dữ liệu\n(PostgreSQL / Prisma)" as DB
 
 activate NV
 NV -> UI : Mở màn hình Bán combo bắp nước tại quầy (/staff/pos)

@@ -26,13 +26,14 @@ export default function StaffSidebar({ currentPage, onNavigate: _onNavigate }: S
 
   const staffName = session?.user?.name || 'Nhân viên';
   const staffEmail = session?.user?.email || 'Ca Tối · Quầy POS 01';
+  const isAdmin = session?.user?.role === 'ADMIN';
   const staffInitials = staffName
     .split(' ')
     .filter(Boolean)
     .map(w => w[0])
     .slice(-2)
     .join('')
-    .toUpperCase() || 'NV';
+    .toUpperCase() || (isAdmin ? 'AD' : 'NV');
 
   return (
     <aside className="w-64 flex-shrink-0 bg-[rgba(15,11,26,0.85)] backdrop-blur-2xl border-r border-[rgba(192,132,252,0.2)] min-h-screen flex flex-col shadow-[8px_0_32px_rgba(0,0,0,0.8)]">
@@ -58,6 +59,23 @@ export default function StaffSidebar({ currentPage, onNavigate: _onNavigate }: S
 
       {/* Nav Items */}
       <nav className="flex-1 px-3 py-4 space-y-1.5">
+        {isAdmin && (
+          <div className="mb-3 pb-2 border-b border-[rgba(192,132,252,0.15)]">
+            <Link
+              href="/admin"
+              className="w-full flex items-center justify-between px-3 py-2 rounded-xl text-xs font-bold text-amber-300 hover:text-white bg-gradient-to-r from-amber-500/20 to-purple-500/20 hover:from-amber-500/30 hover:to-purple-500/30 border border-amber-500/40 transition-all no-underline shadow-[0_0_15px_rgba(245,158,11,0.2)]"
+            >
+              <div className="flex items-center gap-2">
+                <span className="text-amber-400 font-extrabold">←</span>
+                <span>Về Admin Dashboard</span>
+              </div>
+              <span className="text-[9px] bg-amber-400/25 text-amber-300 border border-amber-400/50 px-1.5 py-0.5 rounded font-black tracking-wider">
+                ADMIN
+              </span>
+            </Link>
+          </div>
+        )}
+
         <div className="px-3 pb-2 text-[10px] font-extrabold tracking-widest text-[#94A3B8] uppercase">
           Phân Hệ Quầy Rạp
         </div>

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, Suspense } from 'react';
 import { useSearchParams } from 'next/navigation';
 import Image from 'next/image';
 import Link from 'next/link';
+import { useSession } from 'next-auth/react';
 import Modal from '@/components/ui/Modal';
 import Toast, { ToastMessage } from '@/components/ui/Toast';
 import { QRCodeSVG } from 'qrcode.react';
@@ -20,6 +21,8 @@ const INCIDENT_REASONS = [
 ];
 
 function TicketLookupContent() {
+  const { data: session } = useSession();
+  const isAdmin = session?.user?.role === 'ADMIN';
   const searchParams = useSearchParams();
   const initialQuery = searchParams.get('q') || '';
 
@@ -198,9 +201,15 @@ function TicketLookupContent() {
             </span>
             <div>
               <div className="flex items-center gap-2">
-                <Link href="/staff" className="text-xs text-[#94A3B8] hover:text-white transition-colors">
-                  Dashboard
-                </Link>
+                {isAdmin ? (
+                  <Link href="/admin" className="text-xs text-amber-300 hover:text-amber-200 font-bold flex items-center gap-1 transition-colors">
+                    <span>← Quản Trị (Admin)</span>
+                  </Link>
+                ) : (
+                  <Link href="/staff" className="text-xs text-[#94A3B8] hover:text-white transition-colors">
+                    Dashboard
+                  </Link>
+                )}
                 <span className="text-[#64748B] text-xs">/</span>
                 <h1 className="text-sm lg:text-base font-extrabold text-[#F8FAFC] tracking-wide">
                   TRẠM SOÁT VÉ ĐIỆN TỬ LASER · CỔNG VÀO PHÒNG CHIẾU
@@ -213,6 +222,15 @@ function TicketLookupContent() {
           </div>
 
           <div className="flex items-center gap-2">
+            {isAdmin && (
+              <Link
+                href="/admin"
+                className="px-3.5 py-1.5 rounded-xl bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 hover:text-white text-xs font-bold border border-amber-500/40 transition-all flex items-center gap-1.5 shadow-[0_0_12px_rgba(245,158,11,0.2)] no-underline"
+              >
+                <span>←</span>
+                <span>Về Admin Dashboard</span>
+              </Link>
+            )}
             <button
               type="button"
               onClick={() => handleSearchTickets(query, activeStatusFilter)}

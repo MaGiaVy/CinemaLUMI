@@ -1,0 +1,80 @@
+@startuml 04_danh_gia_phim
+title SƠ ĐỒ HOẠT ĐỘNG: ĐÁNH GIÁ VÀ QUẢN LÝ ĐÁNH GIÁ PHIM (MOVIE REVIEWS)
+skinparam conditionStyle insideDiamond
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam monochrome true
+skinparam wrapWidth 180
+
+|Khách hàng|
+|Hệ thống|
+|Admin|
+
+|Khách hàng|
+start
+if (Người thực hiện?) then (Khách hàng)
+  :Mở trang chi tiết phim;
+
+  |Hệ thống|
+  :Hiển thị thông tin phim, điểm đánh giá\ntrung bình và danh sách đánh giá;
+
+  |Khách hàng|
+  :Chọn chức năng gửi đánh giá;
+
+  |Hệ thống|
+  if (Đã đăng nhập?) then (Chưa)
+    :Thông báo yêu cầu đăng nhập\nvà chuyển sang trang /login;
+    |Khách hàng|
+    :Đăng nhập tài khoản;
+  else (Rồi)
+  endif
+
+  |Khách hàng|
+  :Chọn số sao từ 1 đến 5\nvà viết bình luận (tối đa 1000 ký tự);
+  :Gửi đánh giá;
+
+  |Hệ thống|
+  :Kiểm tra dữ liệu đánh giá;
+  while (Hợp lệ?) is (Không)
+    :Thông báo lỗi và yêu cầu nhập lại;
+    |Khách hàng|
+    :Điều chỉnh số sao hoặc bình luận;
+    :Gửi lại đánh giá;
+    |Hệ thống|
+    :Kiểm tra lại dữ liệu đánh giá;
+  endwhile (Có)
+
+  if (Đã đánh giá?) then (Rồi:\nCập nhật cũ)
+    :Ghi đè số sao và bình luận cũ;
+  else (Chưa:\nTạo mới)
+    :Tạo bản ghi đánh giá mới;
+  endif
+  :Tính lại điểm đánh giá trung bình của phim\n(làm tròn 1 chữ số thập phân);
+  :Cập nhật điểm trung bình lên danh sách phim;
+  :Thông báo gửi đánh giá thành công;
+
+  |Khách hàng|
+  :Xem kết quả đánh giá vừa gửi;
+  stop
+
+else (Admin)
+  |Admin|
+  :Truy cập trang chi tiết phim;
+  :Xem danh sách các đánh giá của phim;
+
+  if (Vi phạm?) then (Có:\nNội dung không phù hợp)
+    :Chọn xóa đánh giá vi phạm;
+    |Hệ thống|
+    :Xóa đánh giá khỏi hệ thống;
+    :Tính lại điểm đánh giá trung bình;
+    :Thông báo xóa thành công;
+    |Admin|
+    :Cập nhật lại danh sách đánh giá;
+  else (Không:\nĐánh giá hợp lệ)
+  endif
+
+  |Admin|
+  :Hoàn tất kiểm duyệt đánh giá;
+  stop
+endif
+@enduml

@@ -1,0 +1,76 @@
+@startuml state_combo
+skinparam monochrome true
+skinparam style strictuml
+skinparam shadowing false
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
+skinparam roundCorner 8
+skinparam padding 6
+skinparam nodesep 55
+skinparam ranksep 65
+skinparam ArrowThickness 1.2
+skinparam state {
+    BorderThickness 1.5
+    AttributeFontSize 11
+}
+skinparam note {
+    BorderThickness 1
+    FontSize 11
+}
+hide empty description
+
+title SƠ ĐỒ TRẠNG THÁI ĐƠN BẮP NƯỚC
+
+state "Giai đoạn 1: Giữ kho tạm thời (ComboReservation)" as GIAI_DOAN_1 {
+    state "Đang giữ kho tạm\n(RESERVED)" as GIU_KHO {
+    }
+    GIU_KHO : entry / Trừ tạm số lượng khỏi tồn kho; đặt hạn giữ 10 phút
+    GIU_KHO : do / Chờ khách hàng hoàn tất thanh toán đơn hàng
+
+    state "Đã giải phóng\n(RELEASED)" as GIAI_PHONG {
+    }
+    GIAI_PHONG : entry / Cộng hoàn lại đúng số lượng đã giữ vào tồn kho thực tế
+
+    state "Đã xác nhận\n(CONFIRMED)" as XAC_NHAN {
+    }
+    XAC_NHAN : entry / Chốt phần tồn kho đã trừ (không trừ tồn kho lần 2)
+
+    GIU_KHO --> XAC_NHAN : Thanh toán trực tuyến thành công\n[Giao dịch đạt trạng thái Thành công]\n/ Chốt phiếu giữ kho tạm
+
+    GIU_KHO --> GIAI_PHONG : Hết 10 phút, Khách hủy giữ hoặc Thanh toán thất bại\n[Quá thời hạn 10 phút, có yêu cầu nhả hoặc xung đột ghế]\n/ Hoàn trả số lượng về kho và đóng phiếu giữ
+
+    XAC_NHAN -[hidden]right-> GIAI_PHONG
+}
+
+state "Giai đoạn 2: Thực hiện giao đơn (OrderCombo)" as GIAI_DOAN_2 {
+    state "Chưa giao tại quầy\n(isDelivered = false)" as CHUA_GIAO {
+    }
+    CHUA_GIAO : entry / Tạo chi tiết đơn bắp nước chờ khách hàng đến nhận
+
+    state "Đã giao tại quầy\n(isDelivered = true)" as DA_GIAO {
+    }
+    DA_GIAO : entry / Lưu thời điểm giao món thực tế; khóa xác nhận trùng lặp
+
+    CHUA_GIAO --> DA_GIAO : Khách đưa mã đơn tại quầy và Nhân viên xác nhận giao\n[Đơn chưa từng được giao trước đó]\n/ Đánh dấu Đã giao và lưu dấu thời gian
+}
+
+[*] --> DA_GIAO : Nhân viên bán vé kèm bắp nước hoặc bán lẻ tại quầy\n[Đủ số lượng tồn kho tại thời điểm lập đơn]\n/ Trừ kho, thu tiền và ghi nhận Đã giao ngay lập tức
+
+[*] --> GIU_KHO : Khách chọn bắp nước khi đặt trực tuyến\n[Món đang kinh doanh (ACTIVE) và đủ tồn kho]\n/ Tạo phiếu giữ kho tạm 10 phút
+
+XAC_NHAN --> CHUA_GIAO : Khởi tạo chi tiết đơn sau thanh toán
+
+DA_GIAO --> [*] : Hoàn tất phục vụ đơn bắp nước tại quầy
+GIAI_PHONG --> [*] : Kết thúc giữ kho quá hạn hoặc hủy bỏ
+
+note as GhiChu
+  <b>QUY TẮC TỒN KHO VÀ GIAO NHẬN BẮP NƯỚC:</b>
+  1. Ở luồng trực tuyến, tồn kho chỉ bị trừ <b>một lần duy nhất</b> khi chuyển sang <b>Đang giữ kho tạm</b> trong 10 phút để chống bán vượt số lượng còn lại.
+  2. Nếu hết hạn 10 phút (do tác vụ định kỳ hoặc lượt đặt sau quét qua), khách hủy hoặc cổng thanh toán báo lỗi/xung đột ghế, số lượng được hoàn nguyên về kho.
+  3. Bước giao bắp nước tại quầy hoạt động độc lập hoàn toàn với cổng soát vé; hiện hệ thống chưa có luồng hủy chi tiết đơn bắp nước sau khi đã thanh toán thành công.
+end note
+
+GIAI_PHONG -[hidden]-> GhiChu
+DA_GIAO -[hidden]-> GhiChu
+
+@enduml

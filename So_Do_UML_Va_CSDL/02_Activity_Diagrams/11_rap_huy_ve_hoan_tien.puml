@@ -1,0 +1,59 @@
+@startuml 11_rap_huy_ve_hoan_tien
+title SƠ ĐỒ HOẠT ĐỘNG: RẠP HỦY VÉ & BỒI HOÀN 1 BƯỚC (CASH 100% / VOUCHER 100%)
+skinparam conditionStyle insideDiamond
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam monochrome true
+skinparam wrapWidth 180
+
+|Nhân viên|
+|Hệ thống|
+|Khách hàng|
+
+|Khách hàng|
+start
+:Yêu cầu hủy vé sự cố / hỗ trợ tại quầy\nvà cung cấp mã vé;
+
+|Nhân viên|
+:Tra cứu mã vé trên hệ thống POS\n(GET /api/staff/tickets/search);
+:Chọn "Hủy vé & Bồi hoàn" và nhập lý do;
+
+|Hệ thống|
+:Kiểm tra trạng thái vé;
+if (Vé Valid?) then (Có)
+else (Không)
+  :Từ chối hủy vé và thông báo lý do\n(vé đã sử dụng hoặc đã hủy);
+  stop
+endif
+
+|Nhân viên|
+:Chọn hình thức bồi hoàn 1 bước\n(POST /api/staff/tickets/[id]/cancel-with-voucher);
+if (Hình thức bồi hoàn?) then (Tiền mặt - CASH 100%)
+  |Hệ thống|
+  :Chuyển Ticket.status = 'Cancelled'\nvà Payment.status = 'Refunded';
+  :Giải phóng ghế về EMPTY\nvà hoàn tồn kho combo chưa nhận (isDelivered = false);
+  :Ghi nhận nhật ký kiểm toán (AuditLog)\nvà xuất biên lai cash_receipt;
+  :Gửi email xác nhận hoàn tiền mặt:\nsendTicketCancelledCashRefund();
+
+  |Nhân viên|
+  :Chi trả tiền mặt 100% tại quầy\nvà trao biên lai cash_receipt;
+
+  |Khách hàng|
+  :Nhận 100% tiền mặt và email xác nhận;
+  stop
+
+else (Voucher - VOUCHER 100%)
+  |Hệ thống|
+  :Chuyển Ticket.status = 'Cancelled';
+  :Giải phóng ghế về EMPTY\nvà hoàn tồn kho combo chưa nhận (isDelivered = false);
+  :Tạo mã Coupon bồi hoàn 100% giá trị vé\nvà ghi nhận AuditLog;
+  :Gửi email cấp phát mã Voucher:\nsendVoucherIssued();
+
+  |Nhân viên|
+  :Thông báo mã Coupon 100% đã gửi cho khách;
+
+  |Khách hàng|
+  :Nhận mã Voucher 100% qua email;
+  stop
+endif
+@enduml

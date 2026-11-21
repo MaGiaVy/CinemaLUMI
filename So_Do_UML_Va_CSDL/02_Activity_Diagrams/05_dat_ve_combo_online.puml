@@ -1,0 +1,121 @@
+@startuml 05_dat_ve_combo_online
+title SƠ ĐỒ HOẠT ĐỘNG: ĐẶT VÉ VÀ MUA COMBO ONLINE (ONLINE TICKET & COMBO BOOKING)
+skinparam conditionStyle insideDiamond
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam monochrome true
+skinparam wrapWidth 180
+
+|Khách hàng|
+|Hệ thống|
+|Cổng thanh toán nội bộ|
+|Khách hàng|
+start
+:Chọn phim đang chiếu;
+:Lọc suất chiếu theo ngày chiếu,\nthể loại phim và phòng chiếu;
+
+|Hệ thống|
+:Hiển thị danh sách suất chiếu phù hợp;
+
+|Khách hàng|
+:Chọn suất chiếu;
+
+|Hệ thống|
+:Hiển thị sơ đồ 50 ghế (A1-E10)\nvà trạng thái từng ghế;
+
+|Khách hàng|
+:Chọn ghế trên sơ đồ A1-E10\n(tối đa 08 ghế/giao dịch - MAX_SEATS = 8);
+
+|Hệ thống|
+:Kiểm tra trạng thái ghế và giới hạn MAX_SEATS = 8;
+while (Ghế trống?) is (Không)
+  :Thông báo và yêu cầu chọn ghế khác;
+  |Khách hàng|
+  :Chọn lại ghế;
+  |Hệ thống|
+  :Kiểm tra lại trạng thái ghế;
+endwhile (Có)
+:Chuyển ghế sang RESERVED\nđặt reservedUntil = NOW() + 10 phút;
+
+|Khách hàng|
+:Chọn loại vé cho từng ghế\n(Thường 100% hoặc Trẻ em 50%);
+
+|Hệ thống|
+if (Phim T18?) then (Có - BR-02)
+  :Khóa lựa chọn vé Trẻ em (50%)\nvà bắt buộc dùng vé Thường (100%);
+else (Không)
+endif
+:Tính giá vé (Thường 100%, Trẻ em 50%);
+
+|Khách hàng|
+if (Thêm combo?) then (Có)
+  :Chọn combo và số lượng;
+  |Hệ thống|
+  if (Còn hàng?) then (Có)
+    :Giữ tồn kho combo tạm thời 10 phút (ComboReservation)\nvà thêm combo vào đơn hàng;
+  else (Không)
+    :Thông báo combo không đủ tồn kho;
+  endif
+else (Không)
+endif
+
+|Khách hàng|
+if (Dùng voucher?) then (Có)
+  :Nhập hoặc chọn mã voucher;
+  |Hệ thống|
+  if (Hợp lệ?) then (Có)
+    :Áp dụng giảm giá trên tiền vé\n(không áp dụng trên tiền combo);
+  else (Không)
+    :Thông báo voucher không hợp lệ\nvà không áp dụng giảm giá;
+  endif
+else (Không)
+endif
+
+|Hệ thống|
+:Tính tổng đơn = tiền vé sau giảm giá + tiền combo;
+:Hiển thị thông tin đơn hàng và số tiền cần thanh toán;
+
+|Khách hàng|
+:Chọn thanh toán trực tuyến\n(ZaloPay hoặc VNPay);
+
+|Hệ thống|
+:Gọi POST /api/payments/initiate (201 Created)\ntạo Payment (status = 'Pending') & trả về URL cổng thanh toán;
+
+|Cổng thanh toán nội bộ|
+:Mở trang /payments/zalopay-mock\nhoặc /payments/vnpay-mock;
+:Gọi GET /api/payments/gateway-wallet\nlấy danh sách 3 tài khoản bên thứ 3 & số dư;
+
+|Khách hàng|
+:Chọn tài khoản bên thứ 3\nvà xác nhận thanh toán;
+
+|Cổng thanh toán nội bộ|
+:Gọi POST /api/payments/gateway-wallet\nkiểm tra số dư tài khoản bên thứ 3;
+while (Đủ số dư?) is (Không - INSUFFICIENT_BALANCE)
+  :Thông báo thiếu số dư & hiển thị tùy chọn nạp tiền;
+  |Khách hàng|
+  :Nạp thêm tiền vào tài khoản\n(POST /api/payments/gateway-wallet, action: 'topup');
+  |Cổng thanh toán nội bộ|
+  :Cập nhật số dư mới và kiểm tra lại;
+endwhile (Có)
+
+|Hệ thống|
+:Kiểm tra thời hạn giữ chỗ 10 phút (HOLD_EXPIRED)\nvà trừ tiền tài khoản (debitThirdPartyAccountIfSufficient);
+if (Còn hạn & Thành công?) then (Có)
+  :Gọi processZaloPayPaymentSuccess()\nhoặc processVnpayIpnTransaction();
+  :Cập nhật Payment.status = 'Success',\nTicket = 'Valid', Seat = 'OCCUPIED';
+  :Chuyển ComboReservation sang COMPLETED\nvà tạo OrderCombo (isDelivered = false);
+  :Tăng lượt dùng voucher (Coupon.usedCount + 1);
+  :Chuyển hướng về /payment-result,\nhiển thị vé điện tử kèm mã QR (<QRCodeSVG />);
+  |Khách hàng|
+  :Nhận vé điện tử có mã QR (<QRCodeSVG />);
+  stop
+else (Không - Quá hạn / Lỗi / Xung đột ghế)
+  |Hệ thống|
+  :Hoàn tiền về tài khoản bên thứ 3 nếu đã trừ tiền\n(refundThirdPartyAccount);
+  :Cập nhật Payment.status = 'Failed', giải phóng ghế về EMPTY\nvà hoàn tồn kho ComboReservation (RELEASED);
+  :Chuyển hướng về /payment-result báo lỗi;
+  |Khách hàng|
+  :Nhận thông báo giao dịch chưa hoàn tất;
+  stop
+endif
+@enduml

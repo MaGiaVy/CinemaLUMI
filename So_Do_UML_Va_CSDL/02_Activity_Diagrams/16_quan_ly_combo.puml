@@ -1,0 +1,77 @@
+﻿@startuml 16_quan_ly_combo
+title SƠ ĐỒ HOẠT ĐỘNG: QUẢN LÝ COMBO BẮP NƯỚC (COMBO MANAGEMENT)
+skinparam conditionStyle insideDiamond
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam monochrome true
+skinparam wrapWidth 180
+
+|Admin|
+|Hệ thống|
+|Admin|
+start
+:Chọn quản lý combo;
+
+|Hệ thống|
+:Hiển thị danh sách combo;
+
+|Admin|
+:Chọn thêm, sửa, ngừng bán\nhoặc cập nhật tồn kho;
+if (Thêm mới?) then (Có)
+else (Không)
+  :Chọn combo cần xử lý;
+  |Hệ thống|
+  :Tìm thông tin combo;
+  if (Tồn tại?) then (Có)
+    :Hiển thị thông tin hiện tại;
+  else (Không)
+    :Thông báo không tìm thấy combo;
+    stop
+  endif
+endif
+
+|Admin|
+if (Ngừng bán?) then (Có)
+  |Hệ thống|
+  if (Đã ngừng?) then (Có)
+    :Thông báo combo đã ngừng bán;
+    stop
+  else (Không)
+  endif
+else (Không)
+endif
+
+|Hệ thống|
+:Hiển thị biểu mẫu hoặc yêu cầu xác nhận\ntheo thao tác đã chọn;
+
+|Admin|
+:Nhập thông tin combo hoặc số lượng tồn kho (nếu cần);
+if (Xác nhận?) then (Có)
+else (Không)
+  :Hủy thao tác;
+  stop
+endif
+
+|Hệ thống|
+:Kiểm tra thông tin combo và số lượng tồn kho;
+while (Hợp lệ?) is (Không)
+  :Thông báo lỗi và yêu cầu nhập lại;
+  |Admin|
+  :Điều chỉnh thông tin combo hoặc tồn kho;
+  :Xác nhận thông tin;
+  |Hệ thống|
+  :Kiểm tra lại thông tin combo và tồn kho;
+endwhile (Có)
+
+|Hệ thống|
+:Lưu mới, sửa thông tin, ngừng bán\nhoặc cập nhật tồn kho theo thao tác đã chọn;
+if (Thành công?) then (Có)
+  :Thông báo thành công;
+  :Cập nhật danh sách combo;
+  stop
+else (Không)
+  :Thông báo thao tác thất bại;
+  stop
+endif
+@enduml
+

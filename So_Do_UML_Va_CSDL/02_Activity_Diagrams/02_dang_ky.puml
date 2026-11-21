@@ -1,0 +1,43 @@
+@startuml 02_dang_ky
+title SƠ ĐỒ HOẠT ĐỘNG: ĐĂNG KÝ TÀI KHOẢN KHÁCH HÀNG (CUSTOMER SIGN UP)
+skinparam conditionStyle insideDiamond
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam monochrome true
+skinparam wrapWidth 180
+
+|Khách hàng|
+|Hệ thống|
+|Khách hàng|
+start
+:Truy cập trang Đăng ký (/signup);
+:Nhập thông tin (Họ tên, Email,\nMật khẩu, Xác nhận, SĐT);
+:Bấm nút "Tạo tài khoản";
+
+|Hệ thống|
+:Kiểm tra hợp lệ dữ liệu đầu vào;
+if (Thông tin hợp lệ?) then (Không:\nThiếu trường hoặc mật khẩu < 6 ký tự)
+  :Hiển thị thông báo lỗi tại từng ô nhập;
+  |Khách hàng|
+  :Chỉnh sửa lại thông tin;
+  stop
+else (Có)
+  |Hệ thống|
+  :Chuẩn hóa email và kiểm tra\ntrùng lặp trong CSDL;
+  if (Email đã tồn tại?) then (Có:\nTrùng email)
+    :Báo lỗi Email đã được sử dụng (409);
+    |Khách hàng|
+    :Đổi email khác hoặc chuyển sang Đăng nhập;
+    stop
+  else (Không)
+    |Hệ thống|
+    :Mã hóa mật khẩu bằng bcrypt;
+    :Lưu tài khoản mới với vai trò CUSTOMER;
+    :Hiển thị thông báo "Đăng ký thành công!"\nvà chuyển hướng về trang Đăng nhập (/login);
+
+    |Khách hàng|
+    :Chuyển sang trang Đăng nhập để sử dụng tài khoản;
+    stop
+  endif
+endif
+@enduml

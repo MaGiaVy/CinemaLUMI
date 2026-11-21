@@ -1,0 +1,26 @@
+@startuml
+title Sơ đồ Use Case - Quản Lý Suất Chiếu
+left to right direction
+skinparam shadowing false
+skinparam packageStyle rectangle
+skinparam usecase {
+  BackgroundColor #F8FAFC
+  BorderColor #334155
+  ArrowColor #475569
+}
+
+actor "Admin" as Admin
+
+rectangle "Quản lý suất chiếu" {
+  usecase "Quản lý suất chiếu" as UC_Main
+  usecase "Thêm suất chiếu" as UC_Add
+  usecase "Sửa suất chiếu" as UC_Edit
+  usecase "Khởi tạo 50 ghế trống" as UC_InitSeats
+}
+
+Admin --> UC_Main
+
+UC_Add ..> UC_Main : <<extend>>
+UC_Edit ..> UC_Main : <<extend>>
+UC_Add ..> UC_InitSeats : <<include>>
+@enduml

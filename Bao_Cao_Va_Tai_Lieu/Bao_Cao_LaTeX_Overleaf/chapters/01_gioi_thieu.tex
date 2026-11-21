@@ -1,0 +1,35 @@
+\section{Bối cảnh và Lý do chọn đề tài}
+Một nhóm sinh viên muốn khởi nghiệp (startup) xây dựng một rạp chiếu phim quy mô nhỏ mang thương hiệu \textbf{LumiCinema}, nhằm phục vụ khách hàng xem phim và đặt vé linh hoạt theo hai hình thức: \textbf{đặt vé trực tuyến (Online)} và \textbf{mua vé trực tiếp tại quầy (POS)}. Bên cạnh dịch vụ bán vé, rạp còn kinh doanh các gói bắp nước (Combo) nhằm gia tăng trải nghiệm và tối ưu doanh thu.
+
+Để vận hành đồng bộ, minh bạch, tránh sai sót trong khâu giữ ghế, thanh toán, đối soát doanh thu và xử lý sự cố (hủy vé, hoàn tiền, cấp voucher bồi hoàn), việc phân tích, thiết kế và xây dựng một hệ thống quản lý bán vé xem phim hoàn chỉnh là yêu cầu cấp thiết.
+
+\section{Phạm vi hệ thống}
+Hệ thống LumiCinema được thiết kế cho \textbf{một rạp chiếu phim duy nhất} với các thông số vận hành chuẩn hóa như sau:
+\begin{itemize}[leftmargin=1.2cm]
+  \item \textbf{Quy mô phòng chiếu:} Gồm \textbf{5 phòng chiếu}, mỗi phòng có \textbf{50 ghế cùng loại} (tổng cộng \textbf{250 ghế}).
+  \item \textbf{Cấu trúc sơ đồ ghế:} Mỗi phòng 50 ghế được đánh số cố định gồm 5 hàng dọc từ \textbf{A đến E} và 10 cột ngang từ \textbf{1 đến 10} (A1--A10, ..., E1--E10).
+  \item \textbf{Kênh bán vé:} Hỗ trợ đồng thời \textbf{2 kênh} là Online (qua web, thanh toán qua cổng ZaloPay/VNPay có số dư và nạp tiền) và Tại quầy (POS tiền mặt/chuyển khoản).
+  \item \textbf{Thông báo tự động:} Gửi email xác nhận đặt vé, email cấp voucher bồi hoàn và email xác nhận hoàn tiền mặt qua giao thức SMTP (Nodemailer).
+\end{itemize}
+
+\section{Mục tiêu của đồ án}
+\begin{enumerate}[leftmargin=1.2cm]
+  \item Phân tích đầy đủ yêu cầu nghiệp vụ, lập mô hình BFD, Use Case, Sequence, Activity, State, Class và thiết kế CSDL (ERD/RDM) nhất quán 100\% với mã nguồn.
+  \item Xây dựng ứng dụng web hoàn chỉnh đáp ứng đầy đủ quy trình nghiệp vụ của 3 nhóm người dùng: \textbf{Khách hàng}, \textbf{Nhân viên quầy} và \textbf{Admin}.
+  \item Đảm bảo tính toàn vẹn dữ liệu trong các bài toán đồng thời (giữ ghế có thời hạn TTL, chống đặt trùng ghế, cập nhật tồn kho combo, đối soát giao dịch thanh toán và hoàn tiền).
+\end{enumerate}
+
+\section{Nhóm người dùng và các chức năng chính}
+\begin{table}[H]
+\centering
+\caption{Phân nhóm người dùng và các chức năng chính của LumiCinema}
+\label{tab:actors_functions}
+\renewcommand{\arraystretch}{1.3}
+\begin{tabular}{|p{3.0cm}|p{12.2cm}|}
+\hline
+\rowcolor{headerblue} \textbf{Nhóm người dùng} & \textbf{Chức năng chính} \\ \hline
+\textbf{Khách hàng} & Đăng ký, đăng nhập, xem danh sách phim và suất chiếu, chọn ghế và loại vé, đặt combo bắp nước, áp dụng voucher, thanh toán online (ZaloPay/VNPay Gateway), xem lịch sử vé, yêu cầu hủy vé trước $\ge$ 2 giờ (nhận voucher 50\%), đánh giá phim (1--5 sao và bình luận). \\ \hline
+\textbf{Nhân viên quầy} & Bán vé và combo tại quầy (POS), tìm/gắn khách hàng theo SĐT/Email, áp dụng voucher, soát vé bằng mã vé/QR để cho phép vào rạp, giao combo (cập nhật trạng thái đã nhận), hỗ trợ hủy vé theo yêu cầu khách (voucher 50\%) và xử lý hủy vé sự cố rạp 1 bước (hoàn 100\% tiền mặt hoặc voucher 100\%). \\ \hline
+\textbf{Admin} & Quản lý danh mục Phim (thêm, sửa, ngừng chiếu), Suất chiếu (thêm, sửa, tự động khởi tạo 50 ghế, hủy suất chiếu sự cố), Combo (thêm, sửa, ngừng bán, cập nhật tồn kho), Voucher (thêm, sửa, ngừng sử dụng), xem Dashboard doanh thu trực quan (Streamgraph) và xuất báo cáo CSV. \\ \hline
+\end{tabular}
+\end{table}

@@ -1,8 +1,12 @@
 @startuml
 title Sơ đồ Use Case Tổng Quát - Hệ Thống LumiCinema
-left to right direction
+top to bottom direction
 skinparam shadowing false
 skinparam packageStyle rectangle
+skinparam nodesep 25
+skinparam ranksep 65
+skinparam defaultFontName Arial
+skinparam defaultFontSize 12
 skinparam usecase {
   BackgroundColor #F8FAFC
   BorderColor #334155
@@ -10,52 +14,59 @@ skinparam usecase {
 }
 
 actor "Khách hàng" as Customer
-actor "Nhân viên" as Staff
-actor "Admin" as Admin
 
 rectangle "Hệ thống LumiCinema" {
   usecase "Đăng ký" as UC_Register
-  usecase "Đăng nhập" as UC_Login
-  usecase "Đăng xuất" as UC_Logout
-
   usecase "Mua vé và đặt combo online" as UC_BookOnline
   usecase "Quản lý vé của khách hàng\n(xem, yêu cầu hủy)" as UC_MyTickets
   usecase "Đánh giá phim" as UC_Review
 
+  usecase "Đăng nhập" as UC_Login
+  usecase "Đăng xuất" as UC_Logout
+
   usecase "Bán vé & Soát vé tại quầy" as UC_POS
   usecase "Hủy vé & bồi hoàn" as UC_CancelRefund
   usecase "Xử lý sự cố" as UC_Incident
-
   usecase "Quản lý danh mục\n(Phim, Suất chiếu, Combo, Voucher)" as UC_Catalog
   usecase "Xem báo cáo doanh thu" as UC_Revenue
 }
 
+actor "Nhân viên" as Staff
+actor "Admin" as Admin
+
+' Đưa Đăng xuất vào tầng giữa cùng Đăng nhập
+UC_BookOnline -[hidden]-> UC_Logout
+UC_Logout -[hidden]-> UC_POS
+
+' Khách hàng (phía trên)
 Customer --> UC_Register
-Customer --> UC_Login
-Customer --> UC_Logout
 Customer --> UC_BookOnline
 Customer --> UC_MyTickets
 Customer --> UC_Review
+Customer --> UC_Login
+Customer --> UC_Logout
 
-Staff --> UC_Login
-Staff --> UC_Logout
-Staff --> UC_POS
-Staff --> UC_CancelRefund
-Staff --> UC_Incident
+' Nhân viên & Admin (phía dưới)
+UC_POS <-- Staff
+UC_CancelRefund <-- Staff
+UC_Incident <-- Staff
+UC_Login <-- Staff
+UC_Logout <-- Staff
 
-Admin --> UC_Login
-Admin --> UC_Logout
-Admin --> UC_Catalog
-Admin --> UC_Revenue
-Admin --> UC_CancelRefund
-Admin --> UC_Incident
+UC_CancelRefund <-- Admin
+UC_Incident <-- Admin
+UC_Catalog <-- Admin
+UC_Revenue <-- Admin
+UC_Login <-- Admin
+UC_Logout <-- Admin
 
+' Quan hệ <<include>> tới Đăng nhập
 UC_BookOnline ..> UC_Login : <<include>>
 UC_MyTickets ..> UC_Login : <<include>>
 UC_Review ..> UC_Login : <<include>>
-UC_POS ..> UC_Login : <<include>>
-UC_CancelRefund ..> UC_Login : <<include>>
-UC_Incident ..> UC_Login : <<include>>
-UC_Catalog ..> UC_Login : <<include>>
-UC_Revenue ..> UC_Login : <<include>>
+UC_Login <.. UC_POS : <<include>>
+UC_Login <.. UC_CancelRefund : <<include>>
+UC_Login <.. UC_Incident : <<include>>
+UC_Login <.. UC_Catalog : <<include>>
+UC_Login <.. UC_Revenue : <<include>>
 @enduml

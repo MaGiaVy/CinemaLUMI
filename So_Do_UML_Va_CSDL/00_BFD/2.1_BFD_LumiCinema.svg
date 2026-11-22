@@ -1,0 +1,128 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1920" height="1040" viewBox="0 0 1920 1040">
+<rect width="100%" height="100%" fill="#FFFFFF"/>
+<style>
+  .box { fill: #FFFFFF; stroke: #1E293B; stroke-width: 2.2; rx: 6; ry: 6; }
+  .root { fill: #F8FAFC; stroke: #0F172A; stroke-width: 2.6; rx: 8; ry: 8; }
+  .l1 { fill: #F1F5F9; stroke: #1E293B; stroke-width: 2.4; rx: 6; ry: 6; }
+  .conn { fill: none; stroke: #334155; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .txt { font-family: Arial, "DejaVu Sans", sans-serif; font-size: 18px; fill: #0F172A; text-anchor: middle; dominant-baseline: central; }
+  .txt-root { font-family: Arial, "DejaVu Sans", sans-serif; font-size: 22px; font-weight: bold; fill: #0F172A; text-anchor: middle; dominant-baseline: central; }
+  .txt-l1 { font-family: Arial, "DejaVu Sans", sans-serif; font-size: 18px; font-weight: bold; fill: #0F172A; text-anchor: middle; dominant-baseline: central; }
+</style>
+<rect x="750.0" y="45" width="420" height="84" class="root"/>
+<text x="960.0" y="87.0" class="txt-root">Hệ thống quản lý bán vé rạp phim</text>
+<line x1="960.0" y1="129" x2="960.0" y2="175" class="conn"/>
+<line x1="227.5" y1="175" x2="1752.5" y2="175" class="conn"/>
+<line x1="227.5" y1="175" x2="227.5" y2="225" class="conn"/>
+<rect x="120" y="225" width="215" height="74" class="l1"/>
+<text x="227.5" y="262.0" class="txt-l1">Quản lý tài khoản</text>
+<line x1="78" y1="262.0" x2="78" y2="652.0" class="conn"/>
+<line x1="78" y1="262.0" x2="120" y2="262.0" class="conn"/>
+<line x1="78" y1="392.0" x2="120" y2="392.0" class="conn"/>
+<rect x="120" y="355" width="215" height="74" class="box"/>
+<text x="227.5" y="381.0" class="txt">Đăng ký tài khoản</text>
+<text x="227.5" y="403.0" class="txt">(Khách hàng)</text>
+<line x1="78" y1="522.0" x2="120" y2="522.0" class="conn"/>
+<rect x="120" y="485" width="215" height="74" class="box"/>
+<text x="227.5" y="522.0" class="txt">Đăng xuất</text>
+<line x1="78" y1="652.0" x2="120" y2="652.0" class="conn"/>
+<rect x="120" y="615" width="215" height="74" class="box"/>
+<text x="227.5" y="652.0" class="txt">Đăng nhập</text>
+<line x1="532.5" y1="175" x2="532.5" y2="225" class="conn"/>
+<rect x="425" y="225" width="215" height="74" class="l1"/>
+<text x="532.5" y="262.0" class="txt-l1">Quản lý bán vé</text>
+<line x1="383" y1="262.0" x2="383" y2="652.0" class="conn"/>
+<line x1="383" y1="262.0" x2="425" y2="262.0" class="conn"/>
+<line x1="383" y1="392.0" x2="425" y2="392.0" class="conn"/>
+<rect x="425" y="355" width="215" height="74" class="box"/>
+<text x="532.5" y="392.0" class="txt">Bán vé trực tuyến</text>
+<line x1="383" y1="522.0" x2="425" y2="522.0" class="conn"/>
+<rect x="425" y="485" width="215" height="74" class="box"/>
+<text x="532.5" y="522.0" class="txt">Bán vé tại quầy</text>
+<line x1="383" y1="652.0" x2="425" y2="652.0" class="conn"/>
+<rect x="425" y="615" width="215" height="74" class="box"/>
+<text x="532.5" y="652.0" class="txt">Bán combo độc lập</text>
+<line x1="837.5" y1="175" x2="837.5" y2="225" class="conn"/>
+<rect x="730" y="225" width="215" height="74" class="l1"/>
+<text x="837.5" y="251.0" class="txt-l1">Quản lý vận hành</text>
+<text x="837.5" y="273.0" class="txt-l1">và dịch vụ</text>
+<line x1="688" y1="262.0" x2="688" y2="652.0" class="conn"/>
+<line x1="688" y1="262.0" x2="730" y2="262.0" class="conn"/>
+<line x1="688" y1="392.0" x2="730" y2="392.0" class="conn"/>
+<rect x="730" y="355" width="215" height="74" class="box"/>
+<text x="837.5" y="392.0" class="txt">Soát vé</text>
+<line x1="688" y1="522.0" x2="730" y2="522.0" class="conn"/>
+<rect x="730" y="485" width="215" height="74" class="box"/>
+<text x="837.5" y="522.0" class="txt">Giao nhận combo</text>
+<line x1="688" y1="652.0" x2="730" y2="652.0" class="conn"/>
+<rect x="730" y="615" width="215" height="74" class="box"/>
+<text x="837.5" y="652.0" class="txt">Đánh giá phim</text>
+<line x1="1142.5" y1="175" x2="1142.5" y2="225" class="conn"/>
+<rect x="1035" y="225" width="215" height="74" class="l1"/>
+<text x="1142.5" y="251.0" class="txt-l1">Quản lý hủy vé</text>
+<text x="1142.5" y="273.0" class="txt-l1">và bồi hoàn</text>
+<line x1="993" y1="262.0" x2="993" y2="912.0" class="conn"/>
+<line x1="993" y1="262.0" x2="1035" y2="262.0" class="conn"/>
+<line x1="993" y1="392.0" x2="1035" y2="392.0" class="conn"/>
+<rect x="1035" y="355" width="215" height="74" class="box"/>
+<text x="1142.5" y="392.0" class="txt">Hủy vé online</text>
+<line x1="993" y1="522.0" x2="1035" y2="522.0" class="conn"/>
+<rect x="1035" y="485" width="215" height="74" class="box"/>
+<text x="1142.5" y="522.0" class="txt">Hủy vé tại quầy</text>
+<line x1="993" y1="652.0" x2="1035" y2="652.0" class="conn"/>
+<rect x="1035" y="615" width="215" height="74" class="box"/>
+<text x="1142.5" y="641.0" class="txt">Xử lý sự cố</text>
+<text x="1142.5" y="663.0" class="txt">suất chiếu</text>
+<line x1="993" y1="782.0" x2="1035" y2="782.0" class="conn"/>
+<rect x="1035" y="745" width="215" height="74" class="box"/>
+<text x="1142.5" y="771.0" class="txt">Cấp voucher</text>
+<text x="1142.5" y="793.0" class="txt">bồi hoàn</text>
+<line x1="993" y1="912.0" x2="1035" y2="912.0" class="conn"/>
+<rect x="1035" y="875" width="215" height="74" class="box"/>
+<text x="1142.5" y="901.0" class="txt">Xử lý hoàn</text>
+<text x="1142.5" y="923.0" class="txt">tiền mặt</text>
+<line x1="1447.5" y1="175" x2="1447.5" y2="225" class="conn"/>
+<rect x="1340" y="225" width="215" height="74" class="l1"/>
+<text x="1447.5" y="251.0" class="txt-l1">Quản trị</text>
+<text x="1447.5" y="273.0" class="txt-l1">danh mục</text>
+<line x1="1298" y1="262.0" x2="1298" y2="782.0" class="conn"/>
+<line x1="1298" y1="262.0" x2="1340" y2="262.0" class="conn"/>
+<line x1="1298" y1="392.0" x2="1340" y2="392.0" class="conn"/>
+<rect x="1340" y="355" width="215" height="74" class="box"/>
+<text x="1447.5" y="392.0" class="txt">Quản lý phim</text>
+<line x1="1298" y1="522.0" x2="1340" y2="522.0" class="conn"/>
+<rect x="1340" y="485" width="215" height="74" class="box"/>
+<text x="1447.5" y="522.0" class="txt">Quản lý suất chiếu</text>
+<line x1="1298" y1="652.0" x2="1340" y2="652.0" class="conn"/>
+<rect x="1340" y="615" width="215" height="74" class="box"/>
+<text x="1447.5" y="652.0" class="txt">Quản lý combo</text>
+<line x1="1298" y1="782.0" x2="1340" y2="782.0" class="conn"/>
+<rect x="1340" y="745" width="215" height="74" class="box"/>
+<text x="1447.5" y="782.0" class="txt">Quản lý voucher</text>
+<line x1="1752.5" y1="175" x2="1752.5" y2="225" class="conn"/>
+<rect x="1645" y="225" width="215" height="74" class="l1"/>
+<text x="1752.5" y="251.0" class="txt-l1">Quản lý báo cáo</text>
+<text x="1752.5" y="273.0" class="txt-l1">và thống kê</text>
+<line x1="1603" y1="262.0" x2="1603" y2="912.0" class="conn"/>
+<line x1="1603" y1="262.0" x2="1645" y2="262.0" class="conn"/>
+<line x1="1603" y1="392.0" x2="1645" y2="392.0" class="conn"/>
+<rect x="1645" y="355" width="215" height="74" class="box"/>
+<text x="1752.5" y="381.0" class="txt">Thống kê theo</text>
+<text x="1752.5" y="403.0" class="txt">thời gian</text>
+<line x1="1603" y1="522.0" x2="1645" y2="522.0" class="conn"/>
+<rect x="1645" y="485" width="215" height="74" class="box"/>
+<text x="1752.5" y="511.0" class="txt">Thống kê theo</text>
+<text x="1752.5" y="533.0" class="txt">phim</text>
+<line x1="1603" y1="652.0" x2="1645" y2="652.0" class="conn"/>
+<rect x="1645" y="615" width="215" height="74" class="box"/>
+<text x="1752.5" y="641.0" class="txt">Thống kê theo</text>
+<text x="1752.5" y="663.0" class="txt">suất chiếu</text>
+<line x1="1603" y1="782.0" x2="1645" y2="782.0" class="conn"/>
+<rect x="1645" y="745" width="215" height="74" class="box"/>
+<text x="1752.5" y="771.0" class="txt">Thống kê theo</text>
+<text x="1752.5" y="793.0" class="txt">kênh bán vé</text>
+<line x1="1603" y1="912.0" x2="1645" y2="912.0" class="conn"/>
+<rect x="1645" y="875" width="215" height="74" class="box"/>
+<text x="1752.5" y="901.0" class="txt">Xuất báo cáo</text>
+<text x="1752.5" y="923.0" class="txt">pdf / excel</text>
+</svg>

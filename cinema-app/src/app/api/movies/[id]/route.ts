@@ -31,6 +31,10 @@ export async function GET(
       where: { id: movieId },
       include: {
         screenings: {
+          where: {
+            startTime: { gte: new Date() },
+            status: { notIn: ['ENDED', 'CANCELLED'] },
+          },
           orderBy: {
             startTime: 'asc',
           },

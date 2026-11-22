@@ -147,29 +147,33 @@ function MovieDetailContent() {
     fetchMovieData();
   };
 
-  // Gom nhóm danh sách suất chiếu theo ngày
+  // Gom nhóm danh sách suất chiếu theo ngày (sắp xếp tăng dần theo ngày & giờ chiếu)
   const uniqueDates = useMemo(() => {
     if (!movie?.screenings || movie.screenings.length === 0) return [];
     const dateMap = new Map<string, string>();
     movie.screenings.forEach(s => {
-      const d = getLocalDateString(s.date || s.startTime);
+      const source = s.startTime || s.date;
+      const d = getLocalDateString(source);
       if (d && !dateMap.has(d)) {
-        dateMap.set(d, formatDate(s.date || s.startTime));
+        dateMap.set(d, formatDate(source));
       }
     });
-    return Array.from(dateMap.entries()).map(([rawDate, label]) => ({ rawDate, label }));
+    return Array.from(dateMap.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([rawDate, label]) => ({ rawDate, label }));
   }, [movie?.screenings]);
 
-  // Lọc suất chiếu theo ngày đang chọn
+  // Lọc và sắp xếp suất chiếu theo ngày đang chọn
   const filteredScreenings = useMemo(() => {
     if (!movie?.screenings || uniqueDates.length === 0) return [];
     const currentDate = uniqueDates[selectedDateIndex]?.rawDate;
-    if (!currentDate) return movie.screenings;
+    const list = !currentDate
+      ? movie.screenings
+      : movie.screenings.filter(s => getLocalDateString(s.startTime || s.date) === currentDate);
 
-    return movie.screenings.filter(s => {
-      const d = getLocalDateString(s.date || s.startTime);
-      return d === currentDate;
-    });
+    return [...list].sort(
+      (a, b) => new Date(a.startTime).getTime() - new Date(b.startTime).getTime()
+    );
   }, [movie?.screenings, uniqueDates, selectedDateIndex]);
 
   if (isLoadingMovie) {
@@ -328,12 +332,6 @@ function MovieDetailContent() {
                     {Number(movie.ticketPrice || 120000).toLocaleString('vi-VN')} đ
                   </span>
                 </div>
-                <Link
-                  href={`/admin/movies/${movie.id}/edit`}
-                  className="px-3 py-1 bg-[rgba(18,14,28,0.7)] hover:bg-[rgba(30,24,48,0.9)] text-[#F8FAFC] text-xs font-semibold rounded-xl border border-[rgba(192,132,252,0.2)] transition-colors inline-flex items-center gap-1.5"
-                >
-                  ✦ Chỉnh sửa phim (Admin)
-                </Link>
               </div>
             </div>
           </div>

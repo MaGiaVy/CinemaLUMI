@@ -26,10 +26,9 @@ function LoginForm() {
     setToasts(prev => prev.filter(t => t.id !== id));
   };
 
-  const fillDemoAccount = (accountEmail: string, accountPass: string, accountName: string) => {
+  const fillDemoAccount = (accountEmail: string, accountPass: string, _accountName: string) => {
     setEmail(accountEmail);
     setPassword(accountPass);
-    showToast(`Đã điền tài khoản: ${accountName}`, 'success');
   };
 
   useEffect(() => {

@@ -1,0 +1,88 @@
+@startuml
+title SƠ ĐỒ LỚP CHI TIẾT: CỤM NGƯỜI DÙNG, PHÂN QUYỀN & ĐÁNH GIÁ
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam backgroundColor #FFFFFF
+skinparam roundcorner 4
+skinparam linetype ortho
+skinparam defaultFontName "Segoe UI", Arial, sans-serif
+skinparam defaultFontSize 12
+
+skinparam class {
+    BackgroundColor #FFFFFF
+    ArrowColor #1E293B
+    BorderColor #1E293B
+    HeaderBackgroundColor #F1F5F9
+}
+
+abstract class User {
+    - id: Int
+    - email: String
+    - password: String
+    - name: String
+    - phone: String
+    - role: Role
+    - createdAt: DateTime
+    + register(email: String, password: String, name: String, phone: String): Boolean
+    + login(email: String, password: String): String
+    + updateProfile(name: String, phone: String): Boolean
+    + changePassword(oldPass: String, newPass: String): Boolean
+}
+
+class Customer {
+    + bookTicket(screeningId: Int, seatIds: List<Int>, couponCode: String): Payment
+    + selectCombo(comboId: Int, quantity: Int): Void
+    + applyCoupon(code: String): Decimal
+    + cancelTicket(ticketId: Int, reason: String): Boolean
+    + writeReview(movieId: Int, rating: Int, comment: String): Review
+}
+
+class Staff {
+    + sellTicketAtPOS(screeningId: Int, seatIds: List<Int>, method: PaymentMethod): Payment
+    + sellComboAtPOS(comboId: Int, quantity: Int, method: PaymentMethod): Payment
+    + checkInTicket(ticketCode: String): Boolean
+    + deliverCombo(orderComboId: Int): Void
+}
+
+class Admin {
+    + createMovie(movieData: Movie): Movie
+    + scheduleScreening(screeningData: Screening): Screening
+    + manageCombo(comboData: Combo): Combo
+    + issueCoupon(couponData: Coupon): Coupon
+    + viewReports(from: Date, to: Date): ReportData
+}
+
+class Review {
+    - id: Int
+    - rating: Int
+    - comment: String
+    - createdAt: DateTime
+    + createReview(userId: Int, movieId: Int, rating: Int, comment: String): Boolean
+    + hideReview(): Void
+}
+
+class AuditLog <<DTO>> {
+    - id: Int
+    - actorId: Int
+    - action: String
+    - targetEntity: String
+    - targetId: Int
+    - metadata: String
+    - createdAt: DateTime
+    + recordLog(actorId: Int, action: String, targetEntity: String, targetId: Int, metadata: String): Void
+}
+
+enum Role {
+    CUSTOMER
+    STAFF
+    ADMIN
+}
+
+User <|-- Customer
+User <|-- Staff
+User <|-- Admin
+User "1" o-- "0..*" Review : tạo bởi
+User "1" o-- "0..*" AuditLog : thực thi
+User ..> Role : sử dụng
+
+@enduml

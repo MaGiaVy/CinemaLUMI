@@ -1,0 +1,100 @@
+@startuml 05_dat_ve_combo_online
+title SƠ ĐỒ HOẠT ĐỘNG: ĐẶT VÉ VÀ MUA COMBO ONLINE (ONLINE BOOKING)
+skinparam conditionStyle insideDiamond
+skinparam defaultTextAlignment center
+skinparam shadowing false
+skinparam monochrome true
+skinparam wrapWidth 180
+
+|Khách hàng|
+|Hệ thống|
+|Cổng thanh toán|
+
+|Khách hàng|
+start
+:Chọn phim và suất chiếu;
+
+|Hệ thống|
+:Hiển thị sơ đồ ghế (A1-E10)\nvà trạng thái ghế;
+
+|Khách hàng|
+:Chọn ghế (tối đa 8 ghế)\nvà chọn loại vé (Thường / Trẻ em);
+
+|Hệ thống|
+if (Phim giới hạn T18?) then (Đúng)
+  :Tự động khóa vé Trẻ em,\náp dụng 100% vé Thường;
+else (Sai)
+endif
+
+:Kiểm tra trạng thái ghế;
+while (Ghế khả dụng?) is (Không)
+  :Báo lỗi ghế đã được chọn/giữ chỗ;
+  |Khách hàng|
+  :Chọn lại ghế khác;
+  |Hệ thống|
+  :Kiểm tra lại trạng thái ghế;
+endwhile (Có)
+
+:Khóa giữ ghế trong 10 phút;
+
+|Khách hàng|
+if (Chọn mua Combo?) then (Có)
+  :Chọn combo bắp nước và số lượng;
+  |Hệ thống|
+  if (Còn đủ tồn kho?) then (Có)
+    :Tạm giữ tồn kho combo (10 phút);
+  else (Không)
+    :Thông báo hết hàng;
+  endif
+else (Không)
+endif
+
+|Khách hàng|
+if (Sử dụng Voucher?) then (Có)
+  :Nhập mã giảm giá;
+  |Hệ thống|
+  if (Mã hợp lệ?) then (Có)
+    :Áp dụng giảm giá trên tiền vé;
+  else (Không)
+    :Thông báo mã không hợp lệ;
+  endif
+else (Không)
+endif
+
+|Hệ thống|
+:Tính tổng tiền cần thanh toán;
+:Hiển thị tóm tắt đơn hàng;
+
+|Khách hàng|
+:Chọn cổng thanh toán\n(ZaloPay / VNPay) và xác nhận;
+
+|Hệ thống|
+:Tạo giao dịch chờ thanh toán\nvà chuyển hướng sang cổng thanh toán;
+
+|Cổng thanh toán|
+:Hiển thị giao diện thanh toán;
+
+|Khách hàng|
+:Thực hiện xác thực và thanh toán;
+
+|Cổng thanh toán|
+:Xử lý trừ tiền và phản hồi kết quả;
+
+|Hệ thống|
+:Kiểm tra kết quả và thời hạn giữ chỗ (10 phút);
+if (Thanh toán thành công & Còn hạn giữ chỗ?) then (Có)
+  :Cập nhật trạng thái vé (Valid)\nvà đổi trạng thái ghế (OCCUPIED);
+  :Xác nhận đơn combo và ghi nhận lượt dùng voucher;
+  :Tạo mã QR vé điện tử và gửi thông báo thành công;
+  |Khách hàng|
+  :Nhận vé xem phim điện tử kèm mã QR;
+  stop
+else (Không - Thất bại hoặc Quá hạn 10 phút)
+  :Hủy giao dịch, giải phóng ghế\nvà hoàn tồn kho combo;
+  :Hiển thị thông báo giao dịch thất bại;
+  |Khách hàng|
+  :Nhận thông báo thanh toán không thành công;
+  stop
+endif
+
+@enduml

@@ -1,0 +1,74 @@
+@startuml
+title SƠ ĐỒ LỚP CHI TIẾT: CỤM DỊCH VỤ HẠ TẦNG (DOMAIN & INFRASTRUCTURE SERVICES)
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam backgroundColor #FFFFFF
+skinparam roundcorner 4
+skinparam linetype ortho
+skinparam defaultFontName "Segoe UI", Arial, sans-serif
+skinparam defaultFontSize 12
+
+skinparam class {
+    BackgroundColor #FFFFFF
+    ArrowColor #1E293B
+    BorderColor #1E293B
+    HeaderBackgroundColor #F1F5F9
+}
+
+class ZaloPayService <<service>> {
+    - appId: String
+    - key1: String
+    - key2: String
+    - endpoint: String
+    + generateZaloPayTransId(): String
+    + calculateZaloPayOrderMac(data: String): String
+    + createZaloPayOrder(payment: Payment): ZaloOrderResponse
+    + verifyZaloPayCallback(data: String, receivedMac: String): Boolean
+}
+
+class VNPayService <<service>> {
+    - tmnCode: String
+    - hashSecret: String
+    - paymentUrl: String
+    + signVnpayParams(params: Map<String, String>): String
+    + verifyVnpaySignature(queryParams: Map<String, String>): Boolean
+}
+
+class ThirdPartyWalletService <<service>> {
+    + getThirdPartyAccounts(provider: String): List<ThirdPartyAccount>
+    + topupThirdPartyAccount(accountId: Int, amount: Decimal): ThirdPartyAccount
+    + resetThirdPartyAccount(accountId: Int): ThirdPartyAccount
+    + debitThirdPartyAccountIfSufficient(accountId: Int, amount: Decimal): Boolean
+    + refundThirdPartyAccount(accountId: Int, amount: Decimal): ThirdPartyAccount
+}
+
+class EmailService <<service>> {
+    + sendTicketConfirmation(to: String, payment: Payment, tickets: List<Ticket>): Void
+    + sendVoucherIssued(to: String, coupon: Coupon): Void
+    + sendTicketCancelledCashRefund(to: String, ticket: Ticket, reason: String): Void
+}
+
+class SeatExpirationService <<service>> {
+    - holdDurationMinutes: Int
+    + releaseExpiredSeatsAndCombos(screeningId: Int): Int
+    + reserveSeatsAtomic(screeningId: Int, seatIds: List<Int>): Boolean
+}
+
+class Payment
+class Ticket
+class Seat
+class Coupon
+class ComboReservation
+class ThirdPartyAccount
+
+Payment ..> ZaloPayService : tích hợp ZaloPay v2
+Payment ..> VNPayService : tích hợp VNPay
+Payment ..> ThirdPartyWalletService : trừ & hoàn tiền ví
+ThirdPartyWalletService ..> ThirdPartyAccount : quản lý số dư ví
+Payment ..> EmailService : gửi email xác nhận vé
+Ticket ..> EmailService : gửi email voucher / hoàn tiền
+EmailService ..> Coupon : đính kèm mã voucher
+Seat ..> SeatExpirationService : khóa & giải phóng 10p
+ComboReservation ..> SeatExpirationService : giải phóng kho 10p
+
+@enduml

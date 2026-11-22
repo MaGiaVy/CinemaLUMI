@@ -1,0 +1,113 @@
+@startuml
+title SƠ ĐỒ LỚP CHI TIẾT: CỤM PHIM, SUẤT CHIẾU, GHẾ & GIÁ VÉ
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam backgroundColor #FFFFFF
+skinparam roundcorner 4
+skinparam linetype ortho
+skinparam defaultFontName "Segoe UI", Arial, sans-serif
+skinparam defaultFontSize 12
+
+skinparam class {
+    BackgroundColor #FFFFFF
+    ArrowColor #1E293B
+    BorderColor #1E293B
+    HeaderBackgroundColor #F1F5F9
+}
+
+class Movie {
+    - id: Int
+    - title: String
+    - slug: String
+    - description: String
+    - duration: Int
+    - releaseDate: Date
+    - endDate: Date
+    - ageRating: String
+    - poster: String
+    - trailer: String
+    - genre: String
+    - director: String
+    - cast: String
+    - rating: Decimal
+    - status: MovieStatus
+    - ticketPrice: Decimal
+    - isDeleted: Boolean
+    + getActiveScreenings(): List<Screening>
+    + calculateAverageRating(): Decimal
+    + updateStatus(newStatus: MovieStatus): Void
+    + softDelete(): Void
+}
+
+class Screening {
+    - id: Int
+    - room: String
+    - roomNumber: Int
+    - startTime: DateTime
+    - endTime: DateTime
+    - date: Date
+    - price: Decimal
+    - status: ScreeningStatus
+    + checkRoomConflict(startTime: DateTime, endTime: DateTime, roomNumber: Int): Boolean
+    + generateSeats(): Void
+    + cancelScreening(reason: String): Boolean
+}
+
+class Seat {
+    - id: Int
+    - room: String
+    - row: String
+    - number: Int
+    - code: String
+    - type: SeatType
+    - status: SeatStatus
+    - reservedUntil: DateTime
+    + holdSeat(durationMinutes: Int): Boolean
+    + releaseSeat(): Void
+    + markAsOccupied(): Void
+}
+
+class Pricing {
+    - id: Int
+    - ticketType: String
+    - label: String
+    - percentage: Int
+    - basePrice: Decimal
+    - description: String
+    + calculateFinalPrice(basePrice: Decimal, seatType: SeatType): Decimal
+}
+
+enum MovieStatus {
+    SHOWING
+    UPCOMING
+    ENDED
+}
+
+enum ScreeningStatus {
+    UPCOMING
+    SHOWING
+    ENDED
+    CANCELLED
+}
+
+enum SeatType {
+    STANDARD
+    VIP
+    COUPLE
+}
+
+enum SeatStatus {
+    EMPTY
+    RESERVED
+    OCCUPIED
+}
+
+Screening "0..*" o-- "1" Movie : chiếu phim
+Screening "1" *-- "50" Seat : sở hữu
+Screening "0..*" ..> "1" Pricing : tham chiếu tỷ lệ giá
+Movie ..> MovieStatus
+Screening ..> ScreeningStatus
+Seat ..> SeatType
+Seat ..> SeatStatus
+
+@enduml

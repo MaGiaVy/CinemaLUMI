@@ -1,0 +1,112 @@
+@startuml
+title SƠ ĐỒ LỚP CHI TIẾT: CỤM ĐẶT VÉ, COMBO, VOUCHER & THANH TOÁN
+skinparam shadowing false
+skinparam classAttributeIconSize 0
+skinparam backgroundColor #FFFFFF
+skinparam roundcorner 4
+skinparam linetype ortho
+skinparam defaultFontName "Segoe UI", Arial, sans-serif
+skinparam defaultFontSize 12
+
+skinparam class {
+    BackgroundColor #FFFFFF
+    ArrowColor #1E293B
+    BorderColor #1E293B
+    HeaderBackgroundColor #F1F5F9
+}
+
+class Ticket {
+    - id: Int
+    - ticketType: String
+    - price: Decimal
+    - purchaseDate: DateTime
+    - status: TicketStatus
+    - cancellationReason: String
+    + generateQRCode(): String
+    + checkIn(): Boolean
+    + cancelTicket(reason: String): Boolean
+    + cancelByCustomer(): Coupon
+    + cancelByIncident(reason: String): Void
+}
+
+class Payment {
+    - id: Int
+    - amount: Decimal
+    - paymentMethod: PaymentMethod
+    - transactionCode: String
+    - status: PaymentStatus
+    - screeningId: Int?
+    - seatIds: Json?
+    - couponCode: String?
+    - ticketItems: Json?
+    - createdAt: DateTime
+    + calculateTotal(tickets: List<Ticket>, combos: List<OrderCombo>, coupon: Coupon): Decimal
+    + createPaymentUrl(gateway: PaymentMethod): String
+    + processIPNCallback(data: Map<String, String>): Boolean
+    + issueRefund(amount: Decimal, method: PaymentMethod): Boolean
+}
+
+class Coupon {
+    - id: Int
+    - code: String
+    - discountType: DiscountType
+    - discountValue: Decimal
+    - minAmount: Decimal
+    - maxUsage: Int
+    - usedCount: Int
+    - expiryDate: Date
+    + validateCoupon(orderAmount: Decimal, movieId: Int): Boolean
+    + calculateDiscount(ticketAmount: Decimal): Decimal
+    + markAsUsed(): Void
+}
+
+class Combo {
+    - id: Int
+    - name: String
+    - description: String
+    - price: Decimal
+    - stock: Int
+    - status: ComboStatus
+    - image: String
+    - reservedUntil: DateTime
+    + checkStockAvailability(quantity: Int): Boolean
+    + deductStock(quantity: Int): Void
+    + restock(quantity: Int): Void
+}
+
+class OrderCombo {
+    - id: Int
+    - quantity: Int
+    - price: Decimal
+    - isDelivered: Boolean
+    - deliveredAt: DateTime
+    + markAsDelivered(): Void
+    + getSubtotal(): Decimal
+}
+
+class ComboReservation {
+    - id: Int
+    - quantity: Int
+    - status: String
+    - reservedUntil: DateTime
+    + checkExpiry(): Boolean
+    + release(): Void
+}
+
+class ThirdPartyAccount {
+    - id: Int
+    - provider: String
+    - accountNumber: String
+    - accountName: String
+    - balance: Decimal
+    - updatedAt: DateTime
+}
+
+Ticket "0..*" o-- "1" Payment : thanh toán qua
+Payment "1" *-- "0..*" OrderCombo : bao gồm
+Payment "0..*" o-- "0..1" Coupon : áp dụng
+OrderCombo "0..*" o-- "1" Combo : đặt món
+Combo "1" *-- "0..*" ComboReservation : giữ chỗ
+Payment ..> ThirdPartyAccount : đối soát ví
+
+@enduml

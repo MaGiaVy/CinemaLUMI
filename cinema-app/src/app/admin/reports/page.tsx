@@ -17,6 +17,7 @@ export default function AdminReportsPage() {
   const [toDate, setToDate] = useState('');
   const [movieId, setMovieId] = useState('all');
   const [roomNumber, setRoomNumber] = useState('all');
+  const [channel, setChannel] = useState('all');
 
   // Dữ liệu
   const [reports, setReports] = useState<ScreeningRevenueReportItem[]>([]);
@@ -62,6 +63,7 @@ export default function AdminReportsPage() {
       if (toDate) params.set('to_date', toDate);
       if (movieId !== 'all') params.set('movie_id', movieId);
       if (roomNumber !== 'all') params.set('room_number', roomNumber);
+      if (channel !== 'all') params.set('channel', channel);
 
       const res = await fetch(`/api/admin/reports/revenue?${params.toString()}`);
       const json = await res.json();
@@ -78,7 +80,7 @@ export default function AdminReportsPage() {
     } finally {
       setLoading(false);
     }
-  }, [fromDate, toDate, movieId, roomNumber]);
+  }, [fromDate, toDate, movieId, roomNumber, channel]);
 
   useEffect(() => {
     fetchRevenueReports();
@@ -228,7 +230,7 @@ export default function AdminReportsPage() {
         }}
       >
         <form onSubmit={handleApplyFilter} className="space-y-4">
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
             <div>
               <label className="block text-[11px] font-bold text-[#c084fc] uppercase tracking-wider mb-1.5">
                 Từ ngày
@@ -286,6 +288,21 @@ export default function AdminReportsPage() {
                 <option value="Cinema 03">Cinema 03 (Standard 2D)</option>
                 <option value="Cinema 04">Cinema 04 (Laser 4K)</option>
                 <option value="Cinema 05">Cinema 05 (VIP Cosmos)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-bold text-[#c084fc] uppercase tracking-wider mb-1.5">
+                Kênh bán vé
+              </label>
+              <select
+                value={channel}
+                onChange={(e) => setChannel(e.target.value)}
+                className="w-full bg-[#0a0812]/80 border border-[#c084fc]/20 focus:border-[#e11d48] rounded-xl px-3 py-2 text-[#f8fafc] text-xs outline-none transition-colors"
+              >
+                <option value="all">Tất cả kênh</option>
+                <option value="online">Online (ZaloPay / VNPay)</option>
+                <option value="pos">Tại quầy POS (Tiền mặt / Thẻ)</option>
               </select>
             </div>
           </div>

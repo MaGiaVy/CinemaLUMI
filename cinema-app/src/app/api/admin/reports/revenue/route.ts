@@ -4,7 +4,7 @@ import { prisma } from '@/lib/prisma';
 import { authOptions } from '@/lib/auth';
 import { AppError, handleError } from '@/lib/error';
 import { apiResponse } from '@/lib/api-response';
-import { TicketStatus, Prisma } from '@prisma/client';
+import { TicketStatus, PaymentMethod, Prisma } from '@prisma/client';
 
 export const dynamic = 'force-dynamic';
 
@@ -111,6 +111,7 @@ export async function GET(request: NextRequest) {
     const toDateParam = searchParams.get('to_date') || searchParams.get('toDate');
     const movieIdParam = searchParams.get('movie_id') || searchParams.get('movieId');
     const roomNumberParam = searchParams.get('room_number') || searchParams.get('roomNumber') || searchParams.get('room');
+    const channelParam = (searchParams.get('channel') || 'all').toLowerCase();
 
     // 3. Xây dựng điều kiện lọc Prisma
     const where: Prisma.ScreeningWhereInput = {};
@@ -191,6 +192,11 @@ export async function GET(request: NextRequest) {
             status: true,
             ticketType: true,
             seatId: true,
+            payment: {
+              select: {
+                paymentMethod: true,
+              },
+            },
           },
         },
       },
@@ -200,12 +206,22 @@ export async function GET(request: NextRequest) {
     });
 
     // 5. Tính toán doanh thu và tỷ lệ lấp đầy cho từng suất chiếu
+    const ONLINE_METHODS: PaymentMethod[] = [PaymentMethod.ZaloPay, PaymentMethod.VNPay, PaymentMethod.Momo];
+    const POS_METHODS: PaymentMethod[] = [PaymentMethod.Cash, PaymentMethod.BankCard];
+
     const reportData: ScreeningRevenueReportItem[] = screenings.map((sc) => {
+      const channelTickets =
+        channelParam === 'online'
+          ? sc.tickets.filter((t) => t.payment.paymentMethod !== null && ONLINE_METHODS.includes(t.payment.paymentMethod))
+          : channelParam === 'pos'
+            ? sc.tickets.filter((t) => t.payment.paymentMethod !== null && POS_METHODS.includes(t.payment.paymentMethod))
+            : sc.tickets;
+
       // Tách riêng vé hợp lệ (Valid, Used) và vé đã hủy/hoàn (Cancelled)
-      const validTickets = sc.tickets.filter(
+      const validTickets = channelTickets.filter(
         (t) => t.status === TicketStatus.Valid || t.status === TicketStatus.Used
       );
-      const cancelledTickets = sc.tickets.filter(
+      const cancelledTickets = channelTickets.filter(
         (t) => t.status === TicketStatus.Cancelled
       );
 

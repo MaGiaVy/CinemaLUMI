@@ -39,7 +39,7 @@ export default function ScreeningManagementClient({
 }: ScreeningManagementClientProps) {
   const [screenings, setScreenings] = useState<ScreeningItem[]>(initialScreenings);
   const [search, setSearch] = useState('');
-  const [selectedDate, setSelectedDate] = useState<string>('ALL');
+  const [selectedDate, setSelectedDate] = useState<string>('UPCOMING_DATES');
   const [selectedRoom, setSelectedRoom] = useState<string>('ALL');
   const [deleteScreening, setDeleteScreening] = useState<ScreeningItem | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -60,13 +60,21 @@ export default function ScreeningManagementClient({
   ).sort();
 
   // Bộ lọc suất chiếu
+  const todayStr = new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD
   const filtered = screenings.filter(s => {
     const matchSearch =
       s.movie.title.toLowerCase().includes(search.toLowerCase()) ||
       s.room.toLowerCase().includes(search.toLowerCase());
 
     const screeningDateOnly = s.date.split('T')[0];
-    const matchDate = selectedDate === 'ALL' || screeningDateOnly === selectedDate;
+    let matchDate = true;
+    if (selectedDate === 'UPCOMING_DATES') {
+      matchDate = screeningDateOnly >= todayStr;
+    } else if (selectedDate === 'PAST_DATES') {
+      matchDate = screeningDateOnly < todayStr;
+    } else if (selectedDate !== 'ALL') {
+      matchDate = screeningDateOnly === selectedDate;
+    }
     const matchRoom = selectedRoom === 'ALL' || s.room === selectedRoom;
 
     return matchSearch && matchDate && matchRoom;
@@ -162,7 +170,9 @@ export default function ScreeningManagementClient({
               onChange={e => setSelectedDate(e.target.value)}
               className="w-full bg-[#0a0812]/80 border border-[#c084fc]/20 focus:border-[#e11d48] rounded-xl px-3.5 py-2.5 text-[#f8fafc] text-xs outline-none transition-colors"
             >
-              <option value="ALL">Tất cả các ngày</option>
+              <option value="UPCOMING_DATES">Hôm nay &amp; Sắp tới</option>
+              <option value="PAST_DATES">Lịch sử đã chiếu</option>
+              <option value="ALL">Tất cả các ngày (gồm lịch sử)</option>
               {availableDates.map(d => (
                 <option key={d} value={d}>
                   Ngày {d}

@@ -230,10 +230,27 @@ export async function GET(request: NextRequest) {
 
     // Lọc theo từ khóa đa năng (q)
     if (q) {
-      const cleanedNumber = q.replace(/[^0-9]/g, '');
-      const parsedNumeric = parseInt(cleanedNumber, 10);
-      const isPureNumber = /^\d+$/.test(q);
-      const isLmcCode = /^#?LMC-\d+$/i.test(q);
+      const normalizedQ = q.replace(/\s+/g, '');
+      const lmcMatch = normalizedQ.match(/^#?LMC-(\d+)(?:-[A-Z0-9]+)?$/i);
+      const isPureNumber = /^\d+$/.test(normalizedQ);
+      let jsonTicketId = NaN;
+      if (q.trim().startsWith('{')) {
+        try {
+          const parsedQr = JSON.parse(q.trim());
+          const rawId = parsedQr.ticketId ?? parsedQr.ticket_id ?? parsedQr.id;
+          if (rawId) jsonTicketId = parseInt(String(rawId), 10);
+        } catch {
+          // Bỏ qua nếu không phải JSON hợp lệ
+        }
+      }
+
+      const parsedTicketId = lmcMatch
+        ? parseInt(lmcMatch[1], 10)
+        : !isNaN(jsonTicketId)
+          ? jsonTicketId
+          : isPureNumber
+            ? parseInt(normalizedQ, 10)
+            : NaN;
 
       const orCriteria: Prisma.TicketWhereInput[] = [
         { user: { name: { contains: q, mode: 'insensitive' } } },
@@ -244,8 +261,8 @@ export async function GET(request: NextRequest) {
         { screening: { movie: { title: { contains: q, mode: 'insensitive' } } } },
       ];
 
-      if ((isPureNumber || isLmcCode) && !isNaN(parsedNumeric) && parsedNumeric > 0) {
-        orCriteria.push({ id: parsedNumeric });
+      if (!isNaN(parsedTicketId) && parsedTicketId > 0) {
+        orCriteria.push({ id: parsedTicketId });
       }
 
       andConditions.push({ OR: orCriteria });

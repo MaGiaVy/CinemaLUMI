@@ -10,7 +10,14 @@ export const dynamic = 'force-dynamic';
  * sau đó render trực tiếp phía Server để tối ưu hiệu suất, rồi truyền dữ liệu cho Client Component.
  */
 export default async function ScreeningManagementPage() {
+  const now = new Date();
+
   const rawScreenings = await prisma.screening.findMany({
+    where: {
+      status: {
+        not: 'CANCELLED',
+      },
+    },
     orderBy: {
       startTime: 'asc',
     },
@@ -34,16 +41,23 @@ export default async function ScreeningManagementPage() {
     },
   });
 
-  const formattedScreenings: ScreeningItem[] = rawScreenings.map(s => ({
-    id: s.id,
-    movieId: s.movieId,
-    room: s.room,
-    roomNumber: s.roomNumber,
-    startTime: s.startTime.toISOString(),
-    endTime: s.endTime.toISOString(),
-    date: s.date.toISOString(),
-    price: Number(s.price),
-    status: s.status as 'UPCOMING' | 'SHOWING' | 'ENDED',
+  const formattedScreenings: ScreeningItem[] = rawScreenings.map(s => {
+    let computedStatus = s.status as 'UPCOMING' | 'SHOWING' | 'ENDED';
+    if (s.status !== 'ENDED' && s.status !== 'CANCELLED') {
+      if (s.endTime < now) computedStatus = 'ENDED';
+      else if (s.startTime <= now && s.endTime >= now) computedStatus = 'SHOWING';
+      else computedStatus = 'UPCOMING';
+    }
+    return {
+      id: s.id,
+      movieId: s.movieId,
+      room: s.room,
+      roomNumber: s.roomNumber,
+      startTime: s.startTime.toISOString(),
+      endTime: s.endTime.toISOString(),
+      date: s.date.toISOString(),
+      price: Number(s.price),
+      status: computedStatus,
     movie: {
       id: s.movie.id,
       title: s.movie.title,
@@ -56,7 +70,8 @@ export default async function ScreeningManagementPage() {
       seats: s._count.seats,
       tickets: s._count.tickets,
     },
-  }));
+  };
+  });
 
   return <ScreeningManagementClient initialScreenings={formattedScreenings} />;
 }

@@ -131,11 +131,21 @@ export default function StaffPosPage() {
         const json = await res.json();
         if (json.success && Array.isArray(json.data)) {
           const now = new Date();
-          const upcoming = json.data.filter((s: any) => new Date(s.start_time || s.startTime) > now);
-          const list = upcoming.length > 0 ? upcoming : json.data;
-          setScreenings(list);
-          if (list.length > 0) {
-            setSelectedScreening(list[0]);
+          const todayStr = now.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+          const todayUpcoming = json.data
+            .filter((s: any) => {
+              const st = new Date(s.start_time || s.startTime);
+              const scDateStr = st.toLocaleDateString('en-CA', { timeZone: 'Asia/Ho_Chi_Minh' });
+              return st > now && scDateStr === todayStr;
+            })
+            .sort(
+              (a: any, b: any) =>
+                new Date(a.start_time || a.startTime).getTime() -
+                new Date(b.start_time || b.startTime).getTime()
+            );
+          setScreenings(todayUpcoming);
+          if (todayUpcoming.length > 0) {
+            setSelectedScreening(todayUpcoming[0]);
           } else {
             setSelectedScreening(null);
           }
